@@ -4,6 +4,7 @@
 
 // FILE: pages/hr-zones/index.js
 import Services from '../../services/index.js';
+import { LoadingSkeleton } from '../../components/ui/index.js';
 import CONFIG from './config.js';
 
 class HRZonesPage {

@@ -4,7 +4,7 @@
 
 // FILE: pages/vo2max/index.js
 import Services from '../../services/index.js';
-import { MetricCard } from '../../components/ui/index.js';
+import { MetricCard, LoadingSkeleton } from '../../components/ui/index.js';
 import CONFIG from './config.js';
 
 class VO2MaxPage {

@@ -4,7 +4,7 @@
 
 // FILE: pages/fitness-state/index.js
 import Services from '../../services/index.js';
-import { InsightCard } from '../../components/ui/index.js';
+import { InsightCard, LoadingSkeleton, MetricCard } from '../../components/ui/index.js';
 import CONFIG from './config.js';
 
 class FitnessStatePage {

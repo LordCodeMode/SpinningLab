@@ -4,7 +4,7 @@
 
 // FILE: pages/efficiency/index.js
 import Services from '../../services/index.js';
-import { MetricCard } from '../../components/ui/index.js';
+import { MetricCard, LoadingSkeleton, InsightCard } from '../../components/ui/index.js';
 import CONFIG from './config.js';
 
 class EfficiencyPage {
