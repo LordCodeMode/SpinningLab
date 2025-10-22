@@ -1,0 +1,54 @@
+/* =========================
+   MAIN.CSS - Master CSS Import File
+   Imports all stylesheets in correct order
+   ========================= */
+
+/* ========== 1. DESIGN SYSTEM FOUNDATION ========== */
+/* Reset must come first to clear browser defaults */
+@import 'design-system/reset.css';
+
+/* Design tokens define all CSS variables */
+@import 'design-system/tokens.css';
+
+/* Utility classes for quick styling */
+@import 'design-system/utilities.css';
+
+/* ========== 2. LAYOUT & APP SHELL ========== */
+/* Dashboard layout, sidebar, header, main content area */
+@import 'dashboard.css';
+
+/* ========== 3. REUSABLE COMPONENTS ========== */
+/* Import components in order of dependency */
+@import 'components/card.css';
+@import 'components/button.css';
+@import 'components/badge.css';
+@import 'components/chart.css';
+@import 'components/insight.css';
+@import 'components/table.css';
+@import 'components/form.css';
+@import 'components/skeleton.css';
+
+/* ========== 4. PAGE-SPECIFIC STYLES ========== */
+/* Page styles that override or extend components */
+@import 'pages/overview.css';
+@import 'pages/training-load.css';
+@import 'pages/activities.css';
+@import 'pages/settings.css';
+@import 'pages/best-powers.css';
+@import 'pages/power-curve.css';
+@import 'pages/critical-power.css';
+@import 'pages/upload.css';
+@import 'pages/settings.css';
+/* ========== NOTES ========== */
+/*
+  Import Order Rules:
+  1. Reset first to clear browser defaults
+  2. Tokens second to define all CSS variables
+  3. Utilities third for helper classes
+  4. Layout fourth for app structure
+  5. Components fifth for reusable UI
+  6. Pages last for specific overrides
+  
+  DO NOT change this order without testing!
+  Later imports can override earlier ones.
+*/

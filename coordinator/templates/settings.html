@@ -1,0 +1,37 @@
+<div class="page-header">
+  <h1>Settings</h1>
+  <p>Training parameters</p>
+</div>
+
+<div class="form-container">
+  <div class="form-card">
+    <div class="analysis-header">
+      <div class="analysis-icon"><i class="fas fa-cog"></i></div>
+      <div><div class="analysis-title">Training Settings</div><div class="analysis-subtitle">Configure your parameters</div></div>
+    </div>
+
+    <form id="settings-form" class="form-grid">
+      <div class="form-group">
+        <label for="ftp-input"><i class="fas fa-bolt"></i> FTP (Functional Threshold Power)</label>
+        <input type="number" id="ftp-input" name="ftp" min="100" max="600" step="5" placeholder="250">
+        <small>Your 1-hour maximum sustainable power in watts</small>
+      </div>
+      <div class="form-group">
+        <label for="weight-input"><i class="fas fa-weight"></i> Body Weight</label>
+        <input type="number" id="weight-input" name="weight" min="40" max="150" step="0.1" placeholder="70">
+        <small>Your body weight in kilograms</small>
+      </div>
+      <div class="form-group">
+        <label for="hr-max-input"><i class="fas fa-heartbeat"></i> Maximum Heart Rate</label>
+        <input type="number" id="hr-max-input" name="hr_max" min="120" max="220" step="1" placeholder="190">
+        <small>Your maximum heart rate in bpm</small>
+      </div>
+      <div class="form-group">
+        <label for="hr-rest-input"><i class="fas fa-bed"></i> Resting Heart Rate</label>
+        <input type="number" id="hr-rest-input" name="hr_rest" min="30" max="100" step="1" placeholder="60">
+        <small>Your resting heart rate in bpm</small>
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Settings</button>
+    </form>
+  </div>
+</div>

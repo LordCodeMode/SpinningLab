@@ -1,0 +1,25 @@
+<div class="page-header">
+    <h1>Activities</h1>
+    <p>Browse and analyze your activities</p>
+  </div>
+  
+  <div class="page-controls">
+    <div class="control-group"><input type="date" id="activities-start-date"></div>
+    <div class="control-group"><input type="date" id="activities-end-date"></div>
+    <div class="control-group"><button id="filter-activities" class="btn btn-primary">Filter</button></div>
+    <div class="control-group"><button id="clear-activities-filter" class="btn btn-outline">Clear</button></div>
+  </div>
+  
+  <div class="table-container">
+    <table class="data-table" id="activities-table">
+      <thead>
+        <tr>
+          <th>Date</th><th>Duration</th><th>Distance</th><th>Avg Power</th>
+          <th>NP</th><th>TSS</th><th>IF</th><th>Avg HR</th>
+        </tr>
+      </thead>
+      <tbody id="activities-tbody">
+        <tr><td colspan="8" class="no-data">Loading activities...</td></tr>
+      </tbody>
+    </table>
+  </div>

@@ -1,0 +1,479 @@
+/* =========================
+   CHART COMPONENTS
+   Chart containers and related styles
+   ========================= */
+
+/* ========== CHART CONTAINER ========== */
+
+.chart-container {
+    position: relative;
+    height: var(--chart-height);
+    width: 100%;
+    margin-top: var(--space-2);
+  }
+  
+  .chart-container canvas {
+    max-width: 100%;
+    height: auto !important;
+  }
+  
+  /* Chart Size Variants */
+  .chart-container--sm {
+    height: var(--chart-height-sm);
+  }
+  
+  .chart-container--lg {
+    height: var(--chart-height-lg);
+  }
+  
+  .chart-container--full {
+    height: 100%;
+    min-height: 400px;
+  }
+  
+  /* ========== CHART WRAPPER ========== */
+  
+  .chart-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  
+  /* ========== CHART AREA ========== */
+  
+  .chart-area {
+    position: relative;
+    min-height: 360px;
+    width: 100%;
+  }
+  
+  .chart-viewport {
+    position: relative;
+    min-height: 360px;
+    width: 100%;
+  }
+  
+  /* ========== CHART GRID ========== */
+  
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+  }
+  
+  .charts-grid--single {
+    grid-template-columns: 1fr;
+  }
+  
+  .charts-grid--triple {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  @media (max-width: 1024px) {
+    .charts-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .charts-grid--triple {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  /* ========== CHART LOADING STATE ========== */
+  
+  .chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    color: var(--color-text-secondary);
+  }
+  
+  .chart-loading__spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary-600);
+    border-radius: 50%;
+    animation: chart-spin 0.8s linear infinite;
+  }
+  
+  @keyframes chart-spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* ========== CHART EMPTY STATE ========== */
+  
+  .chart-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    padding: var(--space-8);
+    text-align: center;
+  }
+  
+  .chart-empty__icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: var(--space-4);
+    color: var(--color-text-tertiary);
+    opacity: 0.5;
+  }
+  
+  .chart-empty__title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-2);
+  }
+  
+  .chart-empty__message {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    max-width: 400px;
+  }
+  
+  /* ========== CHART LEGEND ========== */
+  
+  .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border-top: 1px solid var(--color-border);
+    margin-top: var(--space-4);
+  }
+  
+  .chart-legend__item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: color var(--transition-fast);
+  }
+  
+  .chart-legend__item:hover {
+    color: var(--color-text-primary);
+  }
+  
+  .chart-legend__color {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+  }
+  
+  .chart-legend__label {
+    font-weight: var(--font-weight-medium);
+  }
+  
+  /* ========== CHART TOOLTIP ========== */
+  
+  .chart-tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    color: var(--color-white);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    pointer-events: none;
+    z-index: var(--z-tooltip);
+    box-shadow: var(--shadow-lg);
+    max-width: 300px;
+  }
+  
+  .chart-tooltip__title {
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .chart-tooltip__item {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-1) 0;
+  }
+  
+  .chart-tooltip__label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  
+  .chart-tooltip__color {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  
+  .chart-tooltip__value {
+    font-weight: var(--font-weight-semibold);
+  }
+  
+  /* ========== CHART OVERLAY ========== */
+  
+  .chart-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: var(--z-modal-backdrop);
+    backdrop-filter: blur(2px);
+  }
+  
+  .chart-overlay__content {
+    text-align: center;
+    padding: var(--space-6);
+  }
+  
+  /* ========== CHART CONTROLS ========== */
+  
+  .chart-controls {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  
+  .chart-controls--vertical {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  /* ========== CHART TOOLBAR ========== */
+  
+  .chart-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface-soft);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  
+  .chart-toolbar__left,
+  .chart-toolbar__right {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  
+  /* ========== CHART ZOOM CONTROLS ========== */
+  
+  .chart-zoom {
+    position: absolute;
+    bottom: var(--space-4);
+    right: var(--space-4);
+    display: flex;
+    gap: var(--space-1);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-1);
+    box-shadow: var(--shadow-md);
+    z-index: 10;
+  }
+  
+  .chart-zoom__btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+  }
+  
+  .chart-zoom__btn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-primary-600);
+  }
+  
+  .chart-zoom__btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* ========== CHART ANNOTATIONS ========== */
+  
+  .chart-annotation {
+    position: absolute;
+    background: var(--color-surface);
+    border: 2px solid var(--color-primary-500);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary-700);
+    box-shadow: var(--shadow-md);
+    z-index: 5;
+  }
+  
+  .chart-annotation::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid var(--color-primary-500);
+  }
+  
+  /* ========== CHART INSIGHTS PANEL ========== */
+  
+  .chart-insights {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  
+  .chart-insights__title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  
+  .chart-insights__title svg {
+    width: 20px;
+    height: 20px;
+    color: var(--color-primary-600);
+  }
+  
+  .chart-insights__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  
+  .chart-insights__item {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    padding-left: var(--space-5);
+    position: relative;
+  }
+  
+  .chart-insights__item::before {
+    content: '•';
+    position: absolute;
+    left: var(--space-2);
+    color: var(--color-primary-600);
+    font-weight: var(--font-weight-bold);
+  }
+  
+  /* ========== CHART EXPORT BUTTON ========== */
+  
+  .chart-export {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-4);
+    z-index: 10;
+  }
+  
+  /* ========== RESPONSIVE ========== */
+  
+  @media (max-width: 1024px) {
+    .chart-container {
+      height: 350px;
+    }
+    
+    .chart-legend {
+      gap: var(--space-2);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .chart-container {
+      height: 300px;
+    }
+    
+    .chart-toolbar {
+      flex-direction: column;
+      gap: var(--space-3);
+      align-items: stretch;
+    }
+    
+    .chart-toolbar__left,
+    .chart-toolbar__right {
+      justify-content: center;
+    }
+    
+    .chart-legend {
+      justify-content: center;
+    }
+    
+    .chart-zoom {
+      bottom: var(--space-2);
+      right: var(--space-2);
+    }
+  }
+  
+  /* ========== CHART ANIMATIONS ========== */
+  
+  @keyframes chart-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .chart-container--animated {
+    animation: chart-fade-in 0.4s ease-out;
+  }
+  
+  /* ========== PLOTLY & D3 SPECIFIC ========== */
+  
+  /* Ensure Plotly/D3 charts fill container */
+  .js-plotly-plot,
+  .plotly,
+  .chart-container > div[id*="plotly"],
+  .chart-container > div[id*="chart"] {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 300px;
+  }
+  
+  /* Plotly modebar */
+  .modebar {
+    top: 10px !important;
+    right: 10px !important;
+  }
+  
+  .modebar-btn {
+    background: var(--color-surface) !important;
+    border: 1px solid var(--color-border) !important;
+  }
+  
+  .modebar-btn:hover {
+    background: var(--color-surface-hover) !important;
+  }

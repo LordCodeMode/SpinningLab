@@ -1,0 +1,55 @@
+/* ============================================
+   FILE: static/css/pages/fitness-state.css
+   ============================================ */
+
+   .fs-section { display: grid; gap: 20px; }
+   .fs-header { margin-bottom: 8px; }
+   .fs-header h1 { font-size: 32px; font-weight: 700; color: var(--text-primary); margin: 0 0 6px 0; letter-spacing: -0.02em; }
+   .fs-header p { color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+   
+   /* Status Banner */
+   .fs-status-banner { background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border: 2px solid #3b82f6; border-radius: var(--radius, 12px); padding: 28px; margin-bottom: 16px; display: flex; align-items: center; gap: 20px; }
+   .fs-status-icon { width: 60px; height: 60px; border-radius: 12px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+   .fs-status-icon svg { width: 32px; height: 32px; color: white; }
+   .fs-status-content { flex: 1; }
+   .fs-status-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+   .fs-status-title { font-size: 28px; font-weight: 700; color: var(--text-primary); line-height: 1.2; margin-bottom: 6px; }
+   .fs-status-description { font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+   
+   /* Metrics Grid */
+   .fs-metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+   .fs-metric-card { background: #ffffff; border: 2px solid #d1d5db; border-radius: var(--radius, 12px); padding: 24px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); transition: all 0.3s ease; }
+   .fs-metric-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12); }
+   
+   .fs-metric-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+   .fs-metric-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+   .fs-metric-icon.blue { background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%); }
+   .fs-metric-icon.amber { background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%); }
+   .fs-metric-icon.green { background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%); }
+   .fs-metric-icon svg { width: 18px; height: 18px; }
+   .fs-metric-icon.blue svg { color: #3b82f6; }
+   .fs-metric-icon.amber svg { color: #f59e0b; }
+   .fs-metric-icon.green svg { color: #10b981; }
+   .fs-metric-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+   .fs-metric-value { font-size: 32px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+   
+   /* Recommendations */
+   .fs-recommendations-card { background: #ffffff; border: 2px solid #d1d5db; border-radius: var(--radius, 12px); padding: 24px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+   .fs-recommendations-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+   .fs-recommendations-header svg { width: 22px; height: 22px; color: #8b5cf6; }
+   .fs-recommendations-title { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+   .fs-recommendation-item { padding: 14px; background: rgba(139, 92, 246, 0.05); border-radius: 8px; margin-bottom: 10px; display: flex; gap: 12px; }
+   .fs-recommendation-item:last-child { margin-bottom: 0; }
+   .fs-recommendation-icon { width: 32px; height: 32px; border-radius: 6px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+   .fs-recommendation-icon svg { width: 16px; height: 16px; color: white; }
+   .fs-recommendation-text { flex: 1; font-size: 14px; color: var(--text-primary); line-height: 1.5; }
+   
+   .fs-empty-state { padding: 80px 20px; text-align: center; }
+   .fs-empty-state svg { width: 80px; height: 80px; opacity: 0.3; margin: 0 auto 24px; color: var(--text-secondary); }
+   .fs-empty-state h3 { font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
+   .fs-empty-state p { color: var(--text-secondary); }
+   
+   @media (max-width: 768px) {
+     .fs-status-banner { flex-direction: column; text-align: center; }
+     .fs-metrics-grid { grid-template-columns: 1fr; }
+   }

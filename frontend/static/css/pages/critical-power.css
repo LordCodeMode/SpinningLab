@@ -1,0 +1,650 @@
+/* ============================================
+   FILE: static/css/pages/critical-power.css
+   Critical Power Analysis Page Styles - Enhanced
+   ============================================ */
+
+   .cp-section {
+    display: grid;
+    gap: 24px;
+  }
+  
+  .cp-header {
+    margin-bottom: 12px;
+  }
+  
+  .cp-header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+    letter-spacing: -0.02em;
+  }
+  
+  .cp-header p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 700px;
+  }
+  
+  /* ============================================
+     CP METRICS GRID
+     ============================================ */
+  
+  .cp-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  
+  .cp-metric-card {
+    background: #ffffff;
+    border: 2px solid #d1d5db;
+    border-radius: var(--radius, 12px);
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    cursor: help;
+  }
+  
+  .cp-metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle at center, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(40%, -40%);
+    transition: all 0.3s ease;
+  }
+  
+  .cp-metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(139, 92, 246, 0.2), 0 0 0 1px #8b5cf6;
+    border-color: #8b5cf6;
+  }
+  
+  .cp-metric-card:hover::before {
+    transform: translate(40%, -40%) scale(1.2);
+  }
+  
+  .cp-metric-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  
+  .cp-metric-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+  
+  .cp-metric-card:hover .cp-metric-icon {
+    transform: scale(1.1) rotate(-5deg);
+  }
+  
+  .cp-metric-icon.purple {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+  }
+  
+  .cp-metric-icon.blue {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%);
+  }
+  
+  .cp-metric-icon.amber {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%);
+  }
+  
+  .cp-metric-icon svg {
+    width: 24px;
+    height: 24px;
+    color: #8b5cf6;
+  }
+  
+  .cp-metric-icon.blue svg {
+    color: #3b82f6;
+  }
+  
+  .cp-metric-icon.amber svg {
+    color: #f59e0b;
+  }
+  
+  .cp-metric-info-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    cursor: help;
+  }
+  
+  .cp-metric-card:hover .cp-metric-info-icon {
+    opacity: 1;
+    color: #8b5cf6;
+  }
+  
+  .cp-metric-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .cp-metric-value {
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    line-height: 1;
+  }
+  
+  .cp-metric-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  
+  /* ============================================
+     CHART CARD
+     ============================================ */
+  
+  .cp-chart-card {
+    background: #ffffff;
+    border: 2px solid #d1d5db;
+    border-radius: var(--radius, 12px);
+    padding: 28px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+  
+  .cp-chart-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    border-color: #8b5cf6;
+  }
+  
+  .cp-chart-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  
+  .cp-chart-title-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+  }
+  
+  .cp-chart-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+  }
+  
+  .cp-chart-card:hover .cp-chart-icon {
+    transform: scale(1.05);
+  }
+  
+  .cp-chart-icon svg {
+    width: 24px;
+    height: 24px;
+    color: #8b5cf6;
+  }
+  
+  .cp-chart-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  
+  .cp-chart-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  
+  .cp-chart-legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .cp-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  
+  .cp-legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  
+  .cp-legend-dot.actual {
+    background: #8b5cf6;
+  }
+  
+  .cp-legend-dot.model {
+    background: #3b82f6;
+  }
+  
+  .cp-legend-dot.difference {
+    background: #f59e0b;
+  }
+  
+  .cp-chart-container {
+    position: relative;
+    height: 450px;
+    margin-top: 8px;
+  }
+  
+  /* ============================================
+     DUAL COLUMN LAYOUT
+     ============================================ */
+  
+  .cp-dual-column {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  
+  .cp-insights-column {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  
+  .cp-insights-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+  
+  /* ============================================
+     INFO CARD
+     ============================================ */
+  
+  .cp-info-card {
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    transition: all 0.3s ease;
+  }
+  
+  .cp-info-card:hover {
+    border-color: #8b5cf6;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+  }
+  
+  .cp-info-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  
+  .cp-info-icon {
+    width: 24px;
+    height: 24px;
+    color: #8b5cf6;
+    flex-shrink: 0;
+  }
+  
+  .cp-info-title {
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--text-primary);
+  }
+  
+  .cp-info-content {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+  
+  .cp-info-content p {
+    margin-bottom: 12px;
+  }
+  
+  .cp-info-content p:last-child {
+    margin-bottom: 0;
+  }
+  
+  .cp-info-content strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+  
+  /* ============================================
+     FORMULA CARD
+     ============================================ */
+  
+  .cp-formula-card {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.06) 0%, rgba(168, 85, 247, 0.06) 100%);
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  
+  .cp-formula-title {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .cp-formula-title svg {
+    width: 20px;
+    height: 20px;
+    color: #8b5cf6;
+  }
+  
+  .cp-formula-content {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 15px;
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.9);
+    padding: 14px 18px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 14px;
+    letter-spacing: 0.3px;
+  }
+  
+  .cp-formula-variables {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+    padding-left: 8px;
+  }
+  
+  .cp-formula-variables div {
+    margin-bottom: 4px;
+  }
+  
+  .cp-formula-variables strong {
+    color: var(--text-primary);
+    font-weight: 600;
+    display: inline-block;
+    min-width: 100px;
+  }
+  
+  /* ============================================
+     INSIGHT CARDS
+     ============================================ */
+  
+  .cp-insight-card {
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 18px;
+    transition: all 0.3s ease;
+  }
+  
+  .cp-insight-card:hover {
+    border-color: #8b5cf6;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12);
+    transform: translateY(-2px);
+  }
+  
+  .cp-insight-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(168, 85, 247, 0.12) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  
+  .cp-insight-icon svg {
+    width: 18px;
+    height: 18px;
+    color: #8b5cf6;
+  }
+  
+  .cp-insight-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  
+  .cp-insight-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  
+  /* ============================================
+     REALITY CARD (Blue Theme)
+     ============================================ */
+  
+  .cp-reality-card {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(37, 99, 235, 0.05) 100%);
+    border: 2px solid #dbeafe;
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    transition: all 0.3s ease;
+  }
+  
+  .cp-reality-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  }
+  
+  .cp-reality-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .cp-reality-icon svg {
+    width: 24px;
+    height: 24px;
+    color: #3b82f6;
+  }
+  
+  .cp-reality-content h4 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 10px 0;
+  }
+  
+  .cp-reality-content p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  
+  .cp-reality-content ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .cp-reality-content ul li {
+    font-size: 14px;
+    color: var(--text-secondary);
+    padding-left: 24px;
+    position: relative;
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+  
+  .cp-reality-content ul li:before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: #3b82f6;
+    font-weight: 600;
+  }
+  
+  /* ============================================
+     TOOLTIP
+     ============================================ */
+  
+  .cp-tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    max-width: 280px;
+    line-height: 1.6;
+  }
+  
+  .cp-tooltip.show {
+    opacity: 1;
+  }
+  
+  .cp-tooltip strong {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #8b5cf6;
+  }
+  
+  /* ============================================
+     EMPTY/ERROR STATES
+     ============================================ */
+  
+  .cp-empty-state,
+  .cp-error-state {
+    padding: 80px 20px;
+    text-align: center;
+  }
+  
+  .cp-empty-state svg,
+  .cp-error-state svg {
+    width: 80px;
+    height: 80px;
+    opacity: 0.3;
+    margin: 0 auto 24px;
+    color: var(--text-secondary);
+  }
+  
+  .cp-error-state svg {
+    color: #ef4444;
+  }
+  
+  .cp-empty-state h3,
+  .cp-error-state h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+  
+  .cp-empty-state p,
+  .cp-error-state p {
+    color: var(--text-secondary);
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  
+  /* ============================================
+     RESPONSIVE
+     ============================================ */
+  
+  @media (max-width: 1024px) {
+    .cp-chart-header {
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .cp-chart-legend {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    
+    .cp-dual-column {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .cp-metrics-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .cp-chart-container {
+      height: 350px;
+    }
+    
+    .cp-metric-value {
+      font-size: 36px;
+    }
+    
+    .cp-reality-card {
+      flex-direction: column;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .cp-chart-card {
+      padding: 20px;
+    }
+    
+    .cp-chart-container {
+      height: 300px;
+    }
+    
+    .cp-header h1 {
+      font-size: 28px;
+    }
+    
+    .cp-metric-value {
+      font-size: 32px;
+    }
+  }

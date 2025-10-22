@@ -1,0 +1,37 @@
+<div class="page-header">
+    <h1>Power Zones</h1>
+    <p>Distribution & references</p>
+  </div>
+  
+  <div class="page-controls">
+    <div class="control-group">
+      <label for="zones-period">Period:</label>
+      <select id="zones-period">
+        <option value="">All time</option>
+        <option value="30">Last 30 days</option>
+        <option value="90" selected>Last 90 days</option>
+        <option value="180">Last 180 days</option>
+      </select>
+    </div>
+  </div>
+  
+  <div class="analysis-grid">
+    <div class="analysis-card">
+      <div class="analysis-header"><div class="analysis-icon"><i class="fas fa-layer-group"></i></div>
+        <div><div class="analysis-title">Zone Distribution</div><div class="analysis-subtitle">Time in zones</div></div>
+      </div>
+      <div id="zones-summary"></div>
+    </div>
+  
+    <div class="analysis-card">
+      <div class="analysis-header"><div class="analysis-icon"><i class="fas fa-info-circle"></i></div>
+        <div><div class="analysis-title">Zone Reference</div><div class="analysis-subtitle">Based on FTP</div></div>
+      </div>
+      <div id="zones-reference"></div>
+    </div>
+  </div>
+  
+  <div class="chart-card full-width">
+    <div class="chart-header"><h3>Power Zone Distribution</h3></div>
+    <div id="power-zones-chart"></div>
+  </div>

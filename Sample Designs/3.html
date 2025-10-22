@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Atlas Dashboard — Training</title>
+
+  <!-- Plotly (nur für Demo-Charts, kann entfernt werden) -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+
+  <style>
+    /* ================================
+       ATLAS THEME — Minimal Dark Slate
+       ================================ */
+    :root{
+      --bg: #0b1020;               /* tiefes slate */
+      --bg-elev: #101736;          /* leicht erhöht */
+      --glass: rgba(255,255,255,.03);
+      --panel: rgba(255,255,255,.04);
+      --panel-2: rgba(255,255,255,.06);
+      --border: rgba(255,255,255,.08);
+      --ring: rgba(99,102,241,.35);
+
+      --text: #e7ecf5;
+      --muted: #9aa7bf;
+      --muted-2:#7e8aa5;
+
+      --brand: #7c8cff;            /* indigo/iris */
+      --brand-2: #66e3ff;          /* cyan accent */
+      --ok: #36d399;
+      --warn: #f4bf50;
+      --err: #ff6b6b;
+
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 10px;
+
+      --shadow-1: 0 6px 24px rgba(0,0,0,.35);
+      --shadow-2: 0 10px 40px rgba(0,0,0,.45);
+
+      --rail: 84px;
+      --header: 68px;
+
+      --kpi-size: 2.1rem;
+    }
+
+    /* Reset / Base */
+    *{ box-sizing: border-box; margin:0; padding:0; }
+    html,body{ height:100%; }
+    body{
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(102,227,255,.12), transparent 60%),
+        radial-gradient(1000px 600px at -10% 110%, rgba(124,140,255,.14), transparent 60%),
+        var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      letter-spacing:.1px;
+    }
+
+    a{ color: inherit; text-decoration: none; }
+
+    /* Layout */
+    .app{
+      display:grid;
+      grid-template-columns: var(--rail) 1fr;
+      grid-template-rows: var(--header) 1fr;
+      grid-template-areas:
+        "rail header"
+        "rail main";
+      min-height: 100vh;
+      overflow-x:hidden;
+    }
+
+    /* Rail Sidebar */
+    .rail{
+      grid-area: rail;
+      position: sticky; top:0;
+      height:100vh;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border-right: 1px solid var(--border);
+      display:flex; flex-direction:column; align-items:center;
+      padding:16px 10px;
+      z-index: 20;
+    }
+    .brand{
+      width:48px; height:48px; border-radius:14px;
+      display:grid; place-items:center;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      color:#0b0f1b; font-weight:900; letter-spacing:.4px;
+      box-shadow: var(--shadow-1);
+      margin: 6px 0 18px;
+      font-size: 18px;
+    }
+
+    .nav{
+      margin-top: 8px;
+      display:flex; flex-direction:column; gap:8px; width:100%;
+    }
+    .nav a{
+      display:flex; flex-direction:column; align-items:center; gap:8px;
+      padding:10px 8px; border-radius:12px;
+      border:1px solid transparent;
+      color: var(--muted);
+      transition: .18s ease;
+    }
+    .nav a svg{ opacity:.8 }
+    .nav a:hover{
+      background: var(--panel);
+      border-color: var(--border);
+      color:#cbd6f4;
+    }
+    .nav a.active{
+      background: linear-gradient(180deg, rgba(124,140,255,.14), rgba(102,227,255,.10));
+      border: 1px solid rgba(124,140,255,.35);
+      color: #e7ecf7;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .nav span{
+      font-size: .72rem; font-weight:700; letter-spacing:.02em;
+    }
+
+    /* Header */
+    .header{
+      grid-area: header;
+      position: sticky; top:0; z-index:15;
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 14px 20px 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(11,16,32,.92), rgba(11,16,32,.86));
+      backdrop-filter: blur(6px);
+    }
+    .title{
+      font-size: 1.1rem; font-weight: 800; letter-spacing:.2px;
+      display:flex; align-items:center; gap:12px;
+    }
+    .title .crumb{
+      color: var(--muted-2); font-weight:800; text-transform:uppercase; font-size:.7rem; letter-spacing:.12em;
+      padding: 6px 10px; border-radius: 999px; border:1px solid var(--border); background: var(--panel);
+    }
+    .header-actions{ display:flex; align-items:center; gap:10px; }
+    .btn{
+      padding: 9px 14px; border-radius: 10px; border:1px solid var(--border);
+      background: var(--panel);
+      color:#cbd6f4; font-weight:800; font-size:.86rem;
+      transition: .18s ease; display:inline-flex; align-items:center; gap:8px;
+    }
+    .btn:hover{ border-color: var(--ring); box-shadow: 0 0 0 3px rgba(124,140,255,.15); }
+    .btn-ghost{ background: transparent; border-color: var(--border); color: var(--muted); }
+    .btn-ghost:hover{ background: var(--panel); color:#dbe6ff; }
+
+    /* Main */
+    .main{
+      grid-area: main;
+      padding: 24px 26px 42px;
+      display:grid; gap: 18px;
+    }
+
+    /* Section header */
+    .section-head{
+      margin: 2px 0 4px;
+      display:flex; align-items:baseline; justify-content:space-between;
+    }
+    .section-head h2{
+      font-size: 1.18rem; font-weight: 900; letter-spacing:.2px;
+    }
+    .section-sub{ color: var(--muted); font-size:.9rem; }
+
+    /* KPI Row (ohne „weiße Cards“: nur Soft-Glass und Grid-Linien) */
+    .kpi-grid{
+      display:grid; gap: 10px;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+    }
+    .kpi{
+      padding: 16px 16px 14px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, var(--panel), rgba(255,255,255,.02));
+      border: 1px solid var(--border);
+    }
+    .kpi .kpi-label{
+      color: var(--muted-2); font-weight:800; text-transform:uppercase; letter-spacing:.12em; font-size:.7rem;
+      margin-bottom: 8px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .kpi .kpi-value{
+      font-size: var(--kpi-size); font-weight: 900; letter-spacing:.4px;
+      line-height:1.1;
+      background: linear-gradient(90deg, #e9edff, #a1b4ff 60%, #8ae8ff);
+      -webkit-background-clip: text; background-clip:text; color: transparent;
+      text-shadow: 0 0 20px rgba(124,140,255,.18);
+    }
+    .kpi .kpi-delta{
+      margin-top: 6px; font-size:.86rem; font-weight:700;
+    }
+    .kpi .pos{ color: var(--ok); }
+    .kpi .neg{ color: var(--err); }
+
+    /* Surface Blocks */
+    .surface{
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, rgba(124,140,255,.07), rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      box-shadow: var(--shadow-1);
+    }
+    .surface-header{
+      padding: 14px 16px; display:flex; align-items:center; justify-content:space-between;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border-top-left-radius: 16px; border-top-right-radius: 16px;
+    }
+    .surface-title{ font-weight: 800; letter-spacing:.2px; }
+    .surface-body{ padding: 14px 14px 8px; }
+
+    /* Grids */
+    .grid-12{
+      display:grid; gap: 12px;
+      grid-template-columns: repeat(12, 1fr);
+    }
+    .col-6{ grid-column: span 6; }
+    .col-12{ grid-column: span 12; }
+    .col-4{ grid-column: span 4; }
+
+    /* Table (soft) */
+    .table{
+      width:100%; border-collapse: collapse; font-size:.92rem;
+    }
+    .table th, .table td{
+      padding: 10px 10px;
+      border-bottom: 1px dashed var(--border);
+      color:#d8def2;
+    }
+    .table th{
+      text-align:left; color: var(--muted); font-weight:800; letter-spacing:.08em; text-transform: uppercase; font-size:.72rem;
+    }
+    .table tr:hover td{ background: rgba(124,140,255,.06); }
+
+    /* Tabs */
+    .tab{ display:none; }
+    .tab.active{ display:block; }
+
+    /* Responsive */
+    @media (max-width: 1200px){
+      .kpi-grid{ grid-template-columns: repeat(2, 1fr); }
+      .col-6{ grid-column: span 12; }
+    }
+    @media (max-width: 720px){
+      .app{ grid-template-columns: 70px 1fr; }
+      .header{ padding: 12px 14px; }
+      .main{ padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ===== Inline SVG Sprite (clean icons) ===== -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="ic-overview" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18M3 12h18M3 18h18"/>
+    </symbol>
+    <symbol id="ic-training" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 17l6-6 4 4 7-7"/><path d="M21 21H3"/>
+    </symbol>
+    <symbol id="ic-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+    </symbol>
+    <symbol id="ic-cp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>
+    </symbol>
+    <symbol id="ic-eff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 20h16M4 10h16M4 4h16"/>
+    </symbol>
+    <symbol id="ic-acts" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+    </symbol>
+    <symbol id="ic-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12a8 8 0 1 1-8-8"/><path d="M20 4v5h-5"/>
+    </symbol>
+  </svg>
+
+  <div class="app">
+    <!-- === Rail === -->
+    <aside class="rail">
+      <div class="brand">AT</div>
+      <nav class="nav" id="nav">
+        <a href="#overview" data-tab="overview" class="active" aria-label="Overview">
+          <svg width="22" height="22"><use href="#ic-overview"/></svg>
+          <span>Overview</span>
+        </a>
+        <a href="#training" data-tab="training" aria-label="Training Load">
+          <svg width="22" height="22"><use href="#ic-training"/></svg>
+          <span>Load</span>
+        </a>
+        <a href="#power" data-tab="power" aria-label="Power Curve">
+          <svg width="22" height="22"><use href="#ic-power"/></svg>
+          <span>Power</span>
+        </a>
+        <a href="#cp" data-tab="cp" aria-label="Critical Power">
+          <svg width="22" height="22"><use href="#ic-cp"/></svg>
+          <span>CP</span>
+        </a>
+        <a href="#eff" data-tab="eff" aria-label="Efficiency">
+          <svg width="22" height="22"><use href="#ic-eff"/></svg>
+          <span>Eff</span>
+        </a>
+        <a href="#acts" data-tab="acts" aria-label="Activities">
+          <svg width="22" height="22"><use href="#ic-acts"/></svg>
+          <span>Activities</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- === Header === -->
+    <header class="header">
+      <div class="title">
+        <span class="crumb" id="crumb">Overview</span>
+        <span>Atlas Dashboard</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" id="refresh-btn">
+          <svg width="18" height="18"><use href="#ic-refresh"/></svg>
+          Refresh
+        </button>
+      </div>
+    </header>
+
+    <!-- === Main === -->
+    <main class="main">
+      <!-- Overview -->
+      <section class="tab active" id="tab-overview">
+        <div class="section-head">
+          <h2>Today & 7-Day Snapshot</h2>
+          <div class="section-sub">Synthetic sample data</div>
+        </div>
+
+        <div class="kpi-grid" style="margin-top:4px">
+          <div class="kpi">
+            <div class="kpi-label">Activities</div>
+            <div class="kpi-value">6</div>
+            <div class="kpi-delta pos">+1 vs last week</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Total Time</div>
+            <div class="kpi-value">8h 24m</div>
+            <div class="kpi-delta pos">+12%</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Distance</div>
+            <div class="kpi-value">282 km</div>
+            <div class="kpi-delta">↔ baseline</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">TSS</div>
+            <div class="kpi-value">510</div>
+            <div class="kpi-delta neg">-5% (deload)</div>
+          </div>
+        </div>
+
+        <div class="grid-12">
+          <div class="surface col-6" style="margin-top:8px">
+            <div class="surface-header">
+              <div class="surface-title">Activity Trend</div>
+            </div>
+            <div class="surface-body">
+              <div id="chart-activity" style="height:260px"></div>
+            </div>
+          </div>
+          <div class="surface col-6" style="margin-top:8px">
+            <div class="surface-header">
+              <div class="surface-title">Power Curve (Last 42d)</div>
+            </div>
+            <div class="surface-body">
+              <div id="chart-curve" style="height:260px"></div>
+            </div>
+          </div>
+          <div class="surface col-12" style="margin-top:6px">
+            <div class="surface-header">
+              <div class="surface-title">Recent Activities</div>
+            </div>
+            <div class="surface-body">
+              <table class="table">
+                <thead>
+                  <tr><th>Date</th><th>Title</th><th>Time</th><th>Dist</th><th>NP</th><th>TSS</th><th>IF</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>2025-09-24</td><td>Endurance GA1</td><td>01:45</td><td>62 km</td><td>212 W</td><td>78</td><td>0.68</td></tr>
+                  <tr><td>2025-09-23</td><td>Tempo Intervals</td><td>01:15</td><td>38 km</td><td>256 W</td><td>86</td><td>0.84</td></tr>
+                  <tr><td>2025-09-22</td><td>VO₂ Repeats</td><td>00:58</td><td>27 km</td><td>301 W</td><td>92</td><td>0.95</td></tr>
+                  <tr><td>2025-09-20</td><td>Long Endurance</td><td>03:05</td><td>115 km</td><td>208 W</td><td>164</td><td>0.70</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Training Load -->
+      <section class="tab" id="tab-training">
+        <div class="section-head">
+          <h2>Training Load</h2>
+          <div class="section-sub">CTL / ATL / TSB (sample)</div>
+        </div>
+
+        <div class="kpi-grid" style="margin:6px 0 8px">
+          <div class="kpi"><div class="kpi-label">CTL</div><div class="kpi-value">72</div><div class="kpi-delta pos">+3</div></div>
+          <div class="kpi"><div class="kpi-label">ATL</div><div class="kpi-value">78</div><div class="kpi-delta">↔</div></div>
+          <div class="kpi"><div class="kpi-label">TSB</div><div class="kpi-value">-6</div><div class="kpi-delta neg">-2</div></div>
+          <div class="kpi"><div class="kpi-label">Ramp</div><div class="kpi-value">+6</div><div class="kpi-delta pos">safe</div></div>
+        </div>
+
+        <div class="surface col-12">
+          <div class="surface-header">
+            <div class="surface-title">42-Day Load Trend</div>
+          </div>
+          <div class="surface-body">
+            <div id="chart-load" style="height:320px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Power Curve -->
+      <section class="tab" id="tab-power">
+        <div class="section-head">
+          <h2>Power Curve</h2>
+          <div class="section-sub">All-time vs last 90 days</div>
+        </div>
+
+        <div class="surface">
+          <div class="surface-header">
+            <div class="surface-title">Duration vs Power</div>
+          </div>
+          <div class="surface-body">
+            <div id="chart-power" style="height:340px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Critical Power -->
+      <section class="tab" id="tab-cp">
+        <div class="section-head">
+          <h2>Critical Power</h2>
+          <div class="section-sub">Model metrics (sample)</div>
+        </div>
+
+        <div class="kpi-grid" style="margin:6px 0 8px">
+          <div class="kpi"><div class="kpi-label">Critical Power</div><div class="kpi-value">312 W</div><div class="kpi-delta pos">+4 W</div></div>
+          <div class="kpi"><div class="kpi-label">W′</div><div class="kpi-value">17.2 kJ</div><div class="kpi-delta">↔</div></div>
+          <div class="kpi"><div class="kpi-label">FTP (est.)</div><div class="kpi-value">305 W</div><div class="kpi-delta pos">+3 W</div></div>
+          <div class="kpi"><div class="kpi-label">mFTP</div><div class="kpi-value">302 W</div><div class="kpi-delta">↔</div></div>
+        </div>
+
+        <div class="surface">
+          <div class="surface-header">
+            <div class="surface-title">CP Model vs Curve</div>
+          </div>
+          <div class="surface-body">
+            <div id="chart-cp" style="height:340px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Efficiency -->
+      <section class="tab" id="tab-eff">
+        <div class="section-head">
+          <h2>Efficiency (EF)</h2>
+          <div class="section-sub">GA1 subset • sample</div>
+        </div>
+
+        <div class="kpi-grid" style="margin:6px 0 8px">
+          <div class="kpi"><div class="kpi-label">Current EF</div><div class="kpi-value">1.68</div><div class="kpi-delta pos">+0.02</div></div>
+          <div class="kpi"><div class="kpi-label">Avg 90d</div><div class="kpi-value">1.63</div><div class="kpi-delta">↔</div></div>
+          <div class="kpi"><div class="kpi-label">Trend</div><div class="kpi-value">↑</div><div class="kpi-delta pos">improving</div></div>
+          <div class="kpi"><div class="kpi-label">Samples</div><div class="kpi-value">54</div><div class="kpi-delta">+6</div></div>
+        </div>
+
+        <div class="surface">
+          <div class="surface-header">
+            <div class="surface-title">EF Trend</div>
+          </div>
+          <div class="surface-body">
+            <div id="chart-ef" style="height:300px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Activities -->
+      <section class="tab" id="tab-acts">
+        <div class="section-head">
+          <h2>Activities</h2>
+          <div class="section-sub">Recent rides</div>
+        </div>
+
+        <div class="surface">
+          <div class="surface-header">
+            <div class="surface-title">All Activities (sample)</div>
+          </div>
+          <div class="surface-body">
+            <table class="table">
+              <thead>
+                <tr><th>Date</th><th>Title</th><th>Time</th><th>Dist</th><th>NP</th><th>IF</th><th>TSS</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>2025-09-24</td><td>Endurance GA1</td><td>01:45</td><td>62 km</td><td>212 W</td><td>0.68</td><td>78</td></tr>
+                <tr><td>2025-09-23</td><td>Tempo</td><td>01:15</td><td>38 km</td><td>256 W</td><td>0.84</td><td>86</td></tr>
+                <tr><td>2025-09-22</td><td>VO₂</td><td>00:58</td><td>27 km</td><td>301 W</td><td>0.95</td><td>92</td></tr>
+                <tr><td>2025-09-20</td><td>Long Endurance</td><td>03:05</td><td>115 km</td><td>208 W</td><td>0.70</td><td>164</td></tr>
+                <tr><td>2025-09-18</td><td>Recovery</td><td>00:45</td><td>16 km</td><td>162 W</td><td>0.55</td><td>23</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ========== Minimal Tab Router (hash-based) ==========
+    const $ = (s, r=document) => r.querySelector(s);
+    const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+    function setActive(tab){
+      // nav
+      $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
+      // tabs
+      $$('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
+      // crumb
+      $('#crumb').textContent = ({
+        overview:'Overview',
+        training:'Training',
+        power:'Power',
+        cp:'Critical Power',
+        eff:'Efficiency',
+        acts:'Activities'
+      }[tab] || 'Overview');
+    }
+
+    // Nav clicks
+    $('#nav').addEventListener('click', (e) => {
+      const link = e.target.closest('a[data-tab]');
+      if(!link) return;
+      e.preventDefault();
+      const tab = link.dataset.tab;
+      if(location.hash !== `#${tab}`) history.pushState({tab}, '', `#${tab}`);
+      setActive(tab);
+    });
+
+    // Back/forward
+    window.addEventListener('popstate', () => {
+      const tab = (location.hash || '#overview').replace('#','');
+      setActive(tab);
+    });
+
+    // Initial
+    document.addEventListener('DOMContentLoaded', () => {
+      const tab = (location.hash || '#overview').replace('#','');
+      setActive(tab);
+      // Demo charts once loaded
+      setTimeout(demoCharts, 30);
+    });
+
+    // Refresh demo
+    $('#refresh-btn').addEventListener('click', () => demoCharts(true));
+
+    // ========== Demo Charts (Plotly) ==========
+    function demoCharts(force){
+      // Avoid replot spam unless forced
+      if(!force && $('#chart-activity').dataset.plotted) return;
+
+      // Activity Trend
+      const x = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const y = [62, 38, 27, 0, 115, 0, 40];
+      Plotly.newPlot('chart-activity', [{
+        x, y, type:'scatter', mode:'lines+markers'
+      }], plotLayout('Activity (km)'));
+
+      // Power Curve (Overview)
+      Plotly.newPlot('chart-curve', [{
+        x:[5,10,20,30,60,120,300,600,1200],
+        y:[900,780,650,610,520,450,380,330,290],
+        mode:'lines+markers'
+      }], plotLayout('W vs s', true));
+
+      // Load Trend
+      Plotly.newPlot('chart-load', [
+        { x:[...Array(42).keys()].map(i=>i-41), y: Array.from({length:42},(_,i)=>60+Math.sin(i/4)*6+ i/14), name:'CTL', mode:'lines'},
+        { x:[...Array(42).keys()].map(i=>i-41), y: Array.from({length:42},(_,i)=>64+Math.sin(i/2)*10), name:'ATL', mode:'lines'},
+      ], plotLayout('CTL/ATL', false, true));
+
+      // Power Curve (tab)
+      Plotly.newPlot('chart-power', [{
+        x:[5,10,20,30,60,120,300,600,1200],
+        y:[930,810,670,620,528,458,392,340,300],
+        mode:'lines'
+      },{
+        x:[5,10,20,30,60,120,300,600,1200],
+        y:[900,780,650,610,520,450,380,330,290],
+        mode:'lines'
+      }], plotLayout('All-time vs 90d', true));
+
+      // CP vs Curve
+      Plotly.newPlot('chart-cp', [{
+        x:[30,60,120,180,300,600,1200],
+        y:[540,520,500,480,460,420,360],
+        name:'Model', mode:'lines'
+      },{
+        x:[30,60,120,180,300,600,1200],
+        y:[550,515,505,470,455,418,350],
+        name:'Actual', mode:'lines+markers'
+      }], plotLayout('Model vs Actual', true));
+
+      // EF
+      Plotly.newPlot('chart-ef', [{
+        x:[...Array(24).keys()],
+        y:Array.from({length:24},(_,i)=>1.55 + Math.sin(i/3)*.06 + i*.006),
+        mode:'lines'
+      }], plotLayout('EF', false));
+
+      $('#chart-activity').dataset.plotted = '1';
+    }
+
+    function plotLayout(title, logX=false, legend=false){
+      return {
+        title: { text: title, font:{color:'#cfd7f8', size:12} },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        margin: {l:40, r:20, t:28, b:40},
+        xaxis: {
+          showgrid: true, gridcolor: 'rgba(255,255,255,.06)', zeroline:false,
+          type: logX ? 'log' : 'linear', color:'#9fb0da'
+        },
+        yaxis: { showgrid: true, gridcolor: 'rgba(255,255,255,.06)', zeroline:false, color:'#9fb0da' },
+        font: { color:'#dfe5ff' },
+        showlegend: legend,
+      };
+    }
+  </script>
+</body>
+</html>

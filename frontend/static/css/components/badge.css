@@ -1,0 +1,365 @@
+/* =========================
+   BADGE COMPONENTS
+   Small status indicators and labels
+   ========================= */
+
+/* ========== BASE BADGE ========== */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+    border: 1.5px solid;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+  }
+  
+  .badge svg {
+    width: 12px;
+    height: 12px;
+  }
+  
+  /* ========== BADGE VARIANTS ========== */
+  
+  /* Primary Badge */
+  .badge--primary {
+    background: var(--color-primary-50);
+    color: var(--color-primary-700);
+    border-color: var(--color-primary-200);
+  }
+  
+  .badge--primary:hover {
+    background: var(--color-primary-100);
+    border-color: var(--color-primary-300);
+  }
+  
+  /* Success Badge */
+  .badge--success {
+    background: var(--color-success-50);
+    color: var(--color-success-700);
+    border-color: var(--color-success-200);
+  }
+  
+  .badge--success:hover {
+    background: var(--color-success-100);
+    border-color: var(--color-success-300);
+  }
+  
+  /* Warning Badge */
+  .badge--warning {
+    background: var(--color-warning-50);
+    color: var(--color-warning-700);
+    border-color: var(--color-warning-200);
+  }
+  
+  .badge--warning:hover {
+    background: var(--color-warning-100);
+    border-color: var(--color-warning-300);
+  }
+  
+  /* Danger Badge */
+  .badge--danger {
+    background: var(--color-danger-50);
+    color: var(--color-danger-700);
+    border-color: var(--color-danger-200);
+  }
+  
+  .badge--danger:hover {
+    background: var(--color-danger-100);
+    border-color: var(--color-danger-300);
+  }
+  
+  /* Info Badge */
+  .badge--info {
+    background: var(--color-info-50);
+    color: var(--color-info-700);
+    border-color: var(--color-info-200);
+  }
+  
+  .badge--info:hover {
+    background: var(--color-info-100);
+    border-color: var(--color-info-300);
+  }
+  
+  /* Neutral Badge */
+  .badge--neutral {
+    background: var(--color-gray-100);
+    color: var(--color-gray-700);
+    border-color: var(--color-gray-300);
+  }
+  
+  .badge--neutral:hover {
+    background: var(--color-gray-200);
+    border-color: var(--color-gray-400);
+  }
+  
+  /* ========== BADGE STYLES ========== */
+  
+  /* Solid Badge */
+  .badge--solid {
+    border: none;
+  }
+  
+  .badge--solid.badge--primary {
+    background: var(--color-primary-600);
+    color: var(--color-white);
+  }
+  
+  .badge--solid.badge--success {
+    background: var(--color-success-600);
+    color: var(--color-white);
+  }
+  
+  .badge--solid.badge--warning {
+    background: var(--color-warning-600);
+    color: var(--color-white);
+  }
+  
+  .badge--solid.badge--danger {
+    background: var(--color-danger-600);
+    color: var(--color-white);
+  }
+  
+  .badge--solid.badge--info {
+    background: var(--color-info-600);
+    color: var(--color-white);
+  }
+  
+  /* Outline Badge */
+  .badge--outline {
+    background: transparent;
+  }
+  
+  .badge--outline.badge--primary {
+    color: var(--color-primary-600);
+    border-color: var(--color-primary-600);
+  }
+  
+  .badge--outline.badge--success {
+    color: var(--color-success-600);
+    border-color: var(--color-success-600);
+  }
+  
+  .badge--outline.badge--warning {
+    color: var(--color-warning-600);
+    border-color: var(--color-warning-600);
+  }
+  
+  .badge--outline.badge--danger {
+    color: var(--color-danger-600);
+    border-color: var(--color-danger-600);
+  }
+  
+  /* Dot Badge */
+  .badge--dot {
+    padding-left: var(--space-2);
+  }
+  
+  .badge--dot::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  
+  /* ========== BADGE SIZES ========== */
+  
+  .badge--sm {
+    padding: 2px var(--space-2);
+    font-size: 0.625rem; /* 10px */
+  }
+  
+  .badge--sm svg {
+    width: 10px;
+    height: 10px;
+  }
+  
+  .badge--md {
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-xs);
+  }
+  
+  .badge--lg {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-sm);
+  }
+  
+  .badge--lg svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  /* ========== NOTIFICATION BADGE ========== */
+  
+  .badge--notification {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-full);
+    background: var(--color-danger-500);
+    color: var(--color-white);
+    font-size: 0.625rem;
+    font-weight: var(--font-weight-bold);
+    border: 2px solid var(--color-surface);
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    z-index: 1;
+  }
+  
+  .badge--notification:empty {
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+    padding: 0;
+    top: -4px;
+    right: -4px;
+  }
+  
+  /* ========== STATUS BADGE ========== */
+  
+  .badge--status {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: var(--font-weight-bold);
+  }
+  
+  .badge--status-active {
+    background: var(--color-success-50);
+    color: var(--color-success-700);
+    border-color: var(--color-success-300);
+  }
+  
+  .badge--status-inactive {
+    background: var(--color-gray-100);
+    color: var(--color-gray-600);
+    border-color: var(--color-gray-300);
+  }
+  
+  .badge--status-pending {
+    background: var(--color-warning-50);
+    color: var(--color-warning-700);
+    border-color: var(--color-warning-300);
+  }
+  
+  .badge--status-error {
+    background: var(--color-danger-50);
+    color: var(--color-danger-700);
+    border-color: var(--color-danger-300);
+  }
+  
+  /* ========== REMOVABLE BADGE ========== */
+  
+  .badge--removable {
+    padding-right: var(--space-1);
+  }
+  
+  .badge__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: currentColor;
+    opacity: 0.6;
+    transition: all var(--transition-fast);
+    margin-left: var(--space-1);
+  }
+  
+  .badge__remove:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.1);
+  }
+  
+  .badge__remove svg {
+    width: 10px;
+    height: 10px;
+  }
+  
+  /* ========== BADGE GROUP ========== */
+  
+  .badge-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  
+  /* ========== INTERACTIVE BADGE ========== */
+  
+  .badge--interactive {
+    cursor: pointer;
+    user-select: none;
+  }
+  
+  .badge--interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .badge--interactive:active {
+    transform: translateY(0);
+  }
+  
+  /* ========== PULSE BADGE ========== */
+  
+  .badge--pulse {
+    animation: badge-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes badge-pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+  
+  /* ========== BADGE WITH ICON ========== */
+  
+  .badge--icon-left svg:first-child {
+    margin-right: var(--space-1);
+  }
+  
+  .badge--icon-right svg:last-child {
+    margin-left: var(--space-1);
+  }
+  
+  /* ========== GRADIENT BADGE ========== */
+  
+  .badge--gradient {
+    background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+    color: var(--color-white);
+    border: none;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+  }
+  
+  .badge--gradient:hover {
+    background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+  
+  /* ========== RESPONSIVE ========== */
+  
+  @media (max-width: 640px) {
+    .badge {
+      font-size: 0.625rem;
+      padding: 2px var(--space-2);
+    }
+    
+    .badge-group {
+      gap: var(--space-1);
+    }
+  }

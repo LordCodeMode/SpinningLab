@@ -1,0 +1,32 @@
+<div class="page-header">
+    <h1>Zone Balance</h1>
+    <p>Actual vs target across models</p>
+  </div>
+  
+  <div class="page-controls">
+    <div class="control-group">
+      <label for="balance-model">Training Model:</label>
+      <select id="balance-model">
+        <option value="polarized" selected>Polarized</option>
+        <option value="sweet_spot">Sweet Spot</option>
+        <option value="high_intensity">High Intensity</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="balance-weeks">Weeks:</label>
+      <select id="balance-weeks">
+        <option value="2">2 weeks</option>
+        <option value="4" selected>4 weeks</option>
+        <option value="8">8 weeks</option>
+        <option value="12">12 weeks</option>
+      </select>
+    </div>
+  </div>
+  
+  <div class="analysis-card">
+    <div class="analysis-header"><div class="analysis-icon"><i class="fas fa-balance-scale"></i></div>
+      <div><div class="analysis-title">Zone Balance Analysis</div><div class="analysis-subtitle">Actual vs Target</div></div>
+    </div>
+    <div id="zone-balance-chart"></div>
+    <div id="zone-balance-recommendations" class="recommendations"></div>
+  </div>

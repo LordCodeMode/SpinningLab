@@ -1,0 +1,39 @@
+/* ============================================
+   FILE: static/css/pages/hr-zones.css
+   ============================================ */
+
+   .hrz-section { display: grid; gap: 20px; }
+   .hrz-header { margin-bottom: 8px; }
+   .hrz-header h1 { font-size: 32px; font-weight: 700; color: var(--text-primary); margin: 0 0 6px 0; letter-spacing: -0.02em; }
+   .hrz-header p { color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+   
+   .hrz-zones-grid { display: grid; gap: 12px; }
+   .hrz-zone-card { background: #ffffff; border: 2px solid #d1d5db; border-radius: var(--radius, 12px); padding: 18px 22px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); transition: all 0.3s ease; display: flex; align-items: center; gap: 16px; }
+   .hrz-zone-card:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); transform: translateX(4px); }
+   
+   .hrz-zone-indicator { width: 12px; height: 60px; border-radius: 6px; flex-shrink: 0; }
+   .hrz-zone-content { flex: 1; }
+   .hrz-zone-name { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+   .hrz-zone-range { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+   .hrz-zone-time { font-size: 14px; font-weight: 600; color: #ef4444; }
+   .hrz-zone-percent { font-size: 12px; color: var(--text-secondary); margin-left: 8px; }
+   
+   .hrz-chart-card { background: #ffffff; border: 2px solid #d1d5db; border-radius: var(--radius, 12px); padding: 24px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+   .hrz-chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 16px; }
+   .hrz-chart-title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+   .hrz-chart-controls { display: flex; gap: 8px; }
+   .hrz-chart-control { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; background: transparent; border: 1.5px solid var(--border); color: var(--text-primary); cursor: pointer; transition: all 0.2s; }
+   .hrz-chart-control:hover { background: var(--bg); border-color: #ef4444; color: #ef4444; }
+   .hrz-chart-control.active { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-color: #ef4444; color: white; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25); }
+   .hrz-chart-container { position: relative; height: 320px; }
+   
+   .hrz-empty-state { padding: 80px 20px; text-align: center; }
+   .hrz-empty-state svg { width: 80px; height: 80px; opacity: 0.3; margin: 0 auto 24px; color: var(--text-secondary); }
+   .hrz-empty-state h3 { font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
+   .hrz-empty-state p { color: var(--text-secondary); }
+   
+   @media (max-width: 768px) {
+     .hrz-zone-card { flex-direction: column; align-items: flex-start; }
+     .hrz-zone-indicator { width: 60px; height: 8px; }
+     .hrz-chart-header { flex-direction: column; align-items: flex-start; }
+   }

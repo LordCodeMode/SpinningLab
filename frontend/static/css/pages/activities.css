@@ -1,0 +1,51 @@
+/* ============================================
+   FILE: static/css/pages/activities.css
+   ============================================ */
+
+   .act-section { display: grid; gap: 20px; }
+   .act-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 12px; }
+   .act-header h1 { font-size: 32px; font-weight: 700; color: var(--text-primary); margin: 0; letter-spacing: -0.02em; }
+   .act-header p { color: var(--text-secondary); font-size: 14px; line-height: 1.5; width: 100%; }
+   
+   /* Filters */
+   .act-filters { background: #ffffff; border: 2px solid #d1d5db; border-radius: var(--radius, 12px); padding: 18px 22px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+   .act-filter-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+   .act-filter-select { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; background: white; color: var(--text-primary); cursor: pointer; transition: all 0.2s; }
+   .act-filter-select:hover { border-color: #3b82f6; }
+   .act-filter-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+   
+   /* Activities Table */
+   .act-table-card { background: #ffffff; border: 2px solid #d1d5db; border-radius: var(--radius, 12px); padding: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); overflow: hidden; }
+   .act-table { width: 100%; border-collapse: collapse; }
+   .act-table thead { background: rgba(59, 130, 246, 0.04); }
+   .act-table thead th { text-align: left; padding: 16px 20px; font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); }
+   .act-table tbody td { padding: 16px 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); color: var(--text-primary); font-size: 14px; }
+   .act-table tbody tr { transition: all 0.2s; }
+   .act-table tbody tr:hover { background: rgba(59, 130, 246, 0.04); box-shadow: inset 3px 0 0 #3b82f6; }
+   .act-table tbody tr:last-child td { border-bottom: none; }
+   
+   .act-activity-name { font-weight: 600; color: var(--text-primary); cursor: pointer; }
+   .act-activity-name:hover { color: #3b82f6; text-decoration: underline; }
+   .act-metric-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+   .act-metric-badge.power { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+   .act-metric-badge.hr { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+   .act-metric-badge.duration { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+   
+   /* Pagination */
+   .act-pagination { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 20px; background: rgba(59, 130, 246, 0.02); }
+   .act-page-btn { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; background: white; font-size: 14px; font-weight: 600; color: var(--text-primary); cursor: pointer; transition: all 0.2s; }
+   .act-page-btn:hover:not(:disabled) { border-color: #3b82f6; color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
+   .act-page-btn.active { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-color: #3b82f6; }
+   .act-page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+   
+   .act-empty-state { padding: 80px 20px; text-align: center; }
+   .act-empty-state svg { width: 80px; height: 80px; opacity: 0.3; margin: 0 auto 24px; color: var(--text-secondary); }
+   .act-empty-state h3 { font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
+   .act-empty-state p { color: var(--text-secondary); margin-bottom: 20px; }
+   .act-empty-state-btn { padding: 12px 24px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+   .act-empty-state-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+   
+   @media (max-width: 768px) {
+     .act-table { display: block; overflow-x: auto; }
+     .act-filters { flex-direction: column; align-items: stretch; }
+   }

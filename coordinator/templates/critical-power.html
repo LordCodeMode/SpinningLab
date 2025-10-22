@@ -1,0 +1,32 @@
+<div class="page-header">
+    <h1>Critical Power</h1>
+    <p>CP & W′ model vs. actuals</p>
+  </div>
+  
+  <div class="analysis-grid">
+    <div class="analysis-card">
+      <div class="analysis-header">
+        <div class="analysis-icon"><i class="fas fa-bolt"></i></div>
+        <div><div class="analysis-title">Model</div><div class="analysis-subtitle">From your PDC</div></div>
+      </div>
+      <div id="cp-metrics" class="value-list">
+        <div class="value-item"><span class="value-label">Critical Power</span><span class="value-amount" id="cp-value">- W</span></div>
+        <div class="value-item"><span class="value-label">W′ (W-prime)</span><span class="value-amount" id="wprime-value">- J</span></div>
+      </div>
+    </div>
+  
+    <div class="analysis-card">
+      <div class="analysis-header">
+        <div class="analysis-icon"><i class="fas fa-info-circle"></i></div>
+        <div><div class="analysis-title">What is CP?</div></div>
+      </div>
+      <div id="cp-explanation">
+        <p>Critical Power approximates the highest sustainable power without progressive fatigue. W′ is your finite work capacity above CP.</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="chart-card full-width">
+    <div class="chart-header"><h3>CP Model vs Actual Curve</h3></div>
+    <div id="critical-power-chart"></div>
+  </div>

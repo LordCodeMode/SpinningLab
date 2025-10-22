@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cycling Performance Analytics - Login">
+  <title>Login - Cycling Analytics</title>
+  
+  <!-- Preconnect to improve performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  
+  <!-- Inter Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- AUTH PAGE CSS ONLY - Separate from dashboard styles -->
+  <link rel="stylesheet" href="/static/css/auth.css">
+  
+  <!-- Feather Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+<body>
+  <!-- Notification Container -->
+  <div class="notification" id="notification">
+    <div class="notification-content">
+      <div class="notification-icon">
+        <svg id="notificationIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+      </div>
+      <div class="notification-message" id="notificationMessage"></div>
+    </div>
+  </div>
+
+  <!-- Auth Background Container -->
+  <div class="auth-background">
+    <div class="auth-container">
+      <!-- Header -->
+      <div class="auth-header">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <h1>CyclingMetrics</h1>
+        </div>
+        <p class="tagline">Analyze your cycling performance</p>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="tab-navigation">
+        <button class="tab-btn active" data-tab="login">
+          <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+          </svg>
+          <span>Login</span>
+        </button>
+        <button class="tab-btn" data-tab="register">
+          <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+          </svg>
+          <span>Register</span>
+        </button>
+      </div>
+
+      <!-- Tab Container -->
+      <div class="tab-container">
+        <!-- Login Tab -->
+        <div class="tab-content active" id="loginTab">
+          <form class="auth-form" id="loginForm">
+            <div class="form-group">
+              <label for="loginEmail">Email Address</label>
+              <div class="input-wrapper">
+                <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                <input 
+                  type="email" 
+                  id="loginEmail" 
+                  placeholder="you@example.com" 
+                  required
+                  autocomplete="email"
+                >
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="loginPassword">Password</label>
+              <div class="input-wrapper">
+                <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                <input 
+                  type="password" 
+                  id="loginPassword" 
+                  placeholder="••••••••" 
+                  required
+                  autocomplete="current-password"
+                >
+              </div>
+            </div>
+
+            <button type="submit" class="auth-btn" id="loginBtn">
+              <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+              </svg>
+              <span class="btn-text">Sign In</span>
+              <svg class="btn-loader" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor" fill="none" opacity="0.25"/>
+                <path d="M12 2a10 10 0 0110 10" stroke="currentColor" stroke-width="4" fill="none"/>
+              </svg>
+            </button>
+          </form>
+        </div>
+
+        <!-- Register Tab -->
+        <div class="tab-content" id="registerTab">
+          <form class="auth-form" id="registerForm">
+            <div class="form-group">
+              <label for="registerName">
+                Full Name 
+                <span class="optional">(optional)</span>
+              </label>
+              <div class="input-wrapper">
+                <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+                <input 
+                  type="text" 
+                  id="registerName" 
+                  placeholder="John Doe"
+                  autocomplete="name"
+                >
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="registerEmail">Email Address</label>
+              <div class="input-wrapper">
+                <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                <input 
+                  type="email" 
+                  id="registerEmail" 
+                  placeholder="you@example.com" 
+                  required
+                  autocomplete="email"
+                >
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="registerPassword">Password</label>
+              <div class="input-wrapper">
+                <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                <input 
+                  type="password" 
+                  id="registerPassword" 
+                  placeholder="••••••••" 
+                  required
+                  autocomplete="new-password"
+                  minlength="6"
+                >
+              </div>
+            </div>
+
+            <button type="submit" class="auth-btn" id="registerBtn">
+              <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+              </svg>
+              <span class="btn-text">Create Account</span>
+              <svg class="btn-loader" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor" fill="none" opacity="0.25"/>
+                <path d="M12 2a10 10 0 0110 10" stroke="currentColor" stroke-width="4" fill="none"/>
+              </svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth JavaScript -->
+  <script type="module">
+    import { TOKEN_STORAGE_KEY } from './static/js/core/config.js';
+    import { AuthAPI } from './static/js/core/api.js';
+
+    // Tab Switching
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetTab = btn.dataset.tab;
+        
+        // Update buttons
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Update content
+        tabContents.forEach(content => {
+          content.classList.remove('active');
+          if (content.id === `${targetTab}Tab`) {
+            content.classList.add('active');
+          }
+        });
+      });
+    });
+
+    // Notification Helper
+    function showNotification(message, type = 'error') {
+      const notification = document.getElementById('notification');
+      const messageEl = document.getElementById('notificationMessage');
+      const iconEl = document.getElementById('notificationIcon');
+      
+      messageEl.textContent = message;
+      notification.className = `notification ${type}`;
+      
+      // Set icon based on type
+      if (type === 'error') {
+        iconEl.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>';
+      } else {
+        iconEl.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>';
+      }
+      
+      notification.classList.add('show');
+      setTimeout(() => notification.classList.remove('show'), 4000);
+    }
+
+    // Button Loading State
+    function setButtonLoading(btn, loading) {
+      const text = btn.querySelector('.btn-text');
+      const icon = btn.querySelector('.btn-icon');
+      const loader = btn.querySelector('.btn-loader');
+      
+      if (loading) {
+        btn.disabled = true;
+        text.style.display = 'none';
+        icon.style.display = 'none';
+        loader.style.display = 'block';
+      } else {
+        btn.disabled = false;
+        text.style.display = 'inline';
+        icon.style.display = 'block';
+        loader.style.display = 'none';
+      }
+    }
+
+    // Login Form Handler - FIXED TO USE AuthAPI
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const btn = document.getElementById('loginBtn');
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      
+      setButtonLoading(btn, true);
+      
+      try {
+        console.log('[Login] Attempting login with email:', email);
+        
+        // Use AuthAPI.login which correctly handles FormData for OAuth2
+        const data = await AuthAPI.login(email, password);
+        
+        if (!data || !data.access_token) {
+          throw new Error('No access token received from server');
+        }
+        
+        // Store token
+        localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
+        console.log('[Login] Token stored successfully');
+        
+        // Verify token by fetching user info
+        const user = await AuthAPI.me();
+        console.log('[Login] User authenticated:', user.username);
+        
+        showNotification('Login successful! Redirecting...', 'success');
+        
+        // Redirect to dashboard
+        setTimeout(() => {
+          window.location.href = '/dashboard.html';
+        }, 1000);
+        
+      } catch (error) {
+        console.error('[Login] Login failed:', error);
+        const message = error?.message || 'Login failed. Please check your credentials.';
+        showNotification(message, 'error');
+        
+        // Clear any partial tokens
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    });
+
+    // Register Form Handler - FIXED TO USE AuthAPI
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const btn = document.getElementById('registerBtn');
+      const name = document.getElementById('registerName').value.trim();
+      const email = document.getElementById('registerEmail').value.trim();
+      const password = document.getElementById('registerPassword').value;
+      
+      // Validation
+      if (!email || !password) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+      }
+      
+      if (password.length < 6) {
+        showNotification('Password must be at least 6 characters', 'error');
+        return;
+      }
+      
+      setButtonLoading(btn, true);
+      
+      try {
+        console.log('[Register] Attempting registration with email:', email);
+        
+        // Create username from email or name
+        const username = name || email.split('@')[0];
+        
+        // Use AuthAPI.register
+        await AuthAPI.register(username, email, password);
+        
+        console.log('[Register] Registration successful');
+        showNotification('Registration successful! Please login.', 'success');
+        
+        // Switch to login tab and prefill email
+        setTimeout(() => {
+          document.querySelector('[data-tab="login"]').click();
+          document.getElementById('loginEmail').value = email;
+          document.getElementById('loginPassword').focus();
+        }, 1500);
+        
+      } catch (error) {
+        console.error('[Register] Registration failed:', error);
+        const message = error?.message || 'Registration failed. Please try again.';
+        showNotification(message, 'error');
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    });
+
+    // Check if already logged in on page load
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (token) {
+      console.log('[Auth] Existing token found, verifying...');
+      
+      AuthAPI.me()
+        .then(user => {
+          console.log('[Auth] Token valid, redirecting to dashboard');
+          window.location.href = '/dashboard.html';
+        })
+        .catch(error => {
+          console.log('[Auth] Token invalid, clearing:', error.message);
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
+        });
+    }
+
+    // Initialize Feather Icons
+    if (typeof feather !== 'undefined') {
+      feather.replace();
+      console.log('[Auth] Feather icons initialized');
+    }
+  </script>
+</body>
+</html>

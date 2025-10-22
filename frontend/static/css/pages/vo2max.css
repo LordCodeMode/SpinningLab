@@ -1,0 +1,45 @@
+/* ============================================
+   FILE: static/css/pages/vo2max.css
+   ============================================ */
+
+   .vo2-section { display: grid; gap: 20px; }
+   .vo2-header { margin-bottom: 8px; }
+   .vo2-header h1 { font-size: 32px; font-weight: 700; color: var(--text-primary); margin: 0 0 6px 0; letter-spacing: -0.02em; }
+   .vo2-header p { color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+   
+   .vo2-metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+   .vo2-metric-card { background: #ffffff; border: 2px solid #d1d5db; border-radius: var(--radius, 12px); padding: 24px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+   .vo2-metric-card::before { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; background: radial-gradient(circle at center, rgba(239, 68, 68, 0.08) 0%, transparent 70%); border-radius: 50%; transform: translate(30%, -30%); }
+   .vo2-metric-card:hover { transform: translateY(-6px); box-shadow: 0 12px 28px rgba(239, 68, 68, 0.2), 0 0 0 1px #ef4444; border-color: #ef4444; }
+   
+   .vo2-metric-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%); margin-bottom: 12px; }
+   .vo2-metric-icon svg { width: 22px; height: 22px; color: #ef4444; }
+   .vo2-metric-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+   .vo2-metric-value { font-size: 36px; font-weight: 700; color: var(--text-primary); line-height: 1; margin-bottom: 4px; }
+   .vo2-metric-subtitle { font-size: 13px; color: var(--text-secondary); }
+   
+   .vo2-category-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 8px; }
+   .vo2-category-badge.excellent { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+   .vo2-category-badge.good { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+   .vo2-category-badge.fair { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+   .vo2-category-badge.poor { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+   
+   .vo2-chart-card { background: #ffffff; border: 2px solid #d1d5db; border-radius: var(--radius, 12px); padding: 24px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+   .vo2-chart-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+   .vo2-chart-title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+   .vo2-chart-container { position: relative; height: 380px; }
+   
+   .vo2-insight-card { background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%); border: 1.5px solid #ef4444; border-radius: 12px; padding: 18px; display: flex; gap: 14px; margin-top: 16px; }
+   .vo2-insight-card svg { width: 24px; height: 24px; color: #ef4444; flex-shrink: 0; margin-top: 2px; }
+   .vo2-insight-title { font-weight: 700; font-size: 15px; color: var(--text-primary); margin-bottom: 6px; }
+   .vo2-insight-text { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+   
+   .vo2-empty-state { padding: 80px 20px; text-align: center; }
+   .vo2-empty-state svg { width: 80px; height: 80px; opacity: 0.3; margin: 0 auto 24px; color: var(--text-secondary); }
+   .vo2-empty-state h3 { font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
+   .vo2-empty-state p { color: var(--text-secondary); }
+   
+   @media (max-width: 768px) {
+     .vo2-metrics-grid { grid-template-columns: 1fr; }
+     .vo2-chart-container { height: 300px; }
+   }

@@ -1,0 +1,30 @@
+<div class="page-header">
+    <h1>VO₂max</h1>
+    <p>Current estimate & history</p>
+  </div>
+  
+  <div class="analysis-grid">
+    <div class="analysis-card">
+      <div class="analysis-header"><div class="analysis-icon"><i class="fas fa-lungs"></i></div>
+        <div><div class="analysis-title">Current VO₂max</div><div class="analysis-subtitle">Estimated</div></div>
+      </div>
+      <div id="vo2max-current" class="value-list">
+        <div class="value-item"><span class="value-label">Latest Value</span><span class="value-amount" id="vo2max-latest">- ml/min/kg</span></div>
+        <div class="value-item"><span class="value-label">30-day Trend</span><span class="value-amount" id="vo2max-trend">-</span></div>
+      </div>
+    </div>
+  
+    <div class="analysis-card">
+      <div class="analysis-header"><div class="analysis-icon"><i class="fas fa-info-circle"></i></div>
+        <div><div class="analysis-title">About VO₂max</div></div>
+      </div>
+      <div id="vo2max-info">
+        <p>VO₂max represents your maximum oxygen uptake capacity.</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="chart-card full-width">
+    <div class="chart-header"><h3>VO₂max Progression</h3></div>
+    <div id="vo2max-chart"></div>
+  </div>

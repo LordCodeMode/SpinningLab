@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Aurora Dock — Training Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+
+  <style>
+    /* ================================
+       AURORA LIGHT — minimal & crisp
+       Floating Dock + Accent Chips
+       ================================ */
+    :root{
+      --bg: #f7f9fc;                 /* page */
+      --bg-2:#ffffff;                /* elevated */
+      --ink:#0f172a;                 /* slate-900 */
+      --muted:#6b7280;               /* slate-500 */
+      --muted-2:#94a3b8;             /* slate-400 */
+
+      --brand:#3b82f6;               /* blue-500 */
+      --brand-600:#2563eb;
+      --mint:#10b981;                /* emerald */
+      --iris:#7c3aed;                /* violet */
+      --sky:#0ea5e9;                 /* sky */
+      --warning:#f59e0b;
+      --danger:#ef4444;
+
+      --border:#e5eaf1;
+      --ring: rgba(37,99,235,.28);
+
+      --radius-lg:16px;
+      --radius-md:12px;
+      --radius-sm:10px;
+
+      --shadow-1: 0 6px 18px rgba(15,23,42,.06);
+      --shadow-2: 0 12px 30px rgba(15,23,42,.08);
+
+      --dock-w: 84px;
+      --header: 64px;
+
+      --chip-h: 92px;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 400px at 10% -10%, rgba(59,130,246,.08), transparent 60%),
+        radial-gradient(800px 420px at 90% 110%, rgba(16,185,129,.08), transparent 55%),
+        var(--bg);
+      -webkit-font-smoothing: antialiased;
+      letter-spacing:.1px;
+    }
+
+    /* Subtle dotted grid overlay */
+    body:before{
+      content:"";
+      position: fixed; inset:0;
+      pointer-events:none;
+      background-image:
+        radial-gradient(#e9edf4 1px, transparent 1px);
+      background-size: 16px 16px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,.6), rgba(0,0,0,.15) 40%, transparent 100%);
+      z-index:-1;
+    }
+
+    a{color:inherit;text-decoration:none}
+
+    /* Layout */
+    .app{
+      display:grid;
+      grid-template-columns: var(--dock-w) 1fr;
+      grid-template-rows: var(--header) 1fr;
+      grid-template-areas:
+        "dock header"
+        "dock main";
+      min-height:100vh;
+    }
+
+    /* Floating Dock (left) */
+    .dock{
+      grid-area: dock;
+      position: sticky; top: 10px;
+      align-self:start;
+      height: calc(100vh - 20px);
+      display:flex; flex-direction:column; align-items:center;
+      padding: 12px 10px;
+    }
+    .dock-inner{
+      position: sticky; top:10px;
+      width: var(--dock-w);
+      display:flex; flex-direction:column; gap:12px;
+      align-items:center;
+    }
+    .dock-rail{
+      background: rgba(255,255,255,.75);
+      backdrop-filter: blur(10px);
+      border:1px solid var(--border);
+      box-shadow: var(--shadow-1);
+      border-radius: 24px;
+      padding: 10px 8px;
+      display:flex; flex-direction:column; gap:8px;
+      transition: width .16s ease;
+      width: var(--dock-w);
+    }
+    .brand{
+      width:48px;height:48px;border-radius:16px;
+      display:grid;place-items:center;
+      font-weight:900;color:#fff;
+      background: linear-gradient(135deg, var(--brand), var(--mint));
+      margin: 2px auto 4px;
+      letter-spacing:.4px;
+    }
+    .nav{
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .nav a{
+      display:grid; grid-template-columns: 1fr; place-items:center;
+      gap:6px; padding:10px 8px; border-radius: 14px;
+      color: var(--muted); border:1px solid transparent;
+      transition: background .15s ease, color .15s ease, border-color .15s ease;
+    }
+    .nav a:hover{
+      background:#f1f5ff; color: var(--brand-600); border-color:#dbe7ff;
+    }
+    .nav a.active{
+      background: linear-gradient(180deg, #eaf2ff, #e8fff6);
+      color:#0b1225; border-color:#cfe1ff;
+      box-shadow: inset 0 0 0 1px #ffffffc7;
+    }
+    .nav a span{
+      font-size:.72rem; font-weight:800; letter-spacing:.03em;
+      opacity:.95;
+    }
+    .dock-footer{
+      margin-top:8px; display:flex; flex-direction:column; gap:8px; align-items:center;
+    }
+    .mini-btn{
+      width:44px;height:44px;border-radius:12px;border:1px solid var(--border);
+      background:#fff; display:grid; place-items:center;
+      transition:.15s ease; color:#334155;
+    }
+    .mini-btn:hover{ box-shadow:0 0 0 4px rgba(37,99,235,.12); border-color:#cfe1ff; }
+
+    /* Header */
+    .header{
+      grid-area: header;
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 10px 18px;
+      position: sticky; top:0; background: rgba(255,255,255,.75);
+      border-bottom:1px solid var(--border);
+      backdrop-filter: blur(6px);
+      z-index:10;
+    }
+    .trail{
+      display:flex; align-items:center; gap:10px;
+    }
+    .crumb{
+      font-size:.7rem; font-weight:900; letter-spacing:.12em; text-transform:uppercase;
+      padding:6px 10px; border:1px solid var(--border); border-radius:999px; color:#334155; background:#fff;
+    }
+    .title{ font-size:1.1rem; font-weight:900; letter-spacing:.2px; color:#0b1225; }
+    .actions{ display:flex; align-items:center; gap:10px; }
+    .btn{
+      padding:9px 14px; border-radius:10px; border:1px solid var(--border); background:#fff;
+      font-weight:800; color:#0f172a; transition:.15s ease; display:inline-flex; align-items:center; gap:8px;
+    }
+    .btn:hover{ box-shadow:0 0 0 4px var(--ring); border-color:#cfe1ff; }
+    .btn-outline{ background: transparent; }
+    .divider{ width:1px; height:28px; background:var(--border); }
+
+    /* Main */
+    .main{
+      grid-area: main;
+      padding: 18px 18px 40px;
+      display:grid; gap:14px;
+    }
+
+    /* Accent KPI Chips (no white cards) */
+    .chips{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(4, minmax(200px, 1fr));
+    }
+    .chip{
+      height: var(--chip-h);
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-1);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding: 12px 14px;
+    }
+    .chip[data-c="blue"]{ background: linear-gradient(180deg, #eef5ff, #f8fbff); }
+    .chip[data-c="mint"]{ background: linear-gradient(180deg, #ecfff7, #f8fffc); }
+    .chip[data-c="vio"]{ background: linear-gradient(180deg, #f3eaff, #fbf8ff); }
+    .chip[data-c="sky"]{ background: linear-gradient(180deg, #e9fbff, #f7fdff); }
+
+    .chip .label{
+      font-size:.72rem; text-transform:uppercase; letter-spacing:.12em; font-weight:900; color:#475569;
+      margin-bottom:6px;
+    }
+    .chip .value{
+      font-size:1.8rem; font-weight:900; letter-spacing:.3px; color:#0b1225;
+    }
+    .chip .delta{ font-size:.88rem; font-weight:800; }
+    .pos{ color: var(--mint); }
+    .neg{ color: var(--danger); }
+
+    .chip-icon{
+      width:48px;height:48px;border-radius:14px;background:#fff;border:1px solid var(--border);
+      display:grid;place-items:center; color:#334155;
+    }
+
+    /* Surfaces (soft, not pure white) */
+    .surface{
+      border-radius: 16px; border:1px solid var(--border);
+      background: linear-gradient(180deg,#ffffff,#fafcff);
+      box-shadow: var(--shadow-1);
+    }
+    .surface-h{
+      padding: 12px 14px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .surface-t{ font-weight:900; letter-spacing:.2px; color:#0b1225; }
+    .surface-b{ padding: 14px; }
+
+    .grid-12{ display:grid; gap:12px; grid-template-columns: repeat(12,1fr); }
+    .col-6{ grid-column: span 6; }
+    .col-12{ grid-column: span 12; }
+
+    /* Table (airy) */
+    .table{ width:100%; border-collapse: collapse; }
+    .table th, .table td{
+      padding: 10px 10px; border-bottom:1px dashed #e9edf4; color:#1f2937;
+    }
+    .table th{
+      text-align:left; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; font-weight:900; color:#64748b;
+    }
+    .table tr:hover td{ background:#f6faff; }
+
+    /* Tabs */
+    .tab{ display:none; }
+    .tab.active{ display:block; }
+
+    /* Responsiveness */
+    @media (max-width: 1200px){
+      .chips{ grid-template-columns: repeat(2,1fr); }
+      .col-6{ grid-column: span 12; }
+    }
+    @media (max-width: 740px){
+      .app{ grid-template-columns: 70px 1fr; }
+      .chips{ grid-template-columns: 1fr; }
+      .header{ padding: 10px 12px; }
+      .main{ padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Clean SVG sprite (no emojis) -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="ic-overview" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18M3 12h18M3 18h18"/>
+    </symbol>
+    <symbol id="ic-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 17l6-6 4 4 7-7"/><path d="M21 21H3"/>
+    </symbol>
+    <symbol id="ic-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+    </symbol>
+    <symbol id="ic-cp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>
+    </symbol>
+    <symbol id="ic-eff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 20h16M4 10h16M4 4h16"/>
+    </symbol>
+    <symbol id="ic-acts" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+    </symbol>
+    <symbol id="ic-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12a8 8 0 1 1-8-8"/><path d="M20 4v5h-5"/>
+    </symbol>
+    <symbol id="ic-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+      <path d="M19.4 15a7.97 7.97 0 0 0 .1-2 7.97 7.97 0 0 0-.1-2l2.1-1.6-2-3.4-2.5 1a8.06 8.06 0 0 0-3.4-2l-.4-2.7h-4l-.4 2.7a8.06 8.06 0 0 0-3.4 2l-2.5-1-2 3.4 2.1 1.6a7.97 7.97 0 0 0-.1 2 7.97 7.97 0 0 0 .1 2L1 16.6l2 3.4 2.5-1a8.06 8.06 0 0 0 3.4 2l.4 2.7h4l.4-2.7a8.06 8.06 0 0 0 3.4-2l2.5 1 2-3.4-2.1-1.6z"/>
+    </symbol>
+  </svg>
+
+  <div class="app">
+    <!-- Floating Dock -->
+    <aside class="dock">
+      <div class="dock-inner">
+        <div class="brand">AU</div>
+        <div class="dock-rail">
+          <nav class="nav" id="nav">
+            <a href="#overview" data-tab="overview" class="active" aria-label="Overview">
+              <svg width="22" height="22"><use href="#ic-overview"/></svg>
+              <span>Overview</span>
+            </a>
+            <a href="#training" data-tab="training" aria-label="Training Load">
+              <svg width="22" height="22"><use href="#ic-trend"/></svg>
+              <span>Load</span>
+            </a>
+            <a href="#power" data-tab="power" aria-label="Power Curve">
+              <svg width="22" height="22"><use href="#ic-power"/></svg>
+              <span>Power</span>
+            </a>
+            <a href="#cp" data-tab="cp" aria-label="Critical Power">
+              <svg width="22" height="22"><use href="#ic-cp"/></svg>
+              <span>CP</span>
+            </a>
+            <a href="#eff" data-tab="eff" aria-label="Efficiency">
+              <svg width="22" height="22"><use href="#ic-eff"/></svg>
+              <span>Eff</span>
+            </a>
+            <a href="#acts" data-tab="acts" aria-label="Activities">
+              <svg width="22" height="22"><use href="#ic-acts"/></svg>
+              <span>Activities</span>
+            </a>
+          </nav>
+          <div class="dock-footer">
+            <button class="mini-btn" id="refresh-mini" title="Refresh">
+              <svg width="18" height="18"><use href="#ic-refresh"/></svg>
+            </button>
+            <button class="mini-btn" title="Settings">
+              <svg width="18" height="18"><use href="#ic-gear"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+      <div class="trail">
+        <span class="crumb" id="crumb">Overview</span>
+        <div class="title">Aurora Dashboard</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-outline" id="refresh-btn">
+          <svg width="18" height="18"><use href="#ic-refresh"/></svg>
+          Refresh
+        </button>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main class="main">
+      <!-- OVERVIEW -->
+      <section class="tab active" id="tab-overview">
+        <div class="chips">
+          <div class="chip" data-c="blue">
+            <div>
+              <div class="label">Activities</div>
+              <div class="value">6</div>
+              <div class="delta pos">+1 vs last week</div>
+            </div>
+            <div class="chip-icon"><svg width="22" height="22"><use href="#ic-overview"/></svg></div>
+          </div>
+          <div class="chip" data-c="mint">
+            <div>
+              <div class="label">Total Time</div>
+              <div class="value">8h 24m</div>
+              <div class="delta pos">+12%</div>
+            </div>
+            <div class="chip-icon"><svg width="22" height="22"><use href="#ic-trend"/></svg></div>
+          </div>
+          <div class="chip" data-c="vio">
+            <div>
+              <div class="label">Distance</div>
+              <div class="value">282 km</div>
+              <div class="delta">↔ baseline</div>
+            </div>
+            <div class="chip-icon"><svg width="22" height="22"><use href="#ic-acts"/></svg></div>
+          </div>
+          <div class="chip" data-c="sky">
+            <div>
+              <div class="label">TSS</div>
+              <div class="value">510</div>
+              <div class="delta neg">-5% (deload)</div>
+            </div>
+            <div class="chip-icon"><svg width="22" height="22"><use href="#ic-power"/></svg></div>
+          </div>
+        </div>
+
+        <div class="grid-12" style="margin-top:10px">
+          <div class="surface col-6">
+            <div class="surface-h"><div class="surface-t">Activity Trend</div></div>
+            <div class="surface-b"><div id="chart-activity" style="height:260px"></div></div>
+          </div>
+          <div class="surface col-6">
+            <div class="surface-h"><div class="surface-t">Power Curve (42d)</div></div>
+            <div class="surface-b"><div id="chart-curve" style="height:260px"></div></div>
+          </div>
+
+          <div class="surface col-12">
+            <div class="surface-h"><div class="surface-t">Recent Activities</div></div>
+            <div class="surface-b">
+              <table class="table">
+                <thead><tr><th>Date</th><th>Title</th><th>Time</th><th>Dist</th><th>NP</th><th>TSS</th><th>IF</th></tr></thead>
+                <tbody>
+                  <tr><td>2025-09-24</td><td>Endurance GA1</td><td>01:45</td><td>62 km</td><td>212 W</td><td>78</td><td>0.68</td></tr>
+                  <tr><td>2025-09-23</td><td>Tempo Intervals</td><td>01:15</td><td>38 km</td><td>256 W</td><td>86</td><td>0.84</td></tr>
+                  <tr><td>2025-09-22</td><td>VO₂ Repeats</td><td>00:58</td><td>27 km</td><td>301 W</td><td>92</td><td>0.95</td></tr>
+                  <tr><td>2025-09-20</td><td>Long Endurance</td><td>03:05</td><td>115 km</td><td>208 W</td><td>164</td><td>0.70</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRAINING LOAD -->
+      <section class="tab" id="tab-training">
+        <div class="chips">
+          <div class="chip" data-c="blue"><div><div class="label">CTL</div><div class="value">72</div><div class="delta pos">+3</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-trend"/></svg></div></div>
+          <div class="chip" data-c="mint"><div><div class="label">ATL</div><div class="value">78</div><div class="delta">↔</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-trend"/></svg></div></div>
+          <div class="chip" data-c="vio"><div><div class="label">TSB</div><div class="value">-6</div><div class="delta neg">-2</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-overview"/></svg></div></div>
+          <div class="chip" data-c="sky"><div><div class="label">Ramp</div><div class="value">+6</div><div class="delta pos">safe</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-overview"/></svg></div></div>
+        </div>
+        <div class="surface" style="margin-top:10px">
+          <div class="surface-h"><div class="surface-t">42-Day Load Trend</div></div>
+          <div class="surface-b"><div id="chart-load" style="height:320px"></div></div>
+        </div>
+      </section>
+
+      <!-- POWER CURVE -->
+      <section class="tab" id="tab-power">
+        <div class="surface">
+          <div class="surface-h"><div class="surface-t">All-time vs 90d</div></div>
+          <div class="surface-b"><div id="chart-power" style="height:340px"></div></div>
+        </div>
+      </section>
+
+      <!-- CRITICAL POWER -->
+      <section class="tab" id="tab-cp">
+        <div class="chips">
+          <div class="chip" data-c="blue"><div><div class="label">Critical Power</div><div class="value">312 W</div><div class="delta pos">+4 W</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-cp"/></svg></div></div>
+          <div class="chip" data-c="mint"><div><div class="label">W′</div><div class="value">17.2 kJ</div><div class="delta">↔</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-cp"/></svg></div></div>
+          <div class="chip" data-c="vio"><div><div class="label">FTP (est.)</div><div class="value">305 W</div><div class="delta pos">+3 W</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-power"/></svg></div></div>
+          <div class="chip" data-c="sky"><div><div class="label">mFTP</div><div class="value">302 W</div><div class="delta">↔</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-power"/></svg></div></div>
+        </div>
+        <div class="surface" style="margin-top:10px">
+          <div class="surface-h"><div class="surface-t">CP Model vs Curve</div></div>
+          <div class="surface-b"><div id="chart-cp" style="height:340px"></div></div>
+        </div>
+      </section>
+
+      <!-- EFFICIENCY -->
+      <section class="tab" id="tab-eff">
+        <div class="chips">
+          <div class="chip" data-c="mint"><div><div class="label">Current EF</div><div class="value">1.68</div><div class="delta pos">+0.02</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-eff"/></svg></div></div>
+          <div class="chip" data-c="blue"><div><div class="label">Avg 90d</div><div class="value">1.63</div><div class="delta">↔</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-eff"/></svg></div></div>
+          <div class="chip" data-c="vio"><div><div class="label">Trend</div><div class="value">↑</div><div class="delta pos">improving</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-trend"/></svg></div></div>
+          <div class="chip" data-c="sky"><div><div class="label">Samples</div><div class="value">54</div><div class="delta">+6</div></div><div class="chip-icon"><svg width="22" height="22"><use href="#ic-overview"/></svg></div></div>
+        </div>
+        <div class="surface" style="margin-top:10px">
+          <div class="surface-h"><div class="surface-t">EF Trend</div></div>
+          <div class="surface-b"><div id="chart-ef" style="height:300px"></div></div>
+        </div>
+      </section>
+
+      <!-- ACTIVITIES -->
+      <section class="tab" id="tab-acts">
+        <div class="surface">
+          <div class="surface-h"><div class="surface-t">All Activities (sample)</div></div>
+          <div class="surface-b">
+            <table class="table">
+              <thead><tr><th>Date</th><th>Title</th><th>Time</th><th>Dist</th><th>NP</th><th>IF</th><th>TSS</th></tr></thead>
+              <tbody>
+                <tr><td>2025-09-24</td><td>Endurance GA1</td><td>01:45</td><td>62 km</td><td>212 W</td><td>0.68</td><td>78</td></tr>
+                <tr><td>2025-09-23</td><td>Tempo</td><td>01:15</td><td>38 km</td><td>256 W</td><td>0.84</td><td>86</td></tr>
+                <tr><td>2025-09-22</td><td>VO₂</td><td>00:58</td><td>27 km</td><td>301 W</td><td>0.95</td><td>92</td></tr>
+                <tr><td>2025-09-20</td><td>Long Endurance</td><td>03:05</td><td>115 km</td><td>208 W</td><td>0.70</td><td>164</td></tr>
+                <tr><td>2025-09-18</td><td>Recovery</td><td>00:45</td><td>16 km</td><td>162 W</td><td>0.55</td><td>23</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ---------- Tiny Tab Router ----------
+    const $ = (s, r=document) => r.querySelector(s);
+    const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+    function setActive(tab){
+      $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
+      $$('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
+      $('#crumb').textContent = ({
+        overview:'Overview', training:'Training', power:'Power', cp:'Critical Power', eff:'Efficiency', acts:'Activities'
+      }[tab] || 'Overview');
+    }
+
+    $('#nav').addEventListener('click', (e)=>{
+      const link = e.target.closest('a[data-tab]');
+      if(!link) return;
+      e.preventDefault();
+      const tab = link.dataset.tab;
+      if(location.hash !== `#${tab}`) history.pushState({tab}, '', `#${tab}`);
+      setActive(tab);
+    });
+    window.addEventListener('popstate', ()=>{
+      const tab = (location.hash || '#overview').replace('#','');
+      setActive(tab);
+    });
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const tab = (location.hash || '#overview').replace('#','');
+      setActive(tab);
+      setTimeout(demoCharts, 30);
+    });
+
+    // Refresh buttons
+    $('#refresh-btn').addEventListener('click', ()=>demoCharts(true));
+    $('#refresh-mini').addEventListener('click', ()=>demoCharts(true));
+
+    // ---------- Demo Charts ----------
+    function demoCharts(force){
+      if(!force && $('#chart-activity')?.dataset.plotted) return;
+
+      // Activity Trend
+      const x = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const y = [62,38,27,0,115,0,40];
+      Plotly.newPlot('chart-activity', [{
+        x, y, type:'scatter', mode:'lines+markers'
+      }], layout('Activity (km)'));
+
+      // Power Curve (Overview)
+      Plotly.newPlot('chart-curve', [{
+        x:[5,10,20,30,60,120,300,600,1200],
+        y:[900,780,650,610,520,450,380,330,290],
+        mode:'lines+markers'
+      }], layout('W vs s', true));
+
+      // Load Trend
+      Plotly.newPlot('chart-load', [
+        { x:[...Array(42).keys()].map(i=>i-41), y: Array.from({length:42},(_,i)=>60+Math.sin(i/4)*6+i/14), name:'CTL', mode:'lines' },
+        { x:[...Array(42).keys()].map(i=>i-41), y: Array.from({length:42},(_,i)=>64+Math.sin(i/2)*10), name:'ATL', mode:'lines' },
+      ], layout('CTL/ATL', false, true));
+
+      // Power tab
+      Plotly.newPlot('chart-power', [{
+        x:[5,10,20,30,60,120,300,600,1200],
+        y:[930,810,670,620,528,458,392,340,300],
+        mode:'lines'
+      },{
+        x:[5,10,20,30,60,120,300,600,1200],
+        y:[900,780,650,610,520,450,380,330,290],
+        mode:'lines'
+      }], layout('All-time vs 90d', true));
+
+      // CP vs curve
+      Plotly.newPlot('chart-cp', [{
+        x:[30,60,120,180,300,600,1200], y:[540,520,500,480,460,420,360], name:'Model', mode:'lines'
+      },{
+        x:[30,60,120,180,300,600,1200], y:[550,515,505,470,455,418,350], name:'Actual', mode:'lines+markers'
+      }], layout('Model vs Actual', true));
+
+      // EF
+      Plotly.newPlot('chart-ef', [{
+        x:[...Array(24).keys()],
+        y:Array.from({length:24},(_,i)=>1.55 + Math.sin(i/3)*.06 + i*.006),
+        mode:'lines'
+      }], layout('EF'));
+
+      $('#chart-activity').dataset.plotted = '1';
+    }
+
+    function layout(title, logX=false, legend=false){
+      return {
+        title: { text: title, font:{color:'#0b1225', size:12} },
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        margin: {l:40, r:20, t:28, b:40},
+        xaxis: { showgrid: true, gridcolor:'#edf2f7', zeroline:false, type: logX ? 'log' : 'linear', color:'#64748b' },
+        yaxis: { showgrid: true, gridcolor:'#edf2f7', zeroline:false, color:'#64748b' },
+        font: { color:'#0f172a' },
+        showlegend: legend,
+      };
+    }
+  </script>
+</body>
+</html>

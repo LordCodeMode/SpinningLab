@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Training Pro — Flat Demo</title>
+<style>
+  /* ===== Theme (flat, no white cards) ===== */
+  :root{
+    --bg:#f6f8fb; --text:#0f172a; --muted:#64748b; --muted-2:#94a3b8; --line:#e2e8f0;
+    --brand:#2563eb; --ok:#16a34a; --warn:#f59e0b; --danger:#ef4444; --radius:12px;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;font-family:Inter,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  .wrap{min-height:100%;display:grid;grid-template-columns:260px 1fr}
+  aside{border-right:1px solid var(--line);padding:24px 18px;position:sticky;top:0;height:100vh}
+  main{padding:28px 28px 80px}
+  .brand{display:flex;gap:10px;align-items:center;font-weight:800}
+  .brand-badge{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#2563eb,#22d3ee);font-weight:900}
+  .nav{margin-top:22px}
+  .nav h6{margin:18px 0 10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted-2)}
+  .nav a{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:8px;text-decoration:none;color:#334155;font-weight:700}
+  .nav a:hover{background:#eef2ff;color:#1d4ed8}
+  .nav a.active{outline:1px solid #c7d2fe;background:#eef2ff;color:#1d4ed8}
+  .page-title{display:flex;align-items:center;justify-content:space-between;padding:10px 0 18px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  .page-title h1{margin:0;font-size:1.6rem}
+  .btn{border:1px solid var(--line);background:transparent;padding:8px 12px;border-radius:8px;font-weight:800;cursor:pointer}
+  .btn:hover{border-color:#cbd5e1;background:#eef2ff}
+  .section{padding:18px 0;border-bottom:1px solid var(--line)}
+  .section:last-child{border-bottom:none}
+  .kpis{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .kpi{border:1px solid var(--line);border-radius:12px;padding:14px 14px;display:grid;gap:6px}
+  .kpi small{color:var(--muted);font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+  .kpi .value{font-size:1.8rem;font-weight:800}
+  .trend{display:flex;align-items:center;gap:8px;font-weight:700}
+  .trend.up{color:var(--ok)} .trend.down{color:var(--danger)}
+  .rows{display:grid;gap:16px;grid-template-columns:2fr 1fr}
+  .panel{border:1px dashed var(--line);border-radius:12px;padding:16px}
+  .panel h3{margin:0 0 8px;font-size:1rem}
+  .panel p.meta{margin:0 0 14px;color:var(--muted);font-size:.9rem}
+  .spark{width:100%;height:100px}
+  .legend{display:flex;gap:12px;align-items:center;color:var(--muted);font-size:.85rem;margin-top:10px}
+  .dot{width:10px;height:10px;border-radius:50%}
+  table{width:100%;border-collapse:collapse}
+  thead th{text-align:left;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:10px 8px;border-bottom:1px solid var(--line)}
+  tbody td{padding:12px 8px;border-bottom:1px dashed var(--line);font-weight:600;color:#334155}
+  tbody tr:hover{background:#f1f5f9}
+  .bar{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,#2563eb,#22d3ee)}
+  /* power-curve legend chips */
+  .chip{border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-weight:700;color:#334155}
+  .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .muted{color:var(--muted)}
+  .pages > section{display:none}
+  .pages > section.active{display:block}
+  @media (max-width:960px){.wrap{grid-template-columns:1fr}aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}.rows{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- Sidebar -->
+  <aside>
+    <div class="brand"><div class="brand-badge">TP</div><div>Training Pro</div></div>
+    <nav class="nav">
+      <h6>Dashboard</h6>
+      <a href="#overview" data-tab="overview" class="active">Overview</a>
+      <a href="#training-load" data-tab="training-load">Training Load</a>
+      <a href="#power-curve" data-tab="power-curve">Power Curve</a>
+      <a href="#critical-power" data-tab="critical-power">Critical Power</a>
+      <a href="#efficiency" data-tab="efficiency">Efficiency</a>
+      <a href="#activities" data-tab="activities">Activities</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main>
+    <div class="page-title">
+      <h1 id="page-title">Overview</h1>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="refresh">Refresh</button>
+      </div>
+    </div>
+
+    <div class="pages">
+      <!-- ============ OVERVIEW ============ -->
+      <section id="overview" class="active">
+        <div class="section">
+          <div class="kpis">
+            <div class="kpi"><small>Activities (7d)</small><div class="value" id="ov-acts">–</div><div class="trend up" id="ov-acts-trend">▲ +–%</div></div>
+            <div class="kpi"><small>Total Time</small><div class="value" id="ov-time">–</div><div class="trend up" id="ov-time-trend">▲ +–%</div></div>
+            <div class="kpi"><small>Total TSS</small><div class="value" id="ov-tss">–</div><div class="trend down" id="ov-tss-trend">▼ ––%</div></div>
+            <div class="kpi"><small>Distance</small><div class="value" id="ov-dist">–</div><div class="trend up" id="ov-dist-trend">▲ +–%</div></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="rows">
+            <div class="panel">
+              <h3>7-Day Training Load</h3>
+              <p class="meta">Inline SVG sparkline</p>
+              <svg class="spark" id="spark-load" viewBox="0 0 600 110" preserveAspectRatio="none"></svg>
+              <div class="legend"><span class="dot" style="background:#2563eb"></span> Load (TSS/day) <span style="margin-left:auto;color:var(--muted)">Avg: <b id="avg-load">–</b></span></div>
+            </div>
+            <div class="panel">
+              <h3>Weekly Goal</h3>
+              <p class="meta">650 TSS target</p>
+              <div class="bar"><i id="goal-bar" style="width:0%"></i></div>
+              <p class="meta" style="margin-top:10px">Progress: <b id="goal-pct">0%</b></p>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <h3 style="margin:0 0 10px">Recent Activities</h3>
+          <table><thead><tr><th>Date</th><th>Title</th><th>Duration</th><th>NP</th><th>TSS</th><th>IF</th></tr></thead><tbody id="ov-tbl"></tbody></table>
+        </div>
+      </section>
+
+      <!-- ============ TRAINING LOAD ============ -->
+      <section id="training-load">
+        <div class="section">
+          <div class="grid">
+            <div class="kpi"><small>Fitness (CTL)</small><div class="value" id="tl-ctl">–</div><div class="muted">90-day</div></div>
+            <div class="kpi"><small>Fatigue (ATL)</small><div class="value" id="tl-atl">–</div><div class="muted">7-day</div></div>
+            <div class="kpi"><small>Form (TSB)</small><div class="value" id="tl-tsb">–</div><div class="muted">CTL-ATL</div></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="panel">
+            <h3>CTL / ATL / TSB Trend</h3>
+            <p class="meta">30 points, flat lines (no shadows)</p>
+            <svg class="spark" id="spark-ctl" viewBox="0 0 800 120" preserveAspectRatio="none"></svg>
+            <div class="legend"><span class="dot" style="background:#2563eb"></span> CTL <span class="dot" style="background:#fb923c"></span> ATL <span class="dot" style="background:#10b981"></span> TSB</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ POWER CURVE ============ -->
+      <section id="power-curve">
+        <div class="section">
+          <div class="panel">
+            <h3>Power Duration Curve</h3>
+            <p class="meta">Sample curve with best efforts</p>
+            <svg id="curve" class="spark" viewBox="0 0 800 220" preserveAspectRatio="none"></svg>
+            <div class="legend">
+              <span class="chip">Current curve</span>
+              <span class="chip">Best efforts</span>
+              <span style="margin-left:auto" class="muted">Unit: Watts</span>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="grid">
+            <div>
+              <h3 style="margin:0 0 10px">Best Powers</h3>
+              <table><thead><tr><th>Duration</th><th>Best</th></tr></thead><tbody id="curve-bests"></tbody></table>
+            </div>
+            <div>
+              <h3 style="margin:0 0 10px">Last 4 Weeks (PB hits)</h3>
+              <table><thead><tr><th>Date</th><th>Duration</th><th>Power</th></tr></thead><tbody id="curve-pb"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CRITICAL POWER ============ -->
+      <section id="critical-power">
+        <div class="section">
+          <div class="grid">
+            <div class="kpi"><small>Critical Power</small><div class="value" id="cp-val">– W</div><div class="muted">Estimated</div></div>
+            <div class="kpi"><small>W′ (Anaerobic)</small><div class="value" id="cp-wprime">– J</div><div class="muted">Estimated</div></div>
+            <div class="kpi"><small>FTP (ref)</small><div class="value">275 W</div><div class="muted">Manual</div></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="panel">
+            <h3>Model vs Curve</h3>
+            <svg id="cp-model" class="spark" viewBox="0 0 800 220" preserveAspectRatio="none"></svg>
+            <div class="legend"><span class="dot" style="background:#2563eb"></span> Curve <span class="dot" style="background:#10b981"></span> CP Model</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ EFFICIENCY ============ -->
+      <section id="efficiency">
+        <div class="section">
+          <div class="grid">
+            <div class="kpi"><small>Current EF</small><div class="value" id="ef-cur">–</div><div class="muted">GA1 only</div></div>
+            <div class="kpi"><small>Avg EF (120d)</small><div class="value" id="ef-avg">–</div><div class="muted">Baseline</div></div>
+            <div class="kpi"><small>Trend</small><div class="value" id="ef-trend">–</div><div class="muted">Slope</div></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="panel">
+            <h3>Efficiency Factor Trend</h3>
+            <svg id="ef-spark" class="spark" viewBox="0 0 800 120" preserveAspectRatio="none"></svg>
+            <div class="legend"><span class="dot" style="background:#2563eb"></span> EF (NP/HR)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ ACTIVITIES ============ -->
+      <section id="activities">
+        <div class="section">
+          <h3 style="margin:0 0 10px">All Activities (sample)</h3>
+          <table>
+            <thead><tr><th>Date</th><th>Title</th><th>Dur</th><th>Dist</th><th>NP</th><th>TSS</th><th>IF</th><th>Avg HR</th></tr></thead>
+            <tbody id="act-tbl"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ===== Sample data ===== */
+const sample = {
+  overview: {
+    kpis:{ acts:{v:6,t:+12}, time:{v:8.4,t:+9}, tss:{v:510,t:-5}, dist:{v:232,t:+7} },
+    load:[70,62,85,91,76,88,98],
+    recent:[
+      {d:'2025-09-21', t:'Endurance Ride',   dur:'2:10', NP:210, TSS:120, IF:0.70},
+      {d:'2025-09-19', t:'Sweet Spot',       dur:'1:00', NP:260, TSS:92,  IF:0.88},
+      {d:'2025-09-18', t:'Recovery Spin',    dur:'0:45', NP:165, TSS:25,  IF:0.50},
+      {d:'2025-09-17', t:'VO₂max Intervals', dur:'1:05', NP:300, TSS:110, IF:1.01},
+      {d:'2025-09-16', t:'Tempo',            dur:'1:30', NP:240, TSS:130, IF:0.82}
+    ],
+    goal:650
+  },
+  trainingLoad:{
+    ctl:Array.from({length:30},(_,i)=>40+Math.sin(i/4)*6 + i*0.4),
+    atl:Array.from({length:30},(_,i)=>30+Math.sin(i/2)*12 + (i>20?15:0)),
+  },
+  curve:{
+    // durations in seconds and power in W
+    curve:[[5,900],[10,760],[20,640],[30,580],[60,470],[120,400],[300,330],[600,290],[1200,255]],
+    bests:{ "1s":1100, "5s":950, "10s":770, "20s":650, "1min":480, "5min":340, "20min":275 },
+    recentPB:[
+      {date:'2025-09-12', dur:'1min', p:485},
+      {date:'2025-09-05', dur:'5min', p:343},
+      {date:'2025-08-29', dur:'20min', p:278}
+    ]
+  },
+  cp:{ cp:290, wprime:17000 }, // J
+  efficiency:{
+    ef:Array.from({length:40},(_,i)=>2.1 + Math.sin(i/6)*0.05 + i*0.003 + (Math.random()*0.03-0.015)),
+  },
+  activities:(()=>{
+    const rows=[];
+    const titles=['Endurance','Tempo','Sweet Spot','VO₂max','Recovery','Group Ride','Hills'];
+    for(let i=0;i<24;i++){
+      const date=new Date(2025,8,25-i);
+      const fmt=date.toISOString().slice(0,10);
+      const t=titles[i%titles.length];
+      const durMin=40+Math.floor(Math.random()*80);
+      const np=180+Math.floor(Math.random()*160);
+      const tss=40+Math.floor(Math.random()*120);
+      const iff=(0.6+Math.random()*0.5).toFixed(2);
+      const hr=120+Math.floor(Math.random()*40);
+      const dist=(20+Math.random()*70).toFixed(1);
+      rows.push({d:fmt,t:`${t} Ride`,dur:Math.floor(durMin/60)+':'+String(durMin%60).padStart(2,'0'),dist,NP:np,TSS:tss,IF:iff,HR:hr});
+    }
+    return rows;
+  })()
+};
+
+/* ===== helpers ===== */
+const $ = s=>document.querySelector(s);
+const n = x => Number(x).toLocaleString();
+
+/* ===== tiny router ===== */
+function setActive(tab){
+  document.querySelectorAll('aside a').forEach(a=>a.classList.toggle('active', a.dataset.tab===tab));
+  document.querySelectorAll('.pages > section').forEach(s=>s.classList.toggle('active', s.id===tab));
+  $('#page-title').textContent = document.querySelector(`aside a[data-tab="${tab}"]`)?.textContent || 'Dashboard';
+  history.replaceState(null,'',`#${tab}`);
+}
+document.querySelector('aside').addEventListener('click', e=>{
+  const a = e.target.closest('a[data-tab]'); if(!a) return;
+  e.preventDefault(); setActive(a.dataset.tab);
+});
+window.addEventListener('load',()=>{ setActive((location.hash||'#overview').slice(1)); });
+
+/* ===== overview fill ===== */
+(function overview(){
+  const {kpis,load,recent,goal} = sample.overview;
+  $('#ov-acts').textContent = n(kpis.acts.v);
+  $('#ov-time').textContent = n(kpis.time.v) + ' h';
+  $('#ov-tss').textContent  = n(kpis.tss.v);
+  $('#ov-dist').textContent = n(kpis.dist.v) + ' km';
+  $('#ov-acts-trend').textContent = (kpis.acts.t>=0?'▲ +':'▼ ') + Math.abs(kpis.acts.t) + '%';
+  $('#ov-time-trend').textContent = (kpis.time.t>=0?'▲ +':'▼ ') + Math.abs(kpis.time.t) + '%';
+  $('#ov-tss-trend').textContent  = (kpis.tss.t>=0?'▲ +':'▼ ') + Math.abs(kpis.tss.t) + '%';
+  $('#ov-dist-trend').textContent = (kpis.dist.t>=0?'▲ +':'▼ ') + Math.abs(kpis.dist.t) + '%';
+
+  // sparkline
+  drawLine('#spark-load', load, {stroke:'#2563eb', mean:true});
+  $('#avg-load').textContent = Math.round(load.reduce((a,b)=>a+b,0)/load.length);
+  const total = load.reduce((a,b)=>a+b,0);
+  const pct = Math.min(100, Math.round(100*total/goal));
+  $('#goal-bar').style.width = pct+'%'; $('#goal-pct').textContent = pct+'%';
+
+  // table
+  $('#ov-tbl').innerHTML = recent.map(r=>`<tr><td>${r.d}</td><td>${r.t}</td><td>${r.dur}</td><td>${r.NP}</td><td>${r.TSS}</td><td>${r.IF}</td></tr>`).join('');
+})();
+
+/* ===== training load ===== */
+(function tl(){
+  const {ctl,atl} = sample.trainingLoad;
+  const tsb = ctl.map((v,i)=>v - (atl[i]??atl.at(-1)));
+  $('#tl-ctl').textContent = Math.round(ctl.at(-1));
+  $('#tl-atl').textContent = Math.round(atl.at(-1));
+  $('#tl-tsb').textContent = Math.round(tsb.at(-1));
+  drawMulti('#spark-ctl', [
+    {series:ctl, color:'#2563eb', width:2.5},
+    {series:atl, color:'#fb923c', width:2.5},
+    {series:tsb, color:'#10b981', width:2.5}
+  ]);
+})();
+
+/* ===== power curve ===== */
+(function curve(){
+  const pts = sample.curve.curve;
+  drawXY('#curve', pts, {color:'#2563eb'});
+  // bests
+  $('#curve-bests').innerHTML = Object.entries(sample.curve.bests)
+    .map(([k,v])=>`<tr><td>${k}</td><td>${v} W</td></tr>`).join('');
+  $('#curve-pb').innerHTML = sample.curve.recentPB
+    .map(p=>`<tr><td>${p.date}</td><td>${p.dur}</td><td>${p.p} W</td></tr>`).join('');
+})();
+
+/* ===== critical power ===== */
+(function cp(){
+  const {cp,wprime} = sample.cp;
+  $('#cp-val').textContent = cp+' W';
+  $('#cp-wprime').textContent = n(wprime)+' J';
+  // model: P(t) = W' / t + CP
+  const tgrid = [5,10,20,30,60,120,300,600,1200];
+  const model = tgrid.map(t => [t, Math.round(wprime/t + cp)]);
+  const actual = sample.curve.curve;
+  drawXY('#cp-model', actual, {color:'#2563eb'});
+  drawXY('#cp-model', model,  {color:'#10b981', append:true});
+})();
+
+/* ===== efficiency ===== */
+(function ef(){
+  const ef = sample.efficiency.ef;
+  drawLine('#ef-spark', ef, {stroke:'#2563eb'});
+  const avg = ef.reduce((a,b)=>a+b,0)/ef.length;
+  const cur = ef.at(-1);
+  const slope = (cur - ef[0]) / ef.length;
+  $('#ef-cur').textContent = cur.toFixed(2);
+  $('#ef-avg').textContent = avg.toFixed(2);
+  $('#ef-trend').textContent = (slope>=0?'+':'') + (slope*100).toFixed(1) + '%';
+})();
+
+/* ===== activities ===== */
+(function acts(){
+  $('#act-tbl').innerHTML = sample.activities
+    .map(a=>`<tr><td>${a.d}</td><td>${a.t}</td><td>${a.dur}</td><td>${a.dist} km</td><td>${a.NP}</td><td>${a.TSS}</td><td>${a.IF}</td><td>${a.HR}</td></tr>`)
+    .join('');
+})();
+
+/* ===== mini chart helpers (inline SVG) ===== */
+function drawLine(sel, series, {stroke='#2563eb', mean=false}={}){
+  const svg = $(sel); const W = svg.viewBox.baseVal.width, H = svg.viewBox.baseVal.height, P=6;
+  const max = Math.max(...series), min = Math.min(...series);
+  const x = i => P + i*((W-2*P)/(series.length-1||1));
+  const y = v => H-P - ((v-min)/(max-min||1))*(H-2*P);
+  if(mean){
+    const m = series.reduce((a,b)=>a+b,0)/series.length;
+    svg.innerHTML = `<line x1="0" y1="${y(m)}" x2="${W}" y2="${y(m)}" stroke="#cbd5e1" stroke-dasharray="4 4"/>`;
+  }else{ svg.innerHTML=''; }
+  let d = `M ${x(0)} ${y(series[0])}`; for(let i=1;i<series.length;i++) d+=` L ${x(i)} ${y(series[i])}`;
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d', d); path.setAttribute('fill','none'); path.setAttribute('stroke', stroke);
+  path.setAttribute('stroke-width','2.5'); path.setAttribute('stroke-linecap','round');
+  svg.appendChild(path);
+}
+function drawMulti(sel, lines){
+  const svg = $(sel); const W=svg.viewBox.baseVal.width,H=svg.viewBox.baseVal.height,P=6;
+  const all = lines.flatMap(l=>l.series);
+  const max=Math.max(...all), min=Math.min(...all);
+  const x=(i,n)=>P + i*((W-2*P)/((n-1)||1));
+  const y=v=>H-P - ((v-min)/(max-min||1))*(H-2*P);
+  svg.innerHTML='';
+  lines.forEach(({series,color,width})=>{
+    let d=`M ${x(0,series.length)} ${y(series[0])}`;
+    for(let i=1;i<series.length;i++) d += ` L ${x(i,series.length)} ${y(series[i])}`;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',d); path.setAttribute('fill','none'); path.setAttribute('stroke',color);
+    path.setAttribute('stroke-width',width||2.5); path.setAttribute('stroke-linecap','round');
+    svg.appendChild(path);
+  });
+}
+function drawXY(sel, points, {color='#2563eb', append=false}={}){
+  const svg=$(sel); const W=svg.viewBox.baseVal.width,H=svg.viewBox.baseVal.height,P=30;
+  if(!append) svg.innerHTML='';
+  const xs=points.map(p=>p[0]), ys=points.map(p=>p[1]);
+  const xmin=Math.min(...xs), xmax=Math.max(...xs), ymin=Math.min(...ys), ymax=Math.max(...ys);
+  const x=v=>P + ( (Math.log(v)-Math.log(xmin)) / (Math.log(xmax)-Math.log(xmin)) ) * (W-2*P); // log x
+  const y=v=>H-P - ((v-ymin)/(ymax-ymin||1))*(H-2*P);
+  // axes
+  if(!append){
+    const axis=document.createElementNS('http://www.w3.org/2000/svg','path');
+    axis.setAttribute('d',`M ${P} ${H-P} L ${W-P} ${H-P} M ${P} ${H-P} L ${P} ${P}`);
+    axis.setAttribute('stroke','#cbd5e1'); axis.setAttribute('fill','none'); svg.appendChild(axis);
+    const ticks=[5,10,30,60,120,300,600,1200];
+    ticks.forEach(t=>{
+      const tx=x(t); const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+      l.setAttribute('x1',tx); l.setAttribute('x2',tx); l.setAttribute('y1',H-P); l.setAttribute('y2',H-P+6);
+      l.setAttribute('stroke','#cbd5e1'); svg.appendChild(l);
+    });
+  }
+  // line
+  let d=`M ${x(points[0][0])} ${y(points[0][1])}`;
+  for(let i=1;i<points.length;i++) d+=` L ${x(points[i][0])} ${y(points[i][1])}`;
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d',d); path.setAttribute('fill','none'); path.setAttribute('stroke',color);
+  path.setAttribute('stroke-width','2.5'); path.setAttribute('stroke-linecap','round');
+  svg.appendChild(path);
+}
+
+/* Demo refresh */
+$('#refresh').addEventListener('click', ()=>alert('Static demo — wire this button to your data loader.'));
+</script>
+</body>
+</html>
