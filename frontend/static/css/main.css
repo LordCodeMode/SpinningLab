@@ -32,11 +32,15 @@
 /* Page styles that override or extend components */
 @import 'pages/overview.css';
 @import 'pages/training-load.css';
-@import 'pages/activities.css';
-@import 'pages/settings.css';
-@import 'pages/best-powers.css';
 @import 'pages/power-curve.css';
 @import 'pages/critical-power.css';
+@import 'pages/best-powers.css';
+@import 'pages/efficiency.css';
+@import 'pages/zones.css';
+@import 'pages/hr-zones.css';
+@import 'pages/vo2max.css';
+@import 'pages/fitness-state.css';
+@import 'pages/activities.css';
 @import 'pages/upload.css';
 @import 'pages/settings.css';
 /* ========== NOTES ========== */
