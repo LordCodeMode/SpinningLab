@@ -286,72 +286,61 @@ class UploadPage {
 
   async handleUpload() {
     if (this.files.length === 0 || this.isUploading) return;
-    
+
     this.isUploading = true;
-    
+
     // Hide actions, show progress
     document.getElementById('uploadActions')?.classList.add('hidden');
     const progressContainer = document.getElementById('uploadProgress');
     progressContainer?.classList.remove('hidden');
-    
+
     try {
       console.log(`[Upload] Starting upload of ${this.files.length} file(s)`);
-      
-      // Simulate upload progress (replace with actual API call)
-      await this.simulateUpload();
-      
-      // Success
-      this.showResults('success', `Successfully uploaded ${this.files.length} file(s)!`);
-      
-      // Clear files after short delay
-      setTimeout(() => {
-        this.clearFiles();
+
+      // Actually upload files to the API
+      const result = await Services.upload.uploadFiles(this.files);
+
+      // Show results based on actual response
+      const successCount = result.successful || 0;
+      const failedCount = result.failed || 0;
+
+      if (successCount > 0) {
+        let message = `Successfully uploaded ${successCount} file(s)!`;
+        if (failedCount > 0) {
+          message += ` (${failedCount} failed)`;
+        }
+        this.showResults('success', message);
+
+        // Clear files and redirect after delay
+        setTimeout(() => {
+          this.clearFiles();
+          progressContainer?.classList.add('hidden');
+
+          // Redirect to activities page to see new data
+          if (window.router) {
+            window.router.navigateTo('activities');
+          }
+        }, 2000);
+      } else {
+        // All files failed
+        this.showResults('error', `Upload failed: ${failedCount} file(s) could not be processed`);
+        document.getElementById('uploadActions')?.classList.remove('hidden');
         progressContainer?.classList.add('hidden');
-        
-        // Optionally redirect to activities page
-        // window.router.navigateTo('activities');
-      }, 2000);
-      
+      }
+
     } catch (error) {
       console.error('[Upload] Upload failed:', error);
       this.showResults('error', `Upload failed: ${error.message}`);
-      
+
       // Show actions again
       document.getElementById('uploadActions')?.classList.remove('hidden');
       progressContainer?.classList.add('hidden');
-      
+
     } finally {
       this.isUploading = false;
     }
   }
 
-  async simulateUpload() {
-    // This simulates upload progress - replace with actual API call
-    // await Services.API.uploadFitFiles(this.files);
-    
-    const progressFill = document.getElementById('progressFill');
-    const progressPercent = document.getElementById('progressPercent');
-    
-    return new Promise((resolve) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        
-        if (progressFill) {
-          progressFill.style.width = `${progress}%`;
-        }
-        
-        if (progressPercent) {
-          progressPercent.textContent = `${progress}%`;
-        }
-        
-        if (progress >= 100) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 200);
-    });
-  }
 
   showResults(type, message) {
     const container = document.getElementById('uploadResults');
