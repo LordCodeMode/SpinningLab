@@ -61,7 +61,7 @@ class OverviewPage {
   }
 
   render() {
-    const container = document.getElementById('page-content') || document.getElementById('pageContent');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) return;
     
     const { trainingLoad, activities, settings, insights, fitnessState } = this.data;
@@ -260,7 +260,7 @@ class OverviewPage {
   }
 
   renderLoading() {
-    const container = document.getElementById('page-content') || document.getElementById('pageContent');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) return;
     
     container.innerHTML = `
@@ -274,7 +274,7 @@ class OverviewPage {
   }
 
   renderError(error) {
-    const container = document.getElementById('page-content') || document.getElementById('pageContent');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) return;
     
     container.innerHTML = `

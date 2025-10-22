@@ -39,7 +39,7 @@ class PowerCurvePage {
   }
 
   renderLayout() {
-    const container = document.getElementById('page-content') || document.getElementById('pageContent');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) return;
     
     // ✅ Using PREMIUM CSS classes from power-curve.css
@@ -760,7 +760,7 @@ class PowerCurvePage {
   }
 
   renderLoading() {
-    const container = document.getElementById('page-content') || document.getElementById('pageContent');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) return;
     
     container.innerHTML = `
@@ -774,7 +774,7 @@ class PowerCurvePage {
   }
 
   renderError(error) {
-    const container = document.getElementById('page-content') || document.getElementById('pageContent');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) return;
     
     container.innerHTML = `

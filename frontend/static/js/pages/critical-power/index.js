@@ -45,7 +45,7 @@ class CriticalPowerPage {
   }
 
   render() {
-    const container = document.getElementById('page-content');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) {
       console.error('[CP] Page content container not found');
       return;
@@ -540,7 +540,7 @@ class CriticalPowerPage {
   }
 
   renderLoading() {
-    const container = document.getElementById('page-content');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) return;
     
     container.innerHTML = `
@@ -558,7 +558,7 @@ class CriticalPowerPage {
   }
 
   renderError(error) {
-    const container = document.getElementById('page-content');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) {
       console.error('[CP] Cannot render error - container not found');
       return;
