@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 # Add the parent directory to the path so we can import from app
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app.database.database import get_db
+from app.database.connection import get_db
 from app.database.models import User, Activity
 from app.services.analysis.training_load import TrainingLoadService
 from app.services.cache.cache_manager import CacheManager
