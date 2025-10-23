@@ -247,10 +247,10 @@ class OverviewPage {
           <tbody>
             ${activities.slice(0, 5).map(activity => `
               <tr onclick="window.router.navigateTo('activities')" style="cursor: pointer;">
-                <td class="activity-name">${this.escapeHtml(activity.name || 'Ride')}</td>
+                <td class="activity-name">${this.escapeHtml(activity.file_name || 'Ride')}</td>
                 <td>${this.formatDate(activity.start_time)}</td>
-                <td class="power-value">${activity.average_power ? activity.average_power + 'W' : '-'}</td>
-                <td>${this.formatDuration(activity.moving_time)}</td>
+                <td class="power-value">${activity.avg_power ? Math.round(activity.avg_power) + 'W' : '-'}</td>
+                <td>${this.formatDuration(activity.duration)}</td>
               </tr>
             `).join('')}
           </tbody>
