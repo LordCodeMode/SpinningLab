@@ -45,8 +45,8 @@ env/
 *.sqlite
 *.sqlite3
 
-# Cache
-cache/
+# Cache data (not cache source code directories)
+/backend/cache/
 *.cache
 
 # Logs

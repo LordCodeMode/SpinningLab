@@ -39,20 +39,31 @@ class CacheBuilder:
         try:
             logger.info(f"Building power curve cache for user {user.id}")
             power_curve_service = PowerCurveService(self.db)
-            
+
             # Build absolute power curve (W)
-            curve_absolute = power_curve_service.get_user_power_curve(user, weighted=False)
-            if curve_absolute:
-                self.cache_manager.set("power_curve_absolute", user.id, curve_absolute)
-                logger.debug(f"Cached absolute power curve: {len(curve_absolute.get('durations', []))} points")
-            
+            curve_list = power_curve_service.get_user_power_curve(user, weighted=False)
+            if curve_list:
+                # Convert list to dict format expected by frontend
+                curve_dict = {
+                    "durations": list(range(1, len(curve_list) + 1)),
+                    "powers": curve_list,
+                    "weighted": False
+                }
+                self.cache_manager.set("power_curve_absolute", user.id, curve_dict)
+                logger.debug(f"Cached absolute power curve: {len(curve_list)} points")
+
             # Build weighted power curve (W/kg)
             if user.weight:
-                curve_weighted = power_curve_service.get_user_power_curve(user, weighted=True)
-                if curve_weighted:
-                    self.cache_manager.set("power_curve_weighted", user.id, curve_weighted)
-                    logger.debug(f"Cached weighted power curve: {len(curve_weighted.get('durations', []))} points")
-            
+                curve_list_weighted = power_curve_service.get_user_power_curve(user, weighted=True)
+                if curve_list_weighted:
+                    curve_dict_weighted = {
+                        "durations": list(range(1, len(curve_list_weighted) + 1)),
+                        "powers": curve_list_weighted,
+                        "weighted": True
+                    }
+                    self.cache_manager.set("power_curve_weighted", user.id, curve_dict_weighted)
+                    logger.debug(f"Cached weighted power curve: {len(curve_list_weighted)} points")
+
             return True
         except Exception as e:
             logger.error(f"Error building power curve cache for user {user.id}: {e}")
@@ -135,19 +146,38 @@ class CacheBuilder:
         try:
             logger.info(f"Building efficiency cache for user {user.id}")
             efficiency_service = EfficiencyService(self.db)
-            
+
             # Build efficiency for different periods
             periods = [30, 60, 90, 120, 180]
-            
+
             for days in periods:
                 try:
-                    efficiency = efficiency_service.calculate_efficiency(user, days=days)
-                    if efficiency:
-                        cache_key = f"efficiency_{days}d"
-                        self.cache_manager.set(cache_key, user.id, efficiency)
+                    # Get both efficiency data and trend
+                    efficiency_data = efficiency_service.get_efficiency_factors(user, days)
+                    efficiency_trend = efficiency_service.get_efficiency_trend(user, days)
+
+                    # Format for caching (match API response format)
+                    formatted_data = []
+                    for item in efficiency_data:
+                        formatted_data.append({
+                            "start_time": item.start_time.isoformat() if hasattr(item.start_time, 'isoformat') else str(item.start_time),
+                            "normalized_power": float(item.normalized_power) if item.normalized_power else None,
+                            "avg_heart_rate": float(item.avg_heart_rate) if item.avg_heart_rate else None,
+                            "intensity_factor": float(item.intensity_factor) if item.intensity_factor else None,
+                            "ef": float(item.ef) if item.ef else None
+                        })
+
+                    cache_data = {
+                        "efficiency_data": formatted_data,
+                        "trend": efficiency_trend if efficiency_trend else {"trend": "no_data"}
+                    }
+
+                    cache_key = f"efficiency_{days}d"
+                    self.cache_manager.set(cache_key, user.id, cache_data)
+                    logger.debug(f"Cached efficiency for {days} days: {len(formatted_data)} activities")
                 except Exception as e:
                     logger.warning(f"Error caching efficiency for {days} days: {e}")
-            
+
             return True
         except Exception as e:
             logger.error(f"Error building efficiency cache for user {user.id}: {e}")
@@ -164,7 +194,7 @@ class CacheBuilder:
             
             for days in periods:
                 try:
-                    vo2max = vo2max_service.estimate_vo2max(user, days=days)
+                    vo2max = vo2max_service.get_vo2max_trend(user, days=days)
                     if vo2max:
                         cache_key = f"vo2max_{days}d"
                         self.cache_manager.set(cache_key, user.id, vo2max)
