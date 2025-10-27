@@ -525,6 +525,89 @@
   }
   
   /* ============================================
+     DATA OVERVIEW
+     ============================================ */
+  
+  .cp-data-overview {
+    background: #ffffff;
+    border: 2px solid #d1d5db;
+    border-radius: var(--radius, 12px);
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    display: grid;
+    gap: 18px;
+  }
+  
+  .cp-data-header h3 {
+    margin: 0 0 6px 0;
+    font-size: 20px;
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+  
+  .cp-data-header p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+  
+  .cp-data-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  
+  .cp-data-card {
+    background: rgba(139, 92, 246, 0.04);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 10px;
+    padding: 16px;
+    display: grid;
+    gap: 6px;
+  }
+  
+  .cp-data-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    letter-spacing: 0.4px;
+    font-weight: 600;
+  }
+  
+  .cp-data-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  
+  .cp-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  
+  .cp-data-table thead {
+    background: rgba(139, 92, 246, 0.08);
+    color: var(--text-primary);
+  }
+  
+  .cp-data-table th,
+  .cp-data-table td {
+    padding: 10px 12px;
+    text-align: left;
+  }
+  
+  .cp-data-table tbody tr:nth-child(odd) {
+    background: rgba(139, 92, 246, 0.04);
+  }
+  
+  .cp-data-table tbody tr:hover {
+    background: rgba(139, 92, 246, 0.1);
+  }
+  
+  /* ============================================
      TOOLTIP
      ============================================ */
   

@@ -299,37 +299,37 @@ class InsightService {
    * @param {Object} data - Efficiency data
    * @returns {Array<Object>} Array of insight objects
    */
-  generateEfficiencyInsights(data) {
+  generateEfficiencyInsights(metrics) {
     const insights = [];
 
-    if (!data || !data.current_ef) {
+    if (!metrics || !metrics.currentEf) {
       return insights;
     }
 
-    const { current_ef, avg_ef, trend } = data;
+    const { currentEf, averageEfGa1, trend, trendPct, totalSessions, ga1Sessions, bestSession, worstSession } = metrics;
 
     // Current EF analysis
-    if (current_ef > 1.0) {
+    if (currentEf > 1.0) {
       insights.push({
         type: 'success',
         title: 'Excellent Efficiency',
-        text: `Your current efficiency factor (${current_ef.toFixed(2)}) indicates excellent aerobic fitness. Power output is well-supported by cardiovascular system.`,
+        text: `Your current efficiency factor (${currentEf.toFixed(2)}) indicates excellent aerobic fitness. Power output is well-supported by cardiovascular system.`,
         priority: 2,
         category: 'efficiency'
       });
-    } else if (current_ef >= 0.85) {
+    } else if (currentEf >= 0.85) {
       insights.push({
         type: 'info',
         title: 'Good Efficiency',
-        text: `Your efficiency factor of ${current_ef.toFixed(2)} is in the good range. Continue building aerobic base.`,
+        text: `Your efficiency factor of ${currentEf.toFixed(2)} is in the good range. Continue building aerobic base.`,
         priority: 3,
         category: 'efficiency'
       });
-    } else if (current_ef >= 0.70) {
+    } else if (currentEf >= 0.70) {
       insights.push({
         type: 'warning',
         title: 'Moderate Efficiency',
-        text: `Your efficiency factor of ${current_ef.toFixed(2)} suggests room for aerobic development. Focus on Zone 2 endurance work.`,
+        text: `Your efficiency factor of ${currentEf.toFixed(2)} suggests room for aerobic development. Focus on Zone 2 endurance work.`,
         priority: 2,
         category: 'efficiency',
         recommendations: [
@@ -346,7 +346,7 @@ class InsightService {
         insights.push({
           type: 'success',
           title: 'Efficiency Improving',
-          text: 'Your efficiency factor is trending upward. Your training is paying off!',
+          text: `Your efficiency factor is trending upward${Number.isFinite(trendPct) ? ` (${trendPct.toFixed(1)}%)` : ''}. Your training is paying off!`,
           priority: 3,
           category: 'progress'
         });
@@ -354,14 +354,57 @@ class InsightService {
         insights.push({
           type: 'warning',
           title: 'Efficiency Declining',
-          text: 'Your efficiency factor is trending downward. This may indicate fatigue or training stress.',
+          text: `Your efficiency factor is trending downward${Number.isFinite(trendPct) ? ` (${trendPct.toFixed(1)}%)` : ''}. This may indicate fatigue or insufficient recovery.`,
           priority: 2,
           category: 'recovery'
         });
       }
     }
 
+    if (totalSessions) {
+      insights.push({
+        type: 'info',
+        title: 'Session Coverage',
+        text: `${ga1Sessions || 0} of ${totalSessions} sessions met GA1 intensity. Maintain at least 60% GA1 volume for steady aerobic gains`,
+        priority: 4,
+        category: 'training_volume'
+      });
+    }
+
+    if (bestSession) {
+      insights.push({
+        type: 'success',
+        title: 'Best Efficiency Ride',
+        text: `${this.formatDate(bestSession.date)} posted your top efficiency (${bestSession.ef.toFixed(2)} EF). Note the conditions and workout structure to replicate.`,
+        priority: 4,
+        category: 'highlight'
+      });
+    }
+
+    if (worstSession) {
+      insights.push({
+        type: 'warning',
+        title: 'Efficiency Dropout',
+        text: `${this.formatDate(worstSession.date)} showed the lowest efficiency (${worstSession.ef.toFixed(2)} EF). Evaluate fueling, fatigue and cadence.`,
+        priority: 5,
+        category: 'highlight'
+      });
+    }
+
     return insights;
+  }
+
+  formatDate(date) {
+    if (!(date instanceof Date)) {
+      const parsed = new Date(date);
+      if (!Number.isNaN(parsed.getTime())) {
+        date = parsed;
+      }
+    }
+    if (date instanceof Date) {
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+    return String(date ?? '');
   }
 
   // ========== FITNESS STATE INSIGHTS ==========

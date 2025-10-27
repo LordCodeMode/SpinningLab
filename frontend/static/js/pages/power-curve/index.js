@@ -19,6 +19,7 @@ class PowerCurvePage {
       userWeight: null
     };
     this.chart = null;
+    this.powerCurvePoints = [];
   }
 
   async load() {
@@ -398,27 +399,39 @@ class PowerCurvePage {
         params.end = this.state.end.toISOString().slice(0, 10);
       }
 
-      const data = await Services.data.getPowerCurve(params);
+      const rawData = await Services.data.getPowerCurve({ ...params, forceRefresh: true });
+      this.powerCurvePoints = this.preparePowerCurvePoints(rawData);
 
-      if (!data || !Array.isArray(data.durations) || !Array.isArray(data.powers) || data.durations.length === 0) {
+      if (!this.powerCurvePoints || this.powerCurvePoints.length === 0) {
         this.showEmptyState(container);
         return;
       }
 
-      this.state.data = data;
-      this.data = data; // Keep for compatibility
+      const normalizedData = this.buildDatasetFromPoints(this.powerCurvePoints, rawData?.weighted ?? this.state.weighted);
+
+      this.state.data = normalizedData;
+      this.data = normalizedData; // Keep for compatibility
+
+      console.log('[PowerCurvePage] Loaded power curve points:', this.powerCurvePoints.length);
+      if (typeof console.table === 'function') {
+        console.table(this.powerCurvePoints.slice(0, 15), ['duration', 'power']);
+      } else {
+        console.log('[PowerCurvePage] Sample points:', this.powerCurvePoints.slice(0, 5));
+      }
+
+      container.innerHTML = '<canvas id="powerCurveChart" aria-label="Power curve chart" role="img"></canvas>';
       
       // Use Chart.js if available, otherwise Plotly
       if (typeof Chart !== 'undefined') {
         this.initChart();
       } else if (window.Plotly?.newPlot) {
-        this.drawPlotlyChart(data);
+        this.drawPlotlyChart(normalizedData);
       } else {
         container.innerHTML = '<div class="pc-empty-state"><h3>Chart library not loaded</h3></div>';
       }
       
-      this.updateMeta(data);
-      this.updateStats(data);
+      this.updateMeta(normalizedData);
+      this.updateStats(normalizedData);
 
     } catch (err) {
       console.error('[PowerCurvePage] loadData failed:', err);
@@ -437,6 +450,13 @@ class PowerCurvePage {
   }
 
   showEmptyState(container) {
+    if (this.chart) {
+      this.chart.destroy();
+      this.chart = null;
+    }
+    this.powerCurvePoints = [];
+    this.state.data = null;
+    
     container.innerHTML = `
       <div class="pc-empty-state">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -465,9 +485,10 @@ class PowerCurvePage {
       this.chart.destroy();
     }
     
-    const chartData = Services.chart.preparePowerCurveChart(this.data);
-    const chartOptions = Services.chart.getPowerCurveChartOptions(this.state.weighted);
-    
+    const chartPacket = Services.chart.preparePowerCurveChart(this.data);
+    const chartOptions = { ...Services.chart.getPowerCurveChartOptions(this.state.weighted) };
+    const chartData = { datasets: chartPacket.datasets };
+
     chartOptions.onClick = () => {
       Services.analytics.trackChartInteraction('power-curve', 'click');
     };
@@ -481,9 +502,59 @@ class PowerCurvePage {
 
   updateChart() {
     if (!this.chart) return;
-    const chartData = Services.chart.preparePowerCurveChart(this.data);
-    this.chart.data = chartData;
+    const chartPacket = Services.chart.preparePowerCurveChart(this.data);
+    this.chart.data.datasets = chartPacket.datasets;
     this.chart.update();
+  }
+
+  preparePowerCurvePoints(data) {
+    if (!data || !Array.isArray(data.durations) || !Array.isArray(data.powers)) {
+      return [];
+    }
+
+    const maxLength = Math.min(data.durations.length, data.powers.length);
+    const dedup = new Map();
+
+    for (let i = 0; i < maxLength; i += 1) {
+      const duration = data.durations[i];
+      const power = data.powers[i];
+
+      if (duration == null || power == null) {
+        continue;
+      }
+
+      const durationNumber = Number(duration);
+      const powerNumber = Number(power);
+
+      if (!Number.isFinite(durationNumber) || !Number.isFinite(powerNumber)) {
+        continue;
+      }
+
+      const durationValue = Math.max(1, Math.round(durationNumber));
+      const existing = dedup.get(durationValue);
+
+      if (existing === undefined || powerNumber > existing) {
+        dedup.set(durationValue, powerNumber);
+      }
+    }
+
+    const sortedDurations = Array.from(dedup.keys()).sort((a, b) => a - b);
+    return sortedDurations.map(duration => ({
+      duration,
+      power: dedup.get(duration)
+    }));
+  }
+
+  buildDatasetFromPoints(points, weightedFlag = false) {
+    if (!Array.isArray(points) || points.length === 0) {
+      return { durations: [], powers: [], weighted: Boolean(weightedFlag) };
+    }
+
+    return {
+      durations: points.map(point => point.duration),
+      powers: points.map(point => point.power),
+      weighted: Boolean(weightedFlag)
+    };
   }
 
   // ========== PLOTLY IMPLEMENTATION (FALLBACK) ==========

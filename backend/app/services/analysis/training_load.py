@@ -7,11 +7,12 @@ from sqlalchemy import and_
 from ...database.models import User, Activity
 
 class TrainingLoadResponse:
-    def __init__(self, date: datetime, ctl: float, atl: float, tsb: float):
+    def __init__(self, date: datetime, ctl: float, atl: float, tsb: float, tss: float):
         self.date = date
         self.ctl = ctl
         self.atl = atl
         self.tsb = tsb
+        self.tss = tss
 
 class TrainingLoadService:
     def __init__(self, db: Session):
@@ -40,7 +41,7 @@ class TrainingLoadService:
                 freq='D'
             )
             return [
-                TrainingLoadResponse(date=date, ctl=0.0, atl=0.0, tsb=0.0)
+                TrainingLoadResponse(date=date, ctl=0.0, atl=0.0, tsb=0.0, tss=0.0)
                 for date in date_range
             ]
 
@@ -91,7 +92,8 @@ class TrainingLoadService:
                 date=row['date'].to_pydatetime(),  # Convert to Python datetime
                 ctl=round(row['ctl'], 2),
                 atl=round(row['atl'], 2),
-                tsb=round(row['tsb'], 2)
+                tsb=round(row['tsb'], 2),
+                tss=round(row['tss'], 2)
             )
             for _, row in df_filtered.iterrows()
         ]

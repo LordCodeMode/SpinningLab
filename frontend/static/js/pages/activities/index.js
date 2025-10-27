@@ -26,7 +26,8 @@ class ActivitiesPage {
       
       this.activities = await Services.data.getActivities({ 
         limit: this.limit, 
-        offset: this.currentPage * this.limit 
+        skip: this.currentPage * this.limit, 
+        forceRefresh: true
       });
       
       this.render();

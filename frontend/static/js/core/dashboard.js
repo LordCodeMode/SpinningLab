@@ -6,6 +6,7 @@
 import { AuthAPI, API, AnalysisAPI } from '/static/js/core/api.js';
 import { notify, setLoading } from '/static/js/core/utils.js';
 import { router } from '/static/js/core/router.js';
+import overviewPage from '../pages/overview/index.js';
 
 // ⭐ ADD THIS CRITICAL IMPORT - Loads all services and makes them global
 import Services from '/static/js/services/index.js';
@@ -14,19 +15,19 @@ import Services from '/static/js/services/index.js';
 const TOKEN_STORAGE_KEY = 'auth_token';
 
 const PAGE_DEFINITIONS = {
-  overview: { path: '../pages/overview/index.js' },
-  activities: { path: '../pages/activities/index.js' },
-  settings: { path: '../pages/settings/index.js' },
-  upload: { path: '../pages/upload/index.js' },
-  'training-load': { path: '../pages/training-load/index.js' },
-  'power-curve': { path: '../pages/power-curve/index.js' },
-  'critical-power': { path: '../pages/critical-power/index.js' },
-  efficiency: { path: '../pages/efficiency/index.js' },
-  'best-powers': { path: '../pages/best-powers/index.js' },
-  'fitness-state': { path: '../pages/fitness-state/index.js' },
-  zones: { path: '../pages/zones/index.js' },
-  vo2max: { path: '../pages/vo2max/index.js' },
-  'hr-zones': { path: '../pages/hr-zones/index.js' }
+  overview: { module: overviewPage },
+  activities: { path: '/static/js/pages/activities/index.js' },
+  settings: { path: '/static/js/pages/settings/index.js' },
+  upload: { path: '/static/js/pages/upload/index.js' },
+  'training-load': { path: '/static/js/pages/training-load/index.js' },
+  'power-curve': { path: '/static/js/pages/power-curve/index.js' },
+  'critical-power': { path: '/static/js/pages/critical-power/index.js' },
+  efficiency: { path: '/static/js/pages/efficiency/index.js' },
+  'best-powers': { path: '/static/js/pages/best-powers/index.js' },
+  'fitness-state': { path: '/static/js/pages/fitness-state/index.js' },
+  zones: { path: '/static/js/pages/zones/index.js' },
+  vo2max: { path: '/static/js/pages/vo2max/index.js' },
+  'hr-zones': { path: '/static/js/pages/hr-zones/index.js' }
 };
 
 const FALLBACK_MESSAGE = 'This page is not available yet. Check back soon!';
@@ -314,8 +315,15 @@ class Dashboard {
     console.log('[Dashboard] Registering pages...');
     
     for (const [pageKey, definition] of Object.entries(PAGE_DEFINITIONS)) {
+      const preloaded = definition.module;
       const modulePath = definition.path;
-      
+
+      if (preloaded) {
+        console.log(`[Dashboard] Using preloaded module for ${pageKey}`);
+        router.registerPage(pageKey, this.resolvePageModule(pageKey, { default: preloaded }) || preloaded);
+        continue;
+      }
+
       if (!modulePath) {
         console.info(`[Dashboard] Placeholder registered for ${pageKey}`);
         router.registerPage(pageKey, this.createPlaceholderPage(pageKey));

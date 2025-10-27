@@ -535,6 +535,21 @@
   .upload-result-error .upload-result-icon {
     background: #ef4444;
   }
+
+  .upload-result-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%);
+    border-radius: 10px;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    margin-bottom: 12px;
+  }
+
+  .upload-result-warning .upload-result-icon {
+    background: #f59e0b;
+  }
   
   /* ============================================
      UTILITY CLASSES

@@ -12,6 +12,7 @@ import CONFIG from '../core/config.js';
 class UploadService {
   constructor() {
     this.isUploading = false;
+    this.uploadStartedAt = null;
     this.setupEventListeners();
   }
 
@@ -28,45 +29,46 @@ class UploadService {
   handleUploadComplete(result) {
     // Check if any files were successfully imported
     const successCount = result.results?.filter(r => r.success).length || 0;
-    
+
     if (successCount > 0 && result.cache_rebuild_triggered) {
       console.log(`[Upload] ${successCount} files imported, backend cache rebuild triggered`);
-      
-      // Clear frontend caches immediately
-      if (window.Services?.data) {
-        window.Services.data.clearAllCaches();
-        console.log('[Upload] Frontend cache cleared');
-      }
-      
-      // Emit data imported event
-      eventBus.emit(EVENTS.DATA_IMPORTED, {
-        fileCount: successCount,
-        timestamp: Date.now(),
-        cacheRebuildTriggered: true
+      this.postImportRefresh(successCount).catch(err => {
+        console.error('[Upload] Post-import refresh failed:', err);
       });
-      
-      // Show notification
-      notify(
-        `${successCount} file(s) imported successfully! Analyzing new data in background...`,
-        'success',
-        5000
-      );
-      
-      // Wait for backend cache rebuild (give it 2-3 seconds)
-      setTimeout(() => {
-        console.log('[Upload] Backend cache should be ready, prefetching data');
-        
-        // Prefetch fresh data for current page
-        if (window.Services?.data) {
-          window.Services.data.prefetchCommonData();
-        }
-        
-        // Refresh current page to show new data
-        if (window.router?.refresh) {
-          window.router.refresh();
-        }
-      }, 3000);
     }
+  }
+
+  async postImportRefresh(successCount) {
+    notify(`${successCount} file(s) imported. Rebuilding analytics...`, 'info', 4000);
+
+    const targetTime = this.uploadStartedAt || Date.now();
+    const rebuilt = await this.waitForCacheRebuild(targetTime);
+
+    if (!rebuilt) {
+      notify('Cache rebuild is taking longer than expected. Data will update shortly.', 'warning', 6000);
+    }
+
+    if (window.Services?.data) {
+      window.Services.data.clearAllCaches();
+      await window.Services.data.prefetchCommonData({ forceRefresh: true });
+    }
+
+    eventBus.emit(EVENTS.DATA_IMPORTED, {
+      fileCount: successCount,
+      timestamp: Date.now(),
+      cacheRebuildTriggered: true
+    });
+
+    if (window.router?.refresh) {
+      try {
+        await window.router.refresh();
+      } catch (err) {
+        console.warn('[Upload] Router refresh failed:', err);
+      }
+    }
+
+    notify('Analytics updated with your latest activities!', 'success', 4000);
+    this.uploadStartedAt = null;
   }
 
   /**
@@ -92,6 +94,7 @@ class UploadService {
     try {
       // Update state
       this.isUploading = true;
+      this.uploadStartedAt = Date.now();
       state.updateUploadProgress({
         isUploading: true,
         total: validation.validFiles.length,
@@ -225,6 +228,32 @@ class UploadService {
     
     return { valid: true };
   }
+
+  async waitForCacheRebuild(targetTime, { timeoutMs = 120000, intervalMs = 3000 } = {}) {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      try {
+        const status = await API.getCacheStatus();
+        const builtAt = status?.cache_built_at ? Date.parse(status.cache_built_at) : null;
+
+        if (builtAt && builtAt >= targetTime) {
+          console.log('[Upload] Cache rebuild completed at', status.cache_built_at);
+          return true;
+        }
+      } catch (err) {
+        console.warn('[Upload] Cache status check failed:', err.message);
+      }
+
+      await this.sleep(intervalMs);
+    }
+
+    return false;
+  }
+
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 }
 
 // Create singleton instance
@@ -237,5 +266,3 @@ if (typeof window !== 'undefined') {
 
 export { UploadService };
 export default uploadService;
-
-

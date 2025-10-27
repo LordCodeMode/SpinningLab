@@ -135,3 +135,4 @@ class TrainingLoadResponse(BaseModel):
     ctl: float
     atl: float
     tsb: float
+    tss: float = 0.0

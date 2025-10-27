@@ -267,8 +267,12 @@ class TrainingLoadPage {
     
     const { daily } = this.data;
     
-    const chartData = Services.chart.prepareTrainingLoadChart(daily);
-    const chartOptions = Services.chart.getTrainingLoadChartOptions();
+    const chartPacket = Services.chart.prepareTrainingLoadChart(daily);
+    const chartData = {
+      labels: chartPacket.labels,
+      datasets: chartPacket.datasets
+    };
+    const chartOptions = Services.chart.getTrainingLoadChartOptions(chartPacket.meta);
     
     chartOptions.onClick = () => {
       Services.analytics.trackChartInteraction('training-load', 'click');
@@ -284,8 +288,12 @@ class TrainingLoadPage {
   updateChart() {
     if (!this.chart || !this.data) return;
     
-    const chartData = Services.chart.prepareTrainingLoadChart(this.data.daily);
-    this.chart.data = chartData;
+    const chartPacket = Services.chart.prepareTrainingLoadChart(this.data.daily);
+    this.chart.options = Services.chart.getTrainingLoadChartOptions(chartPacket.meta);
+    this.chart.data = {
+      labels: chartPacket.labels,
+      datasets: chartPacket.datasets
+    };
     this.chart.update();
   }
 

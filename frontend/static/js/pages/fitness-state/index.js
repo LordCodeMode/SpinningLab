@@ -5,11 +5,13 @@
 // FILE: pages/fitness-state/index.js
 import Services from '../../services/index.js';
 import { InsightCard, LoadingSkeleton, MetricCard } from '../../components/ui/index.js';
+import { eventBus, EVENTS } from '../../core/eventBus.js';
 import CONFIG from './config.js';
 
 class FitnessStatePage {
   constructor() {
     this.config = CONFIG;
+    this.handleDataImported = this.handleDataImported.bind(this);
   }
 
   async load() {
@@ -17,10 +19,11 @@ class FitnessStatePage {
       Services.analytics.trackPageView('fitness-state');
       this.renderLoading();
       
-      this.data = await Services.data.getFitnessState();
+      this.data = await Services.data.getFitnessState({ forceRefresh: true });
       this.insights = Services.insight.generateFitnessStateInsights(this.data);
       
       this.render();
+      eventBus.on(EVENTS.DATA_IMPORTED, this.handleDataImported);
     } catch (error) {
       this.renderError(error);
     }
@@ -33,7 +36,15 @@ class FitnessStatePage {
       return;
     }
 
-    const { status, status_description, ctl, atl, tsb, ef_trend, recommendations } = this.data;
+    const {
+      status = 'unknown',
+      status_description = 'No data available yet. Upload more activities to analyse your fitness state.',
+      ctl = null,
+      atl = null,
+      tsb = null,
+      ef_trend = null,
+      recommendations = []
+    } = this.data || {};
 
     container.innerHTML = `
       <div class="fs-section">
@@ -65,7 +76,7 @@ class FitnessStatePage {
               </div>
               <span class="fs-metric-label">CTL (Fitness)</span>
             </div>
-            <div class="fs-metric-value">${ctl.toFixed(1)}</div>
+            <div class="fs-metric-value">${this.formatMetric(ctl)}</div>
           </div>
 
           <div class="fs-metric-card">
@@ -77,7 +88,7 @@ class FitnessStatePage {
               </div>
               <span class="fs-metric-label">ATL (Fatigue)</span>
             </div>
-            <div class="fs-metric-value">${atl.toFixed(1)}</div>
+            <div class="fs-metric-value">${this.formatMetric(atl)}</div>
           </div>
 
           <div class="fs-metric-card">
@@ -89,7 +100,7 @@ class FitnessStatePage {
               </div>
               <span class="fs-metric-label">TSB (Form)</span>
             </div>
-            <div class="fs-metric-value">${tsb.toFixed(1)}</div>
+            <div class="fs-metric-value">${this.formatMetric(tsb)}</div>
           </div>
 
           <div class="fs-metric-card">
@@ -101,7 +112,7 @@ class FitnessStatePage {
               </div>
               <span class="fs-metric-label">Efficiency Trend</span>
             </div>
-            <div class="fs-metric-value">${ef_trend ? ef_trend.toFixed(1) + '%' : '-'}</div>
+            <div class="fs-metric-value">${this.formatMetric(ef_trend, 1, '—', true)}</div>
           </div>
         </div>
 
@@ -179,7 +190,15 @@ class FitnessStatePage {
     return icons[status] || icons.unknown;
   }
 
+  formatMetric(value, digits = 1, fallback = '—', asPercent = false) {
+    if (value == null || Number.isNaN(value)) return fallback;
+    const num = Number(value);
+    const formatted = num.toFixed(digits);
+    return asPercent ? `${formatted}%` : formatted;
+  }
+
   capitalizeFirst(str) {
+    if (!str || typeof str !== 'string') return 'Unknown';
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
@@ -198,6 +217,17 @@ class FitnessStatePage {
 
   onUnload() {
     this.data = null;
+    eventBus.off(EVENTS.DATA_IMPORTED, this.handleDataImported);
+  }
+
+  async handleDataImported() {
+    try {
+      this.data = await Services.data.getFitnessState({ forceRefresh: true });
+      this.insights = Services.insight.generateFitnessStateInsights(this.data);
+      this.render();
+    } catch (error) {
+      console.error('[FitnessState] Refresh failed:', error);
+    }
   }
 }
 

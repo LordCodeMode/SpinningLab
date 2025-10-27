@@ -205,40 +205,48 @@ export const AnalysisAPI = {
   // Returns: {efficiency_data: [...], trend: {...}}
   async getEfficiency(params = {}) {
     const response = await apiClient.get('/api/analysis/efficiency', params);
-    
-    // Transform to match page expectations
-    if (response.efficiency_data) {
+    const efficiencyData = Array.isArray(response?.efficiency_data) ? response.efficiency_data : [];
+    const trend = response?.trend ?? null;
+
+    if (!efficiencyData.length) {
       return {
-        current_ef: response.efficiency_data.length > 0 ? 
-          response.efficiency_data[response.efficiency_data.length - 1].ef : null,
-        avg_ef: response.efficiency_data.reduce((sum, item) => sum + (item.ef || 0), 0) / 
-          (response.efficiency_data.length || 1),
-        trend: response.trend?.trend || null,
-        timeseries: response.efficiency_data.map(item => ({
-          date: item.start_time,
-          ef: item.ef,
-          np: item.normalized_power,
-          hr: item.avg_heart_rate,
-          if: item.intensity_factor,
-          duration: null // Not provided by backend
-        })),
-        sessions: response.efficiency_data.map(item => ({
-          date: item.start_time,
-          ef: item.ef,
-          np: item.normalized_power,
-          hr: item.avg_heart_rate,
-          if: item.intensity_factor,
-          duration: null
-        }))
+        ...response,
+        efficiency_data: efficiencyData,
+        trend,
+        current_ef: response?.current_ef ?? null,
+        avg_ef: response?.avg_ef ?? null,
+        timeseries: [],
+        sessions: []
       };
     }
-    
-    return { 
-      current_ef: null, 
-      avg_ef: null, 
-      trend: null, 
-      timeseries: [], 
-      sessions: [] 
+
+    const timeseries = efficiencyData.map(item => {
+      const date = item.start_time ? new Date(item.start_time) : null;
+      const timestamp = date && !Number.isNaN(date.getTime()) ? date.getTime() : null;
+      return {
+        date: item.start_time,
+        ef: item.ef,
+        np: item.normalized_power,
+        hr: item.avg_heart_rate,
+        if: item.intensity_factor,
+        intensity_factor: item.intensity_factor,
+        duration: item.duration ?? null,
+        timestamp
+      };
+    });
+
+    const currentEf = response?.current_ef ?? (efficiencyData[efficiencyData.length - 1]?.ef ?? null);
+    const avgEfCalculated = efficiencyData.reduce((sum, item) => sum + (item.ef ?? 0), 0) / efficiencyData.length;
+    const avgEf = response?.avg_ef ?? (Number.isFinite(avgEfCalculated) ? avgEfCalculated : null);
+
+    return {
+      ...response,
+      efficiency_data: efficiencyData,
+      trend,
+      current_ef: currentEf,
+      avg_ef: avgEf,
+      timeseries,
+      sessions: response?.sessions ?? timeseries
     };
   },
   
