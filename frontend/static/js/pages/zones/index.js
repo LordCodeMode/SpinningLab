@@ -1,138 +1,612 @@
-// ============================================
-// ZONES PAGE (Power Zones)
-// ============================================
+// ============================================================
+// POWER ZONES PAGE – INSIGHT-RICH EXPERIENCE
+// ============================================================
 
-// FILE: pages/zones/index.js
 import Services from '../../services/index.js';
 import { LoadingSkeleton } from '../../components/ui/index.js';
 import CONFIG from './config.js';
 
+const POWER_ZONES = [
+  { num: 1, id: 'Z1', name: 'Recovery', range: '<55% FTP', color: '#c7d2fe', description: 'Flush fatigue with very easy spinning and active recovery rides.' },
+  { num: 2, id: 'Z2', name: 'Endurance', range: '55–75% FTP', color: '#a5bdfd', description: 'Build aerobic base and increase fat utilisation on long steady rides.' },
+  { num: 3, id: 'Z3', name: 'Tempo', range: '75–90% FTP', color: '#7fa6fa', description: 'Improve muscular endurance and prepare for sustained race efforts.' },
+  { num: 4, id: 'Z4', name: 'Threshold', range: '90–105% FTP', color: '#5c8cf3', description: 'Push your lactate threshold and ability to hold race-winning power.' },
+  { num: 5, id: 'Z5', name: 'VO₂ Max', range: '105–120% FTP', color: '#3f73e6', description: 'Boost aerobic ceiling with high-intensity intervals and hill repeats.' },
+  { num: 6, id: 'Z6', name: 'Anaerobic', range: '120–150% FTP', color: '#2b5bd6', description: 'Sharpen short attacks and surges for breakaways and punchy finales.' },
+  { num: 7, id: 'Z7', name: 'Neuromuscular', range: '>150% FTP', color: '#1e3a8a', description: 'All-out sprints to develop top-end power and explosive acceleration.' }
+];
+
 class ZonesPage {
   constructor() {
     this.config = CONFIG;
-    this.chart = null;
     this.currentDays = 90;
+    this.zones = [];
+    this.metrics = null;
+    this.settings = {};
+    this.distributionChart = null;
   }
 
   async load() {
     try {
-      Services.analytics.trackPageView('zones');
+      Services.analytics.trackPageView('power-zones');
       this.renderLoading();
-      
-      this.data = await Services.data.getPowerZones({ days: this.currentDays });
+      await this.fetchData(this.currentDays);
       this.render();
-      this.initChart();
+      this.renderCharts();
       this.setupEventListeners();
     } catch (error) {
       this.renderError(error);
     }
   }
 
+  async fetchData(days, { forceRefresh = false } = {}) {
+    const [zonesResponse, userSettings] = await Promise.all([
+      Services.data.getPowerZones({ days, forceRefresh }).catch(() => null),
+      Services.data.getSettings().catch(() => ({}))
+    ]);
+
+    this.currentDays = days;
+    this.settings = userSettings || {};
+    this.zonesResponse = zonesResponse || {};
+    this.zones = this.normaliseZones(zonesResponse);
+    this.metrics = this.computeMetrics(this.zones);
+  }
+
   render() {
     const container = document.getElementById('pageContent');
-    
+    if (!container) return;
+
+    if (!this.metrics || !this.metrics.totalSeconds) {
+      container.innerHTML = this.renderEmptyState();
+      return;
+    }
+
     container.innerHTML = `
-      <div class="page-section">
-        <div class="page-header">
-          <h1>Power Zones Distribution</h1>
-          <p>Time spent in each power zone</p>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-card__header">
-            <div class="chart-card__title-group">
-              <h3>Zone Distribution</h3>
-            </div>
-            <div class="chart-controls">
-              <button class="btn btn--sm ${this.currentDays === 30 ? 'active' : ''}" data-days="30">30d</button>
-              <button class="btn btn--sm ${this.currentDays === 90 ? 'active' : ''}" data-days="90">90d</button>
-              <button class="btn btn--sm ${this.currentDays === 180 ? 'active' : ''}" data-days="180">180d</button>
-            </div>
-          </div>
-          <div class="chart-card__container">
-            <canvas id="zonesChart"></canvas>
-          </div>
-        </div>
-
-        <!-- Zone Reference -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          ${this.renderZoneInfo()}
-        </div>
+      <div class="pz-shell">
+        ${this.renderHero()}
+        ${this.renderDistributionSection()}
+        ${this.renderBreakdownSection()}
+        ${this.renderHighlightsSection()}
+        ${this.renderInsightsSection()}
       </div>
     `;
-    
+
     if (typeof feather !== 'undefined') feather.replace();
   }
 
-  renderZoneInfo() {
-    const zones = [
-      { name: 'Z1 - Recovery', range: '< 55% FTP', color: '#c7f6c1' },
-      { name: 'Z2 - Endurance', range: '55-75% FTP', color: '#9ce4a5' },
-      { name: 'Z3 - Tempo', range: '75-90% FTP', color: '#ffe285' },
-      { name: 'Z4 - Threshold', range: '90-105% FTP', color: '#fab57e' },
-      { name: 'Z5 - VO2max', range: '105-120% FTP', color: '#f1998e' },
-      { name: 'Z6 - Anaerobic', range: '120-150% FTP', color: '#d67777' },
-      { name: 'Z7 - Neuromuscular', range: '> 150% FTP', color: '#c9a0db' }
-    ];
+  renderHero() {
+    const { averageWeeklyHours, endurancePercent, highIntensityPercent, totalHours, topZone, ftp, totalSeconds } = this.metrics;
+    const avgDailyMinutes = this.formatNumber((totalSeconds / 60) / this.currentDays, 1);
 
-    return zones.map(zone => `
-      <div class="card p-4" style="border-left: 4px solid ${zone.color}">
-        <h4 class="font-bold">${zone.name}</h4>
-        <p class="text-sm text-secondary">${zone.range}</p>
-      </div>
-    `).join('');
+    return `
+      <section class="pz-hero">
+        <div class="pz-hero__content">
+          <div class="pz-hero__meta">
+            <span class="pz-pill"><i data-feather="activity"></i>Power Zones</span>
+            <span class="pz-pill pz-pill--muted"><i data-feather="calendar"></i>Last ${this.currentDays} days</span>
+            <span class="pz-pill"><i data-feather="target"></i>FTP ${ftp} W</span>
+          </div>
+
+          <h1>Intensity Mix Overview</h1>
+          <p class="pz-hero__description">Visualise how your training time is distributed across power zones. Keep endurance volume high to drive aerobic development while sprinkling in purposeful high-intensity work.</p>
+
+          <div class="pz-hero__stats">
+            <div class="pz-stat-card">
+              <span class="pz-stat-label">Total Riding</span>
+              <span class="pz-stat-value">${this.formatNumber(totalHours, 1)} h</span>
+              <span class="pz-stat-meta">${avgDailyMinutes} min per day</span>
+            </div>
+            <div class="pz-stat-card">
+              <span class="pz-stat-label">Endurance Share</span>
+              <span class="pz-stat-value">${this.formatNumber(endurancePercent, 1)}%</span>
+              <span class="pz-stat-meta">Z1–Z2 aerobic foundation</span>
+            </div>
+            <div class="pz-stat-card">
+              <span class="pz-stat-label">High Intensity</span>
+              <span class="pz-stat-value">${this.formatNumber(highIntensityPercent, 1)}%</span>
+              <span class="pz-stat-meta">Z5+ anaerobic & VO₂ conditioning</span>
+            </div>
+          </div>
+
+          <div class="pz-hero__quick-stats">
+            <div class="pz-quick-stat">
+              <span class="pz-quick-stat__label">Primary Zone</span>
+              <span class="pz-quick-stat__value">${this.escapeHtml(topZone.displayName)}</span>
+              <span class="pz-quick-stat__meta">${this.formatNumber(topZone.percent, 1)}% of training</span>
+            </div>
+            <div class="pz-quick-stat">
+              <span class="pz-quick-stat__label">Weekly Volume</span>
+              <span class="pz-quick-stat__value">${this.formatNumber(averageWeeklyHours, 1)} h</span>
+              <span class="pz-quick-stat__meta">Projected across ${this.currentDays} day window</span>
+            </div>
+          </div>
+
+          <div class="pz-hero__controls">
+            ${[30, 60, 90, 180].map(days => `
+              <button class="pz-range-btn ${this.currentDays === days ? 'active' : ''}" data-range="${days}">${days}d</button>
+            `).join('')}
+            <button class="pz-range-btn ${this.currentDays === 365 ? 'active' : ''}" data-range="365">1y</button>
+          </div>
+        </div>
+
+        <div class="pz-hero__chart">
+          <div class="pz-hero__chart-wrapper">
+            <canvas id="pz-distribution-chart" aria-label="Power zones doughnut chart"></canvas>
+          </div>
+          <ul class="pz-hero__legend">
+            ${this.metrics.zoneDetails.map(zone => `
+              <li>
+                <span class="pz-legend-dot" style="background:${zone.color}"></span>
+                <span>${this.escapeHtml(zone.displayName)} · ${this.formatNumber(zone.percent, 1)}%</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      </section>
+    `;
   }
 
-  initChart() {
-    const canvas = document.getElementById('zonesChart');
-    if (!canvas || !this.data || !this.data.zones) return;
-    
-    const chartData = Services.chart.prepareZoneDistributionChart(this.data.zones);
-    const chartOptions = Services.chart.getZoneDistributionChartOptions();
-    
-    this.chart = new Chart(canvas, {
-      type: 'bar',
-      data: chartData,
-      options: chartOptions
-    });
+  renderDistributionSection() {
+    return `
+      <section class="pz-section">
+        <header class="pz-section__header">
+          <h2 class="pz-section__title">Zone Breakdown</h2>
+          <p class="pz-section__subtitle">Detailed view of time spent across each training zone.</p>
+        </header>
+        <div class="pz-zone-list">
+          ${this.metrics.zoneDetails.map(zone => this.renderZoneRow(zone)).join('')}
+        </div>
+      </section>
+    `;
   }
 
-  setupEventListeners() {
-    document.querySelectorAll('[data-days]').forEach(btn => {
-      btn.addEventListener('click', (e) => this.handleTimeRangeChange(parseInt(e.target.dataset.days)));
-    });
+  renderZoneRow(zone) {
+    return `
+      <article class="pz-zone-row">
+        <div class="pz-zone-row__header">
+          <div>
+            <span class="pz-zone-row__title">${this.escapeHtml(zone.displayName)}</span>
+            <span class="pz-zone-row__range">${this.escapeHtml(zone.range)}</span>
+          </div>
+          <div class="pz-zone-row__stats">
+            <span class="pz-zone-row__time">${zone.formattedTime}</span>
+            <span class="pz-zone-row__percent">${this.formatNumber(zone.percent, 1)}%</span>
+          </div>
+        </div>
+        <div class="pz-zone-row__bar">
+          <div class="pz-zone-row__fill" style="width:${zone.percent}%; background:${zone.color}"></div>
+        </div>
+        <p class="pz-zone-row__description">${this.escapeHtml(zone.description)}</p>
+      </article>
+    `;
   }
 
-  async handleTimeRangeChange(days) {
-    if (days === this.currentDays) return;
-    
-    this.currentDays = days;
-    this.data = await Services.data.getPowerZones({ days, forceRefresh: true });
-    this.updateChart();
+  renderBreakdownSection() {
+    const endurance = this.metrics.zoneDetails.filter(z => z.num <= 2).reduce((acc, z) => acc + z.percent, 0);
+    const tempo = this.metrics.zoneDetails.filter(z => z.num === 3 || z.num === 4).reduce((acc, z) => acc + z.percent, 0);
+    const intensity = this.metrics.zoneDetails.filter(z => z.num >= 5).reduce((acc, z) => acc + z.percent, 0);
+
+    return `
+      <section class="pz-section">
+        <header class="pz-section__header">
+          <h2 class="pz-section__title">Intensity Mix Summary</h2>
+          <p class="pz-section__subtitle">Understand how your training blocks balance aerobic base with race-ready intensity.</p>
+        </header>
+        <div class="pz-mix-grid">
+          <div class="pz-mix-card">
+            <span class="pz-mix-label">Aerobic Foundation</span>
+            <span class="pz-mix-value">${this.formatNumber(endurance, 1)}%</span>
+            <p>Time spent in Z1–Z2 supporting aerobic base, fat metabolism and recovery capacity.</p>
+          </div>
+          <div class="pz-mix-card">
+            <span class="pz-mix-label">Tempo & Threshold</span>
+            <span class="pz-mix-value">${this.formatNumber(tempo, 1)}%</span>
+            <p>Steady pressure in Z3–Z4 develops muscular endurance and race pacing resilience.</p>
+          </div>
+          <div class="pz-mix-card">
+            <span class="pz-mix-label">High Intensity</span>
+            <span class="pz-mix-value">${this.formatNumber(intensity, 1)}%</span>
+            <p>Z5+ efforts sharpen VO₂ max, anaerobic power and neuromuscular punch for racing.</p>
+          </div>
+        </div>
+      </section>
+    `;
   }
 
-  updateChart() {
-    if (!this.chart || !this.data) return;
-    const chartData = Services.chart.prepareZoneDistributionChart(this.data.zones);
-    this.chart.data = chartData;
-    this.chart.update();
+  renderHighlightsSection() {
+    const {
+      polarizationScore,
+      tempoPercent,
+      recoveryPercent,
+      sprintMinutes,
+      polarizationRatio
+    } = this.metrics;
+
+    const polarizationDescriptor = polarizationScore >= 80
+      ? 'Highly polarised split—maintain the easy-hard contrast.'
+      : polarizationScore >= 60
+        ? 'Healthy balance between endurance and high intensity.'
+        : 'Distribution leans tempo heavy; consider adding easier volume.';
+
+    const tempoDescriptor = tempoPercent > 35
+      ? 'Tempo and threshold are elevated; weave in more low-intensity spins.'
+      : tempoPercent < 20
+        ? 'Sweet spot time is light; add blocks to raise sustained power.'
+        : 'Tempo load sits in the productive 20–35% band.';
+
+    const recoveryDescriptor = recoveryPercent < 20
+      ? 'Recovery dose is slim; schedule easy spins after intense days.'
+      : recoveryPercent > 35
+        ? 'Plenty of restorative time supporting adaptations.'
+        : 'Recovery share is on point—keep pairing it with key workouts.';
+
+    return `
+      <section class="pz-section">
+        <header class="pz-section__header">
+          <h2 class="pz-section__title">Focus Highlights</h2>
+          <p class="pz-section__subtitle">Quick-read metrics to gauge how closely your distribution mirrors the team template.</p>
+        </header>
+        <div class="pz-highlight-grid">
+          <article class="pz-highlight-card">
+            <div class="pz-highlight-top">
+              <span class="pz-highlight-label">Polarisation Score</span>
+              <span class="pz-highlight-value">${this.formatNumber(polarizationScore, 0)}</span>
+            </div>
+            <div class="pz-highlight-bar">
+              <div class="pz-highlight-fill" style="width:${Math.max(0, Math.min(100, polarizationScore))}%;"></div>
+              <span class="pz-highlight-marker" style="left:70%;"></span>
+              <span class="pz-highlight-marker" style="left:85%;"></span>
+            </div>
+            <p>${this.escapeHtml(polarizationDescriptor)}</p>
+            <footer class="pz-highlight-footer">Ratio (low + high) ÷ tempo: ${this.formatNumber(polarizationRatio, 2)}</footer>
+          </article>
+          <article class="pz-highlight-card">
+            <div class="pz-highlight-top">
+              <span class="pz-highlight-label">Tempo Load</span>
+              <span class="pz-highlight-value">${this.formatNumber(tempoPercent, 1)}%</span>
+            </div>
+            <div class="pz-highlight-bar">
+              <div class="pz-highlight-fill pz-highlight-fill--accent" style="width:${Math.max(0, Math.min(100, tempoPercent))}%;"></div>
+              <span class="pz-highlight-marker" style="left:20%;"></span>
+              <span class="pz-highlight-marker" style="left:35%;"></span>
+            </div>
+            <p>${this.escapeHtml(tempoDescriptor)}</p>
+          </article>
+          <article class="pz-highlight-card">
+            <div class="pz-highlight-top">
+              <span class="pz-highlight-label">Recovery Share</span>
+              <span class="pz-highlight-value">${this.formatNumber(recoveryPercent, 1)}%</span>
+            </div>
+            <div class="pz-highlight-bar">
+              <div class="pz-highlight-fill pz-highlight-fill--muted" style="width:${Math.max(0, Math.min(100, recoveryPercent))}%;"></div>
+              <span class="pz-highlight-marker" style="left:30%;"></span>
+            </div>
+            <p>${this.escapeHtml(recoveryDescriptor)}</p>
+            <footer class="pz-highlight-footer">Sprint minutes in Z6–Z7: ${this.formatNumber(sprintMinutes, 0)} min</footer>
+          </article>
+        </div>
+      </section>
+    `;
   }
 
-  renderLoading() {
-    document.getElementById('pageContent').innerHTML = LoadingSkeleton({ type: 'chart', count: 1 });
+  renderInsightsSection() {
+    const insights = this.buildInsights();
+    return `
+      <section class="pz-section">
+        <header class="pz-section__header">
+          <h2 class="pz-section__title">Coaching Insights</h2>
+          <p class="pz-section__subtitle">Actionable observations extracted from your power-zone distribution.</p>
+        </header>
+        <div class="pz-insight-grid">
+          ${insights.map(insight => `
+            <article class="pz-insight-card">
+              <header>
+                <span class="pz-pill ${insight.badgeClass}">${this.escapeHtml(insight.badge)}</span>
+                <h3>${this.escapeHtml(insight.title)}</h3>
+              </header>
+              <p>${this.escapeHtml(insight.body)}</p>
+              ${insight.footer ? `<footer>${this.escapeHtml(insight.footer)}</footer>` : ''}
+            </article>
+          `).join('')}
+        </div>
+      </section>
+    `;
   }
 
-  renderError(error) {
-    document.getElementById('pageContent').innerHTML = `
-      <div class="error-state">
-        <h3>Failed to Load Power Zones</h3>
-        <p>${error.message}</p>
+  renderEmptyState() {
+    return `
+      <div class="pz-empty">
+        <i data-feather="slash"></i>
+        <h3>No Power Zone Data</h3>
+        <p>Upload rides with power data to unlock distribution visualisations and personalised insights.</p>
       </div>
     `;
   }
 
+  renderLoading() {
+    const container = document.getElementById('pageContent');
+    if (!container) return;
+    container.innerHTML = LoadingSkeleton({ type: 'chart', count: 2 });
+  }
+
+  renderError(error) {
+    const container = document.getElementById('pageContent');
+    if (!container) return;
+    container.innerHTML = `
+      <div class="pz-empty">
+        <i data-feather="alert-triangle"></i>
+        <h3>Power Zones Unavailable</h3>
+        <p>${this.escapeHtml(error?.message || 'Failed to load power zone data')}</p>
+      </div>
+    `;
+  }
+
+  renderCharts() {
+    if (!this.metrics || !this.metrics.zoneDetails.length) return;
+
+    const canvas = document.getElementById('pz-distribution-chart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    if (this.distributionChart) {
+      this.distributionChart.destroy();
+    }
+
+    const data = {
+      labels: this.metrics.zoneDetails.map(zone => zone.displayName),
+      datasets: [
+        {
+          data: this.metrics.zoneDetails.map(zone => zone.seconds),
+          backgroundColor: this.metrics.zoneDetails.map(zone => zone.color),
+          borderWidth: 3,
+          borderColor: '#ffffff',
+          hoverBorderWidth: 4,
+          hoverBorderColor: '#1d4ed8'
+        }
+      ]
+    };
+
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          padding: 12,
+          cornerRadius: 8,
+          titleFont: { size: 13, weight: '600' },
+          bodyFont: { size: 12 },
+          callbacks: {
+            label: context => {
+              const zone = this.metrics.zoneDetails[context.dataIndex];
+              return `${zone.displayName}: ${zone.formattedTime} (${this.formatNumber(zone.percent, 1)}%)`;
+            }
+          }
+        }
+      }
+    };
+
+    this.distributionChart = new Chart(canvas, { type: 'doughnut', data, options });
+  }
+
+  setupEventListeners() {
+    document.querySelectorAll('.pz-range-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const range = Number(btn.dataset.range);
+        this.handleRangeChange(range);
+      });
+    });
+  }
+
+  async handleRangeChange(days) {
+    if (!Number.isFinite(days) || days === this.currentDays) return;
+    try {
+      this.renderLoading();
+      await this.fetchData(days, { forceRefresh: true });
+      this.render();
+      this.renderCharts();
+      this.setupEventListeners();
+    } catch (error) {
+      this.renderError(error);
+    }
+  }
+
+  normaliseZones(raw) {
+    const map = new Map();
+
+    const pushValue = (name, seconds) => {
+      const zoneNum = this.extractZoneNumber(name);
+      if (!zoneNum) return;
+      const key = zoneNum;
+      const current = map.get(key) || 0;
+      map.set(key, current + Math.max(0, Number(seconds) || 0));
+    };
+
+    if (raw?.zones && Array.isArray(raw.zones)) {
+      raw.zones.forEach(z => pushValue(z.name ?? z.zone, z.seconds ?? (z.minutes ? z.minutes * 60 : 0)));
+    } else if (Array.isArray(raw)) {
+      raw.forEach(z => pushValue(z.name ?? z.zone, z.seconds ?? (z.minutes ? z.minutes * 60 : 0)));
+    } else if (raw && typeof raw === 'object') {
+      Object.entries(raw).forEach(([name, value]) => pushValue(name, value));
+    }
+
+    return POWER_ZONES.map(meta => ({
+      ...meta,
+      seconds: map.get(meta.num) || 0
+    }));
+  }
+
+  computeMetrics(zones) {
+    const totalSeconds = zones.reduce((sum, zone) => sum + zone.seconds, 0);
+    const safeTotal = totalSeconds || 1;
+
+    const zoneDetails = zones.map(zone => {
+      const percent = (zone.seconds / safeTotal) * 100;
+      return {
+        ...zone,
+        displayName: `Z${zone.num} · ${zone.name}`,
+        percent,
+        formattedTime: this.formatDuration(zone.seconds)
+      };
+    });
+
+    const sorted = [...zoneDetails].sort((a, b) => b.seconds - a.seconds);
+    const topZone = sorted[0] || zoneDetails[0];
+
+    const enduranceSeconds = zoneDetails.filter(z => z.num <= 2).reduce((sum, z) => sum + z.seconds, 0);
+    const highIntensitySeconds = zoneDetails.filter(z => z.num >= 5).reduce((sum, z) => sum + z.seconds, 0);
+    const tempoSeconds = zoneDetails.filter(z => z.num === 3 || z.num === 4).reduce((sum, z) => sum + z.seconds, 0);
+    const sprintSeconds = zoneDetails.filter(z => z.num >= 6).reduce((sum, z) => sum + z.seconds, 0);
+    const recoveryPercent = zoneDetails.find(z => z.num === 1)?.percent || 0;
+    const tempoPercent = (tempoSeconds / safeTotal) * 100;
+    const sprintMinutes = sprintSeconds / 60;
+
+    const ftp = Number(this.zonesResponse?.ftp ?? this.settings?.ftp ?? 250);
+    const polarizationRatio = tempoPercent > 0
+      ? ( (enduranceSeconds + highIntensitySeconds) / tempoSeconds )
+      : 4;
+    const polarizationScore = Math.round(Math.max(0, Math.min(4, polarizationRatio)) * 25);
+
+    return {
+      totalSeconds,
+      totalHours: totalSeconds / 3600,
+      averageWeeklyHours: totalSeconds / 3600 / (this.currentDays / 7),
+      zoneDetails,
+      topZone,
+      endurancePercent: (enduranceSeconds / safeTotal) * 100,
+      highIntensityPercent: (highIntensitySeconds / safeTotal) * 100,
+      tempoPercent,
+      recoveryPercent,
+      sprintMinutes,
+      polarizationRatio,
+      polarizationScore,
+      ftp
+    };
+  }
+
+  buildInsights() {
+    const insights = [];
+    const endurance = this.metrics.endurancePercent;
+    const hi = this.metrics.highIntensityPercent;
+    const weekly = this.metrics.averageWeeklyHours;
+    const polarizationScore = this.metrics.polarizationScore;
+    const sprintMinutes = this.metrics.sprintMinutes;
+
+    insights.push({
+      title: `${this.metrics.topZone.displayName} dominates`,
+      body: `You spend ${this.formatNumber(this.metrics.topZone.percent, 1)}% of training in this zone. Ensure sessions in ${this.metrics.topZone.name} are serving a clear purpose.`,
+      badge: 'Strength',
+      badgeClass: 'pz-pill--primary'
+    });
+
+    if (polarizationScore >= 85) {
+      insights.push({
+        title: 'Strong polarisation',
+        body: `Low intensity and top-end work outweigh tempo time, yielding a polarisation score of ${this.formatNumber(polarizationScore, 0)}. Keep fuelling recovery so the quality stays high.`,
+        badge: 'Balanced',
+        badgeClass: 'pz-pill--success'
+      });
+    } else if (polarizationScore < 60) {
+      insights.push({
+        title: 'Lean tempo block',
+        body: `Polarisation score sits at ${this.formatNumber(polarizationScore, 0)}. Add recovery rides or short sprints so easy + high intensity eclipse tempo by design.`,
+        badge: 'Adjust',
+        badgeClass: 'pz-pill--warning'
+      });
+    }
+
+    if (endurance < 55) {
+      insights.push({
+        title: 'Add more aerobic volume',
+        body: `Endurance work accounts for ${this.formatNumber(endurance, 1)}%. Most riders thrive with 55–70% of time in Z1–Z2. Consider adding steady endurance rides.`,
+        badge: 'Suggestion',
+        badgeClass: 'pz-pill--warning'
+      });
+    } else {
+      insights.push({
+        title: 'Solid aerobic foundation',
+        body: `Great job keeping ${this.formatNumber(endurance, 1)}% of time in Z1–Z2. Maintain this routine to keep aerobic gains trending upward.`,
+        badge: 'Aerobic',
+        badgeClass: 'pz-pill--success'
+      });
+    }
+
+    if (hi > 18) {
+      insights.push({
+        title: 'Monitor high intensity load',
+        body: `${this.formatNumber(hi, 1)}% of training is in Z5+. Ensure you are recovering adequately between hard interval days.`,
+        badge: 'Caution',
+        badgeClass: 'pz-pill--warning'
+      });
+    } else if (hi < 8) {
+      insights.push({
+        title: 'Sprinkle in intensity',
+        body: `High-intensity exposure is ${this.formatNumber(hi, 1)}%. Incorporating one VO₂ or anaerobic session per week keeps top-end power primed.`,
+        badge: 'Opportunity',
+        badgeClass: 'pz-pill--muted'
+      });
+    }
+
+    if (sprintMinutes < 5) {
+      insights.push({
+        title: 'Minimal sprint exposure',
+        body: `Only ${this.formatNumber(sprintMinutes, 0)} minutes recorded in Z6–Z7. Short neuromuscular bursts maintain leg speed without heavy fatigue cost.`,
+        badge: 'Top-end',
+        badgeClass: 'pz-pill--muted'
+      });
+    } else if (sprintMinutes > 20) {
+      insights.push({
+        title: 'High sprint density',
+        body: `${this.formatNumber(sprintMinutes, 0)} minutes logged in Z6–Z7. Track fatigue; swap a sprint set for skill drills if legs feel heavy.`,
+        badge: 'Monitor',
+        badgeClass: 'pz-pill--warning'
+      });
+    }
+
+    insights.push({
+      title: 'Weekly workload',
+      body: `You’re averaging ${this.formatNumber(weekly, 1)} h per week in this window. Track how zone distribution shifts when you increase or decrease volume.`,
+      badge: 'Volume',
+      badgeClass: 'pz-pill--primary'
+    });
+
+    return insights;
+  }
+
+  extractZoneNumber(name = '') {
+    const match = String(name).match(/(\d+)/);
+    return match ? Number(match[1]) : null;
+  }
+
+  formatDuration(seconds) {
+    if (!Number.isFinite(seconds) || seconds <= 0) return '0h';
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.round((seconds % 3600) / 60);
+    if (hrs && mins) return `${hrs}h ${mins}m`;
+    if (hrs) return `${hrs}h`;
+    return `${mins}m`;
+  }
+
+  formatNumber(value, decimals = 0) {
+    return Number(value || 0).toFixed(decimals);
+  }
+
+  escapeHtml(value) {
+    if (typeof value !== 'string') return value;
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   onUnload() {
-    if (this.chart) this.chart.destroy();
+    if (this.distributionChart) {
+      this.distributionChart.destroy();
+      this.distributionChart = null;
+    }
   }
 }
 

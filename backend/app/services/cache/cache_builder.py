@@ -194,10 +194,10 @@ class CacheBuilder:
             
             for days in periods:
                 try:
-                    vo2max = vo2max_service.get_vo2max_trend(user, days=days)
-                    if vo2max:
-                        cache_key = f"vo2max_{days}d"
-                        self.cache_manager.set(cache_key, user.id, vo2max)
+                    vo2_payload = vo2max_service.estimate_vo2max(user, days=days)
+                    cache_key = f"vo2max_{days}d"
+                    self.cache_manager.set(cache_key, user.id, vo2_payload)
+                    logger.debug(f"Cached VO2Max for {days} days: {len(vo2_payload.get('estimates', []))} estimates")
                 except Exception as e:
                     logger.warning(f"Error caching VO2Max for {days} days: {e}")
             
