@@ -99,6 +99,7 @@ if (registerForm) {
         
         const username = document.getElementById("register-username")?.value.trim();
         const email = document.getElementById("register-email")?.value.trim() || null;
+        const name = document.getElementById("registerName")?.value.trim() || null;
         const password = document.getElementById("register-password")?.value;
         const confirm = document.getElementById("register-confirm")?.value;
         
@@ -131,8 +132,8 @@ if (registerForm) {
         if (btnLoader) btnLoader.style.display = "inline";
 
         try {
-            console.log('[Auth] Registering user:', username);
-            await AuthAPI.register(username, email, password);
+            console.log('[Auth] Registering user:', username, 'with name:', name);
+            await AuthAPI.register(username, email, password, name);
             
             notify("Registration successful! Please login.", "success");
             showTab("login");

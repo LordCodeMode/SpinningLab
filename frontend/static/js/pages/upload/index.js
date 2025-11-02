@@ -286,93 +286,126 @@ class UploadPage {
 
   async handleUpload() {
     if (this.files.length === 0 || this.isUploading) return;
-    
+
     this.isUploading = true;
-    
+
     // Hide actions, show progress
     document.getElementById('uploadActions')?.classList.add('hidden');
     const progressContainer = document.getElementById('uploadProgress');
-    progressContainer?.classList.remove('hidden');
-    
+    const progressBar = document.getElementById('progressFill');
+    const progressPercent = document.getElementById('progressPercent');
+    if (progressContainer) progressContainer.classList.remove('hidden');
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressPercent) progressPercent.textContent = '0%';
+
     try {
       console.log(`[Upload] Starting upload of ${this.files.length} file(s)`);
-      
-      // Simulate upload progress (replace with actual API call)
-      await this.simulateUpload();
-      
-      // Success
-      this.showResults('success', `Successfully uploaded ${this.files.length} file(s)!`);
-      
-      // Clear files after short delay
-      setTimeout(() => {
-        this.clearFiles();
-        progressContainer?.classList.add('hidden');
-        
-        // Optionally redirect to activities page
-        // window.router.navigateTo('activities');
-      }, 2000);
-      
+
+      // Actually upload files to the API
+      const result = await Services.upload.uploadFiles(this.files, {
+        onProgress: (current, total) => {
+          const pct = total ? Math.round((current / total) * 100) : 100;
+          if (progressBar) progressBar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+          if (progressPercent) progressPercent.textContent = `${Math.min(100, Math.max(0, pct))}%`;
+        }
+      });
+      console.log('[Upload] API result:', result);
+
+      // Show results based on actual response
+      const items = Array.isArray(result.results) ? result.results : [];
+      const successItems = items.filter(item => item?.success);
+      const duplicateItems = items.filter(item => !item?.success && /already imported/i.test(item?.message || ''));
+      const errorItems = items.filter(item => !item?.success && !/already imported/i.test(item?.message || ''));
+
+      const importedCount = successItems.length;
+      const duplicateCount = duplicateItems.length;
+      const failedCount = errorItems.length;
+      const failedMessages = errorItems.map(item => `${item.filename}: ${item.message || 'Unknown error'}`);
+      const processedCount = importedCount + duplicateCount;
+
+      if (processedCount > 0) {
+        const messageParts = [];
+        if (importedCount > 0) {
+          messageParts.push(`${importedCount} new file${importedCount === 1 ? '' : 's'} imported`);
+        } else if (duplicateCount > 0) {
+          messageParts.push('No new files imported');
+        }
+        if (duplicateCount > 0) {
+          messageParts.push(`${duplicateCount} already imported`);
+        }
+        if (failedCount > 0) {
+          messageParts.push(`${failedCount} failed`);
+        }
+
+        const summary = messageParts.join(' • ') || `Processed ${processedCount} file${processedCount === 1 ? '' : 's'}`;
+        const details = failedMessages.length ? `<br><small>${failedMessages.join('<br>')}</small>` : '';
+        const resultType = (failedCount > 0 || duplicateCount > 0) ? 'warning' : 'success';
+
+        this.showResults(resultType, `${summary}${details}`);
+
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressPercent) progressPercent.textContent = '100%';
+
+        setTimeout(() => {
+          this.clearFiles();
+          if (progressContainer) progressContainer.classList.add('hidden');
+        }, 2000);
+      } else {
+        // All files failed
+        const details = failedMessages.length ? `<br><small>${failedMessages.join('<br>')}</small>` : '';
+        this.showResults('error', `Upload failed: ${failedCount} file${failedCount === 1 ? '' : 's'} could not be processed${details}`);
+        document.getElementById('uploadActions')?.classList.remove('hidden');
+        if (progressContainer) progressContainer.classList.add('hidden');
+      }
+
     } catch (error) {
       console.error('[Upload] Upload failed:', error);
       this.showResults('error', `Upload failed: ${error.message}`);
-      
+
       // Show actions again
       document.getElementById('uploadActions')?.classList.remove('hidden');
-      progressContainer?.classList.add('hidden');
-      
+      if (progressContainer) progressContainer.classList.add('hidden');
+
     } finally {
       this.isUploading = false;
     }
   }
 
-  async simulateUpload() {
-    // This simulates upload progress - replace with actual API call
-    // await Services.API.uploadFitFiles(this.files);
-    
-    const progressFill = document.getElementById('progressFill');
-    const progressPercent = document.getElementById('progressPercent');
-    
-    return new Promise((resolve) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        
-        if (progressFill) {
-          progressFill.style.width = `${progress}%`;
-        }
-        
-        if (progressPercent) {
-          progressPercent.textContent = `${progress}%`;
-        }
-        
-        if (progress >= 100) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 200);
-    });
-  }
 
   showResults(type, message) {
     const container = document.getElementById('uploadResults');
     if (!container) return;
-    
-    const iconPath = type === 'success'
-      ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>'
-      : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>';
-    
-    const resultClass = type === 'success' ? 'upload-result-success' : 'upload-result-error';
-    
+
+    const config = {
+      success: {
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>',
+        className: 'upload-result-success',
+        title: 'Upload Complete'
+      },
+      warning: {
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a1 1 0 00.94-1.342L12.94 4.658a1 1 0 00-1.88 0L4.13 17.658A1 1 0 005.07 19z"/>',
+        className: 'upload-result-warning',
+        title: 'Upload Completed with Issues'
+      },
+      error: {
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>',
+        className: 'upload-result-error',
+        title: 'Upload Failed'
+      }
+    };
+
+    const variant = config[type] || config.error;
+
     container.innerHTML = `
       <div class="upload-results-card">
-        <div class="${resultClass}">
+        <div class="${variant.className}">
           <div class="upload-result-icon">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              ${iconPath}
+              ${variant.icon}
             </svg>
           </div>
           <div class="upload-result-content">
-            <div class="upload-result-title">${type === 'success' ? 'Upload Complete' : 'Upload Failed'}</div>
+            <div class="upload-result-title">${variant.title}</div>
             <div class="upload-result-text">${message}</div>
           </div>
         </div>

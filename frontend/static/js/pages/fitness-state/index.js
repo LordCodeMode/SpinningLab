@@ -4,12 +4,14 @@
 
 // FILE: pages/fitness-state/index.js
 import Services from '../../services/index.js';
-import { InsightCard } from '../../components/ui/index.js';
+import { InsightCard, LoadingSkeleton, MetricCard } from '../../components/ui/index.js';
+import { eventBus, EVENTS } from '../../core/eventBus.js';
 import CONFIG from './config.js';
 
 class FitnessStatePage {
   constructor() {
     this.config = CONFIG;
+    this.handleDataImported = this.handleDataImported.bind(this);
   }
 
   async load() {
@@ -17,10 +19,11 @@ class FitnessStatePage {
       Services.analytics.trackPageView('fitness-state');
       this.renderLoading();
       
-      this.data = await Services.data.getFitnessState();
+      this.data = await Services.data.getFitnessState({ forceRefresh: true });
       this.insights = Services.insight.generateFitnessStateInsights(this.data);
       
       this.render();
+      eventBus.on(EVENTS.DATA_IMPORTED, this.handleDataImported);
     } catch (error) {
       this.renderError(error);
     }
@@ -28,61 +31,118 @@ class FitnessStatePage {
 
   render() {
     const container = document.getElementById('pageContent');
-    const { status, status_description, ctl, atl, tsb, ef_trend, recommendations } = this.data;
-    
+    if (!container) {
+      console.error('[FitnessState] Container not found');
+      return;
+    }
+
+    const {
+      status = 'unknown',
+      status_description = 'No data available yet. Upload more activities to analyse your fitness state.',
+      ctl = null,
+      atl = null,
+      tsb = null,
+      ef_trend = null,
+      recommendations = []
+    } = this.data || {};
+
     container.innerHTML = `
-      <div class="page-section">
-        <div class="page-header">
+      <div class="fs-section">
+        <div class="fs-header">
           <h1>Fitness State Analysis</h1>
           <p>Comprehensive analysis of your current training state</p>
         </div>
 
-        <!-- Status Card -->
-        <div class="card p-6 mb-6" style="border-left: 4px solid ${this.getStatusColor(status)}">
-          <div class="flex items-center gap-4">
-            <div class="text-6xl">${this.getStatusIcon(status)}</div>
-            <div class="flex-1">
-              <h2 class="text-2xl font-bold mb-2">${this.capitalizeFirst(status)}</h2>
-              <p class="text-secondary">${status_description}</p>
-            </div>
+        <!-- Status Banner -->
+        <div class="fs-status-banner">
+          <div class="fs-status-icon">
+            ${this.getStatusIconSVG(status)}
+          </div>
+          <div class="fs-status-content">
+            <div class="fs-status-label">Current Status</div>
+            <div class="fs-status-title">${this.capitalizeFirst(status)}</div>
+            <div class="fs-status-description">${status_description}</div>
           </div>
         </div>
 
-        <!-- Metrics -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          ${MetricCard({ label: 'CTL (Fitness)', value: ctl.toFixed(1), variant: 'primary' })}
-          ${MetricCard({ label: 'ATL (Fatigue)', value: atl.toFixed(1), variant: 'danger' })}
-          ${MetricCard({ label: 'TSB (Form)', value: tsb.toFixed(1), variant: tsb >= 0 ? 'success' : 'warning' })}
-          ${MetricCard({ label: 'Efficiency Trend', value: ef_trend ? ef_trend.toFixed(1) + '%' : '-', variant: 'info' })}
+        <!-- Metrics Grid -->
+        <div class="fs-metrics-grid">
+          <div class="fs-metric-card">
+            <div class="fs-metric-header">
+              <div class="fs-metric-icon blue">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                </svg>
+              </div>
+              <span class="fs-metric-label">CTL (Fitness)</span>
+            </div>
+            <div class="fs-metric-value">${this.formatMetric(ctl)}</div>
+          </div>
+
+          <div class="fs-metric-card">
+            <div class="fs-metric-header">
+              <div class="fs-metric-icon amber">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <span class="fs-metric-label">ATL (Fatigue)</span>
+            </div>
+            <div class="fs-metric-value">${this.formatMetric(atl)}</div>
+          </div>
+
+          <div class="fs-metric-card">
+            <div class="fs-metric-header">
+              <div class="fs-metric-icon ${tsb >= 0 ? 'green' : 'amber'}">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <span class="fs-metric-label">TSB (Form)</span>
+            </div>
+            <div class="fs-metric-value">${this.formatMetric(tsb)}</div>
+          </div>
+
+          <div class="fs-metric-card">
+            <div class="fs-metric-header">
+              <div class="fs-metric-icon blue">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+              </div>
+              <span class="fs-metric-label">Efficiency Trend</span>
+            </div>
+            <div class="fs-metric-value">${this.formatMetric(ef_trend, 1, '—', true)}</div>
+          </div>
         </div>
 
         <!-- Recommendations -->
         ${recommendations && recommendations.length > 0 ? `
-          <div class="card p-6">
-            <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
-              <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+          <div class="fs-recommendations-card">
+            <div class="fs-recommendations-header">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
               </svg>
-              Recommendations
-            </h3>
-            <ul class="space-y-2">
-              ${recommendations.map(rec => `
-                <li class="flex items-start gap-3">
-                  <svg class="w-5 h-5 text-success mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span class="fs-recommendations-title">Recommendations</span>
+            </div>
+            ${recommendations.map(rec => `
+              <div class="fs-recommendation-item">
+                <div class="fs-recommendation-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                   </svg>
-                  <span>${rec}</span>
-                </li>
-              `).join('')}
-            </ul>
+                </div>
+                <div class="fs-recommendation-text">${rec}</div>
+              </div>
+            `).join('')}
           </div>
         ` : ''}
 
         <!-- Insights -->
         ${this.insights && this.insights.length > 0 ? `
-          <div class="mt-6">
-            <h3 class="text-xl font-bold mb-4">Detailed Insights</h3>
+          <div class="insights-container">
+            <h3 class="insights-title">Detailed Insights</h3>
             <div class="insights-grid">
               ${this.insights.map(i => InsightCard(i)).join('')}
             </div>
@@ -90,7 +150,7 @@ class FitnessStatePage {
         ` : ''}
       </div>
     `;
-    
+
     if (typeof feather !== 'undefined') feather.replace();
   }
 
@@ -118,7 +178,27 @@ class FitnessStatePage {
     return icons[status] || icons.unknown;
   }
 
+  getStatusIconSVG(status) {
+    const icons = {
+      peak: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`,
+      optimal: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+      good: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"/></svg>`,
+      overreaching: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`,
+      fatigued: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+      unknown: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+    };
+    return icons[status] || icons.unknown;
+  }
+
+  formatMetric(value, digits = 1, fallback = '—', asPercent = false) {
+    if (value == null || Number.isNaN(value)) return fallback;
+    const num = Number(value);
+    const formatted = num.toFixed(digits);
+    return asPercent ? `${formatted}%` : formatted;
+  }
+
   capitalizeFirst(str) {
+    if (!str || typeof str !== 'string') return 'Unknown';
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
@@ -137,6 +217,17 @@ class FitnessStatePage {
 
   onUnload() {
     this.data = null;
+    eventBus.off(EVENTS.DATA_IMPORTED, this.handleDataImported);
+  }
+
+  async handleDataImported() {
+    try {
+      this.data = await Services.data.getFitnessState({ forceRefresh: true });
+      this.insights = Services.insight.generateFitnessStateInsights(this.data);
+      this.render();
+    } catch (error) {
+      console.error('[FitnessState] Refresh failed:', error);
+    }
   }
 }
 

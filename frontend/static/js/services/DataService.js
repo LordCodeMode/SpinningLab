@@ -86,21 +86,28 @@ class DataService {
    * Prefetch commonly used data to warm the cache
    * Called after cache rebuild or on app initialization
    */
-  async prefetchCommonData() {
-    console.log('[DataService] Prefetching common data...');
-    
+  async prefetchCommonData({ forceRefresh = false } = {}) {
+    console.log(`[DataService] Prefetching common data (force: ${forceRefresh})...`);
+
     try {
-      // Prefetch in parallel (non-blocking)
+      const ranges = [30, 90, 180];
+
       const prefetchPromises = [
-        this.getTrainingLoad({ days: 90 }).catch(e => console.warn('Prefetch training load failed:', e)),
-        this.getPowerCurve({ weighted: false }).catch(e => console.warn('Prefetch power curve failed:', e)),
-        this.getFitnessState().catch(e => console.warn('Prefetch fitness state failed:', e)),
-        this.getSettings().catch(e => console.warn('Prefetch settings failed:', e))
+        ...ranges.map(days =>
+          this.getTrainingLoad({ days, forceRefresh }).catch(e => console.warn(`Prefetch training load (${days}) failed:`, e))
+        ),
+        ...[90, 180, 365].map(days =>
+          this.getEfficiency({ days, forceRefresh }).catch(e => console.warn(`Prefetch efficiency (${days}) failed:`, e))
+        ),
+        this.getPowerCurve({ weighted: false, forceRefresh }).catch(e => console.warn('Prefetch power curve failed:', e)),
+        this.getPowerCurve({ weighted: true, forceRefresh }).catch(e => console.warn('Prefetch power curve (W/kg) failed:', e)),
+        this.getFitnessState({ forceRefresh }).catch(e => console.warn('Prefetch fitness state failed:', e)),
+        this.getActivities({ limit: 20, skip: 0, forceRefresh }).catch(e => console.warn('Prefetch activities failed:', e)),
+        this.getSettings({ forceRefresh }).catch(e => console.warn('Prefetch settings failed:', e))
       ];
-      
+
       await Promise.allSettled(prefetchPromises);
       console.log('[DataService] Prefetch completed');
-      
     } catch (error) {
       console.error('[DataService] Prefetch failed:', error);
     }
@@ -165,6 +172,73 @@ class DataService {
    * @param {boolean} options.forceRefresh - Skip cache
    * @returns {Promise<Object>} Power curve data
    */
+  normalizePowerCurveData(rawData, { weighted = false } = {}) {
+    const empty = { durations: [], powers: [], weighted };
+    if (!rawData) {
+      return empty;
+    }
+
+    const buildFromPairs = (pairs, resultWeighted) => {
+      const dedup = new Map();
+
+      pairs.forEach(([duration, power]) => {
+        if (duration == null || power == null) return;
+
+        const durationNumber = Number(duration);
+        const powerNumber = Number(power);
+
+        if (!Number.isFinite(durationNumber) || !Number.isFinite(powerNumber)) return;
+
+        const durationInt = Math.max(1, Math.round(durationNumber));
+        const existing = dedup.get(durationInt);
+
+        if (existing === undefined || powerNumber > existing) {
+          dedup.set(durationInt, powerNumber);
+        }
+      });
+
+      if (dedup.size === 0) {
+        return { durations: [], powers: [], weighted: resultWeighted };
+      }
+
+      const sortedDurations = Array.from(dedup.keys()).sort((a, b) => a - b);
+      const normalizedPowers = sortedDurations.map(duration => dedup.get(duration));
+
+      return {
+        durations: sortedDurations,
+        powers: normalizedPowers,
+        weighted: resultWeighted
+      };
+    };
+
+    if (Array.isArray(rawData)) {
+      if (rawData.length > 0 && typeof rawData[0] === 'object' && rawData[0] !== null) {
+        const pairs = rawData.map(item => [item.duration, item.power]);
+        return buildFromPairs(pairs, weighted);
+      }
+
+      const pairs = rawData.map((power, index) => [index + 1, power]);
+      return buildFromPairs(pairs, weighted);
+    }
+
+    if (typeof rawData === 'object') {
+      const resultWeighted = rawData.weighted ?? weighted;
+
+      if (Array.isArray(rawData.durations) && Array.isArray(rawData.powers)) {
+        const maxLength = Math.min(rawData.durations.length, rawData.powers.length);
+        const pairs = [];
+
+        for (let i = 0; i < maxLength; i += 1) {
+          pairs.push([rawData.durations[i], rawData.powers[i]]);
+        }
+
+        return buildFromPairs(pairs, resultWeighted);
+      }
+    }
+
+    return empty;
+  }
+
   async getPowerCurve({ weighted = false, start = null, end = null, forceRefresh = false } = {}) {
     // Build cache key including date range
     let cacheKey = `power_curve_${weighted ? 'weighted' : 'absolute'}`;
@@ -176,7 +250,11 @@ class DataService {
       const cached = this.cache.get(cacheKey);
       if (cached) {
         console.log('[DataService] Using cached power curve');
-        return cached;
+        const normalizedCache = this.normalizePowerCurveData(cached, { weighted });
+        if (normalizedCache !== cached) {
+          this.cache.set(cacheKey, normalizedCache, CONFIG.CACHE_DURATION);
+        }
+        return normalizedCache;
       }
     }
     
@@ -190,11 +268,12 @@ class DataService {
       }
       
       const data = await AnalysisAPI.getPowerCurve(params);
+      const normalized = this.normalizePowerCurveData(data, { weighted });
       
       // Cache the result
-      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
+      this.cache.set(cacheKey, normalized, CONFIG.CACHE_DURATION);
       
-      return data;
+      return normalized;
     } catch (error) {
       console.error('[DataService] Error fetching power curve:', error);
       throw error;
@@ -245,7 +324,7 @@ class DataService {
    */
   async getEfficiency({ days = CONFIG.DEFAULT_DAYS.efficiency, forceRefresh = false } = {}) {
     const cacheKey = `efficiency_${days}`;
-    
+
     if (!forceRefresh) {
       const cached = this.cache.get(cacheKey);
       if (cached) {
@@ -253,19 +332,74 @@ class DataService {
         return cached;
       }
     }
-    
+
     try {
       console.log(`[DataService] Fetching efficiency (${days} days)...`);
-      const data = await AnalysisAPI.getEfficiency({ days });
-      
-      // Cache the result
-      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
-      
-      return data;
+      const raw = await AnalysisAPI.getEfficiency({ days });
+      const normalized = this.normalizeEfficiencyData(raw, days);
+
+      this.cache.set(cacheKey, normalized, CONFIG.CACHE_DURATION);
+
+      return normalized;
     } catch (error) {
       console.error('[DataService] Error fetching efficiency:', error);
       throw error;
     }
+  }
+
+  normalizeEfficiencyData(rawResponse = {}, days) {
+    const timeseries = Array.isArray(rawResponse.efficiency_data)
+      ? rawResponse.efficiency_data
+          .map(entry => {
+            const date = entry.start_time ? new Date(entry.start_time) : null;
+            const intensityFactor = this.toNumber(entry.intensity_factor, null);
+            return {
+              date,
+              timestamp: date ? date.getTime() : null,
+              np: this.toNumber(entry.normalized_power, null),
+              hr: this.toNumber(entry.avg_heart_rate, null),
+              intensityFactor,
+              ef: this.toNumber(entry.ef, null),
+              ga1: Number.isFinite(intensityFactor) ? intensityFactor < 0.75 : false
+            };
+          })
+          .filter(entry => entry.date && Number.isFinite(entry.ef))
+          .sort((a, b) => a.timestamp - b.timestamp)
+      : [];
+
+    const totalSessions = timeseries.length;
+    const ga1Sessions = timeseries.filter(item => Number.isFinite(item.intensityFactor) && item.intensityFactor < 0.75);
+    const avgEfAll = totalSessions ? (timeseries.reduce((sum, item) => sum + item.ef, 0) / totalSessions) : null;
+    const avgEfGA1 = ga1Sessions.length ? (ga1Sessions.reduce((sum, item) => sum + item.ef, 0) / ga1Sessions.length) : null;
+    const currentEf = ga1Sessions.length ? ga1Sessions[ga1Sessions.length - 1].ef : (timeseries.length ? timeseries[timeseries.length - 1].ef : null);
+
+    const bestEfSession = timeseries.reduce((best, item) => (item.ef > (best?.ef ?? -Infinity) ? item : best), null);
+    const worstEfSession = timeseries.reduce((worst, item) => (item.ef < (worst?.ef ?? Infinity) ? item : worst), null);
+
+    const trendInfo = rawResponse.trend || {};
+    const trendLabel = trendInfo.trend || 'no_data';
+    const trendPct = this.toNumber(trendInfo.trend_percentage, null);
+
+    return {
+      days,
+      timeseries,
+      metrics: {
+        currentEf,
+        averageEfAll: avgEfAll,
+        averageEfGa1: avgEfGA1,
+        totalSessions,
+        ga1Sessions: ga1Sessions.length,
+        trend: trendLabel,
+        trendPct,
+        bestSession: bestEfSession,
+        worstSession: worstEfSession
+      }
+    };
+  }
+
+  toNumber(value, fallback = 0) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
   }
 
   // ========== FITNESS STATE ==========
@@ -510,12 +644,12 @@ class DataService {
    * Get activities list with caching
    * @param {Object} options - Query options
    * @param {number} options.limit - Number of activities
-   * @param {number} options.offset - Pagination offset
+   * @param {number} options.skip - Pagination offset (number of records to skip)
    * @param {boolean} options.forceRefresh - Skip cache
    * @returns {Promise<Array>} Activities array
    */
-  async getActivities({ limit = 20, offset = 0, forceRefresh = false } = {}) {
-    const cacheKey = `activities_${limit}_${offset}`;
+  async getActivities({ limit = 20, skip = 0, startDate = null, endDate = null, forceRefresh = false } = {}) {
+    const cacheKey = `activities_${limit}_${skip}_${startDate || 'all'}_${endDate || 'all'}`;
     
     if (!forceRefresh) {
       const cached = this.cache.get(cacheKey);
@@ -526,8 +660,11 @@ class DataService {
     }
     
     try {
-      console.log(`[DataService] Fetching activities (limit: ${limit}, offset: ${offset})...`);
-      const data = await API.getActivities({ limit, offset });
+      console.log(`[DataService] Fetching activities (limit: ${limit}, skip: ${skip})...`);
+      const params = { limit, skip };
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+      const data = await API.getActivities(params);
       
       // Cache the result
       this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);

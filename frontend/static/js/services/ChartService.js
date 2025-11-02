@@ -8,6 +8,10 @@ import CONFIG from '../core/config.js';
 class ChartService {
   constructor() {
     this.colors = CONFIG.CHART_COLORS;
+    this.lastPowerCurveRange = {
+      minDuration: 1,
+      maxDuration: 3600
+    };
   }
 
   // ========== TRAINING LOAD CHARTS ==========
@@ -17,60 +21,94 @@ class ChartService {
    * @param {Array} data - Training load daily data
    * @returns {Object} Chart.js dataset configuration
    */
-  prepareTrainingLoadChart(data) {
+  prepareTrainingLoadChart(data, { mode = 'daily' } = {}) {
     if (!data || data.length === 0) {
-      return this.getEmptyChartData();
+      return {
+        ...this.getEmptyChartData(),
+        meta: { mode, hasTss: false, hasDistance: false, labelsDetailed: [] }
+      };
     }
 
-    const labels = data.map(d => this.formatDate(d.date));
-    
+    const toNumber = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    const labels = data.map(d => d.label || this.formatDate(d.date));
+    const labelsDetailed = data.map(d => d.tooltip || d.label || this.formatDetailedDuration(d.date, mode, d.endDate));
+
+    const ctlValues = data.map(d => toNumber(d.ctl));
+    const tssValues = data.map(d => toNumber(d.tss));
+    const distanceValues = data.map(d => toNumber(d.distance));
+
+    const hasTss = tssValues.some(v => Math.abs(v) > 0.01);
+    const hasDistance = distanceValues.some(v => Math.abs(v) > 0.01);
+
+    const datasets = [];
+
+    if (hasTss) {
+      datasets.push({
+        type: 'bar',
+        label: mode === 'weekly' ? 'Weekly TSS' : 'Daily TSS',
+        data: tssValues,
+        backgroundColor: this.hexToRgba(this.colors.warning, 0.35),
+        borderColor: this.hexToRgba(this.colors.warning, 0.7),
+        borderWidth: 1,
+        borderRadius: 6,
+        barPercentage: 0.6,
+        categoryPercentage: 0.7,
+        yAxisID: 'y1',
+        order: 1
+      });
+    }
+
+    datasets.push({
+      label: 'CTL (Fitness)',
+      data: ctlValues,
+      borderColor: this.colors.primary,
+      backgroundColor: this.hexToRgba(this.colors.primary, 0.08),
+      borderWidth: 3,
+      fill: false,
+      tension: 0.35,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      pointHoverBackgroundColor: this.colors.primary,
+      pointHoverBorderWidth: 2,
+      pointHoverBorderColor: '#fff',
+      cubicInterpolationMode: 'monotone',
+      yAxisID: 'y',
+      order: 2
+    });
+
+    if (hasDistance) {
+      datasets.push({
+        label: mode === 'weekly' ? 'Weekly Distance (km)' : 'Distance (km)',
+        data: distanceValues.map(v => Number(v.toFixed(3))),
+        borderColor: this.colors.info,
+        backgroundColor: this.hexToRgba(this.colors.info, 0.08),
+        borderWidth: 3,
+        fill: false,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: this.colors.info,
+        pointHoverBorderWidth: 2,
+        pointHoverBorderColor: '#fff',
+        cubicInterpolationMode: 'monotone',
+        yAxisID: hasTss ? 'y2' : 'y1',
+        order: hasTss ? 3 : 2
+      });
+    }
+
     return {
       labels,
-      datasets: [
-        {
-          label: 'CTL (Fitness)',
-          data: data.map(d => d.ctl),
-          borderColor: this.colors.primary,
-          backgroundColor: this.hexToRgba(this.colors.primary, 0.1),
-          borderWidth: 3,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: this.colors.primary,
-          pointHoverBorderWidth: 2,
-          pointHoverBorderColor: '#fff'
-        },
-        {
-          label: 'ATL (Fatigue)',
-          data: data.map(d => d.atl),
-          borderColor: this.colors.danger,
-          backgroundColor: this.hexToRgba(this.colors.danger, 0.1),
-          borderWidth: 3,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: this.colors.danger,
-          pointHoverBorderWidth: 2,
-          pointHoverBorderColor: '#fff'
-        },
-        {
-          label: 'TSB (Form)',
-          data: data.map(d => d.tsb),
-          borderColor: this.colors.warning,
-          backgroundColor: this.hexToRgba(this.colors.warning, 0.1),
-          borderWidth: 2,
-          fill: false,
-          tension: 0.4,
-          borderDash: [5, 5],
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: this.colors.warning,
-          pointHoverBorderWidth: 2,
-          pointHoverBorderColor: '#fff'
-        }
-      ]
+      datasets,
+      meta: {
+        mode,
+        hasTss,
+        hasDistance,
+        labelsDetailed
+      }
     };
   }
 
@@ -78,13 +116,42 @@ class ChartService {
    * Get training load chart options
    * @returns {Object} Chart.js options
    */
-  getTrainingLoadChartOptions() {
-    return {
+  getTrainingLoadChartOptions(meta = {}) {
+    const {
+      hasTss = false,
+      hasDistance = false,
+      mode = 'daily',
+      labelsDetailed = []
+    } = meta;
+
+    const tssAxisId = 'y1';
+    const distanceAxisId = hasTss ? 'y2' : 'y1';
+
+    const scales = {
       responsive: true,
       maintainAspectRatio: false,
       interaction: {
         mode: 'index',
         intersect: false
+      },
+      layout: {
+        padding: {
+          top: 12,
+          right: 18,
+          bottom: 6,
+          left: 12
+        }
+      },
+      elements: {
+        line: {
+          borderJoinStyle: 'round',
+          borderCapStyle: 'round'
+        },
+        point: {
+          radius: 0,
+          hitRadius: 12,
+          hoverRadius: 6
+        }
       },
       plugins: {
         legend: {
@@ -107,8 +174,22 @@ class ChartService {
           borderWidth: 1,
           displayColors: true,
           callbacks: {
+            title: (items) => {
+              if (!items?.length) return '';
+              const index = items[0].dataIndex;
+              return labelsDetailed[index] || items[0].label;
+            },
             label: (context) => {
-              return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}`;
+              const axis = context.dataset.yAxisID || 'y';
+              const value = context.parsed.y;
+              if (axis === tssAxisId) {
+                return `${context.dataset.label}: ${Math.round(value)} TSS`;
+              }
+              if (hasDistance && axis === distanceAxisId && context.dataset.label?.toLowerCase().includes('distance')) {
+                const formatted = Math.abs(value) >= 10 ? value.toFixed(1) : value.toFixed(2);
+                return `${context.dataset.label}: ${formatted} km`;
+              }
+              return `${context.dataset.label}: ${value.toFixed(1)}`;
             }
           }
         }
@@ -131,10 +212,61 @@ class ChartService {
           },
           ticks: {
             font: { size: 11 }
+          },
+          title: {
+            display: true,
+            text: 'CTL (Fitness)',
+            font: { size: 12, weight: '600' },
+            color: '#475569'
           }
         }
       }
     };
+
+    if (hasTss) {
+      scales.scales.y1 = {
+        position: 'right',
+        beginAtZero: true,
+        grid: {
+          drawOnChartArea: false
+        },
+        ticks: {
+          font: { size: 11 },
+          color: this.colors.warning,
+          callback: (value) => Math.round(value)
+        },
+        title: {
+          display: true,
+          text: mode === 'weekly' ? 'Weekly TSS' : 'Daily TSS',
+          font: { size: 12, weight: '600' },
+          color: this.colors.warning
+        }
+      };
+    }
+
+    if (hasDistance) {
+      scales.scales[distanceAxisId] = {
+        position: 'right',
+        beginAtZero: true,
+        offset: hasTss,
+        grid: {
+          drawOnChartArea: false
+        },
+        ticks: {
+          font: { size: 11 },
+          color: this.colors.info,
+          callback: (value) => (Math.abs(value) >= 10 ? value.toFixed(1) : value.toFixed(2))
+        },
+        title: {
+          display: true,
+          text: mode === 'weekly' ? 'Weekly Distance (km)' : 'Distance (km)',
+          font: { size: 12, weight: '600' },
+          color: this.colors.info
+        }
+      };
+    }
+
+    return scales;
   }
 
   // ========== POWER CURVE CHARTS ==========
@@ -145,32 +277,63 @@ class ChartService {
    * @returns {Object} Chart.js dataset configuration
    */
   preparePowerCurveChart(data) {
-    if (!data || !data.durations || !data.powers) {
+    if (!data || !Array.isArray(data.durations) || !Array.isArray(data.powers)) {
       return this.getEmptyChartData();
     }
 
-    const labels = data.durations.map(d => this.formatDuration(d));
+    const maxLength = Math.min(data.durations.length, data.powers.length);
+    const points = [];
+
+    for (let i = 0; i < maxLength; i += 1) {
+      const duration = Number(data.durations[i]);
+      const power = Number(data.powers[i]);
+
+      if (!Number.isFinite(duration) || !Number.isFinite(power) || duration <= 0) {
+        continue;
+      }
+
+      points.push({ x: Math.max(1, duration), y: power });
+    }
+
+    if (points.length === 0) {
+      return this.getEmptyChartData();
+    }
+
+    points.sort((a, b) => a.x - b.x);
+
+    const durations = points.map(point => point.x);
+
+    this.lastPowerCurveRange = {
+      minDuration: durations[0],
+      maxDuration: durations[durations.length - 1]
+    };
 
     return {
-      labels,
+      labels: durations,
       datasets: [
         {
           label: data.weighted ? 'Power (W/kg)' : 'Power (W)',
-          data: data.powers,
-          borderColor: this.colors.gradientPower[0],
-          backgroundColor: this.createGradient('power'),
+          data: points,
+          parsing: false,
+          borderColor: this.colors.primary,
+          backgroundColor: this.hexToRgba(this.colors.primary, 0.12),
           borderWidth: 3,
           fill: true,
-          tension: 0.4,
-          pointRadius: 4,
+          tension: 0.35,
+          pointRadius: 0,
           pointHoverRadius: 6,
-          pointBackgroundColor: this.colors.primary,
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
-          pointHoverBackgroundColor: this.colors.primary,
-          pointHoverBorderWidth: 3
+          pointBackgroundColor: '#fff',
+          pointBorderColor: this.colors.primary,
+          pointBorderWidth: 3,
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderWidth: 4,
+          spanGaps: false
         }
-      ]
+      ],
+      meta: {
+        durations,
+        formattedLabels: durations.map(d => this.formatDuration(d))
+      }
     };
   }
 
@@ -180,55 +343,118 @@ class ChartService {
    * @returns {Object} Chart.js options
    */
   getPowerCurveChartOptions(weighted = false) {
-    return {
+    const minDuration = Math.max(1, this.lastPowerCurveRange?.minDuration || 1);
+    const maxDuration = Math.max(minDuration, this.lastPowerCurveRange?.maxDuration || 3600);
+
+    const tickCandidates = [
+      1, 2, 3, 5, 10, 15, 20, 30,
+      45, 60, 90, 120, 180, 300,
+      600, 900, 1200, 1800, 2400, 3600,
+      5400, 7200, 10800, 14400
+    ];
+
+    while (tickCandidates[tickCandidates.length - 1] < maxDuration) {
+      tickCandidates.push(tickCandidates[tickCandidates.length - 1] * 2);
+    }
+
+    const filteredTicks = tickCandidates.filter(value => value >= minDuration && value <= maxDuration * 1.1);
+
+    const options = {
       responsive: true,
       maintainAspectRatio: false,
       interaction: {
         mode: 'index',
         intersect: false
       },
+      parsing: false,
       plugins: {
         legend: {
           display: true,
-          position: 'top',
+          position: 'bottom',
           labels: {
-            usePointStyle: true,
+            usePointStyle: false,
             padding: 15,
-            font: { size: 12, weight: '600' }
+            font: { size: 12, weight: '600' },
+            color: '#4b5563'
           }
         },
         tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          padding: 12,
+          backgroundColor: 'rgba(30, 41, 59, 0.95)',
+          titleColor: '#e2e8f0',
+          bodyColor: '#e2e8f0',
+          borderColor: this.hexToRgba(this.colors.primary, 0.4),
+          borderWidth: 1,
+          padding: 14,
+          displayColors: false,
           callbacks: {
+            title: (items) => {
+              if (!items?.length) return '';
+              const seconds = items[0].parsed.x;
+              return this.formatDurationDetail(seconds);
+            },
             label: (context) => {
-              const value = context.parsed.y.toFixed(weighted ? 2 : 0);
+              const power = context.parsed.y;
+              if (power == null) return '';
               const unit = weighted ? 'W/kg' : 'W';
-              return `Power: ${value} ${unit}`;
+              return `Power: ${power.toFixed(weighted ? 2 : 0)} ${unit}`;
             }
           }
         }
       },
       scales: {
         x: {
+          type: 'logarithmic',
+          min: minDuration,
+          max: maxDuration * 1.05,
           title: {
             display: true,
             text: 'Duration',
             font: { size: 12, weight: 'bold' }
           },
           grid: {
-            display: false
+            color: 'rgba(0, 0, 0, 0.04)',
+            lineWidth: 1,
+            drawBorder: false
+          },
+          ticks: {
+            callback: (value) => this.formatDuration(value),
+            maxRotation: 0,
+            minRotation: 0,
+            autoSkip: false,
+            padding: 10,
+            color: '#6b7280',
+            font: { size: 12, weight: '500' }
+          },
+          afterBuildTicks: (scale) => {
+            const ticks = filteredTicks.map(value => ({ value }));
+            const unique = [];
+            const used = new Set();
+            ticks.forEach(tick => {
+              if (!used.has(tick.value)) {
+                unique.push(tick);
+                used.add(tick.value);
+              }
+            });
+            scale.ticks = unique;
+            return scale.ticks;
           }
         },
         y: {
-          beginAtZero: true,
+          beginAtZero: false,
           title: {
             display: true,
             text: weighted ? 'Power (W/kg)' : 'Power (W)',
-            font: { size: 12, weight: 'bold' }
+            font: { size: 12, weight: 'bold' },
+            color: '#4b5563'
           },
           grid: {
-            color: 'rgba(0, 0, 0, 0.05)'
+            color: 'rgba(148, 163, 184, 0.12)',
+            drawBorder: false
+          },
+          ticks: {
+            color: '#6b7280',
+            font: { size: 12, weight: '500' },
+            padding: 8
           }
         }
       }
@@ -242,32 +468,104 @@ class ChartService {
    * @param {Array} data - Efficiency timeseries data
    * @returns {Object} Chart.js dataset configuration
    */
-  prepareEfficiencyChart(data) {
-    if (!data || data.length === 0) {
-      return this.getEmptyChartData();
+  prepareEfficiencyChart(data, { includeRolling = true, rollingWindow = 5 } = {}) {
+    if (!Array.isArray(data) || data.length === 0) {
+      return {
+        ...this.getEmptyChartData(),
+        meta: { hasRolling: false, hasIntensity: false }
+      };
     }
 
-    const labels = data.map(d => this.formatDate(d.date));
+    const sorted = [...data].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const labels = sorted.map(d => this.formatDate(d.date));
+    const efficiencyValues = sorted.map(d => d.ef);
+
+    const datasets = [
+      {
+        label: 'Efficiency Factor',
+        data: efficiencyValues,
+        borderColor: this.colors.success,
+        backgroundColor: this.hexToRgba(this.colors.success, 0.12),
+        borderWidth: 3,
+        fill: false,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: this.colors.success,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        yAxisID: 'y'
+      }
+    ];
+
+    let hasRolling = false;
+    if (includeRolling && sorted.length >= rollingWindow) {
+      const rolling = this.calculateRollingAverage(efficiencyValues, rollingWindow);
+      datasets.push({
+        label: `${rollingWindow}-Session Avg`,
+        data: rolling,
+        borderColor: this.colors.info,
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        fill: false,
+        tension: 0.2,
+        pointRadius: 0,
+        borderDash: [6, 4],
+        yAxisID: 'y'
+      });
+      hasRolling = true;
+    }
+
+    const intensityValues = sorted.map(d => d.intensityFactor ?? null);
+    const hasIntensity = intensityValues.some(v => Number.isFinite(v));
+
+    if (hasIntensity) {
+      datasets.push({
+        type: 'bar',
+        label: 'Intensity Factor (IF)',
+        data: intensityValues.map(v => Number.isFinite(v) ? v : null),
+        backgroundColor: this.hexToRgba(this.colors.primary, 0.25),
+        borderColor: this.hexToRgba(this.colors.primary, 0.6),
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: 'y1',
+        order: 0,
+        barPercentage: 0.65,
+        categoryPercentage: 0.75
+      });
+    }
 
     return {
       labels,
-      datasets: [
-        {
-          label: 'Efficiency Factor',
-          data: data.map(d => d.ef),
-          borderColor: this.colors.success,
-          backgroundColor: this.hexToRgba(this.colors.success, 0.1),
-          borderWidth: 3,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 3,
-          pointHoverRadius: 6,
-          pointBackgroundColor: this.colors.success,
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2
-        }
-      ]
+      datasets,
+      meta: {
+        hasRolling,
+        hasIntensity,
+        rollingWindow,
+        labelsDetailed: sorted.map(d => this.formatDateLong(d.date)),
+        timeseries: sorted
+      }
     };
+  }
+
+  calculateRollingAverage(values, window) {
+    const result = [];
+    for (let i = 0; i < values.length; i++) {
+      if (!Number.isFinite(values[i])) {
+        result.push(null);
+        continue;
+      }
+
+      const start = Math.max(0, i - window + 1);
+      const slice = values.slice(start, i + 1).filter(v => Number.isFinite(v));
+      if (slice.length < window) {
+        result.push(null);
+      } else {
+        const avg = slice.reduce((sum, v) => sum + v, 0) / slice.length;
+        result.push(Number(avg.toFixed(3)));
+      }
+    }
+    return result;
   }
 
   // ========== ZONE DISTRIBUTION CHARTS ==========
@@ -448,6 +746,130 @@ class ChartService {
     return `${month}/${day}`;
   }
 
+  formatDateLong(date) {
+    const d = new Date(date);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  getEfficiencyChartOptions(meta = {}) {
+    const { hasRolling = false, hasIntensity = false, timeseries = [], labelsDetailed = [] } = meta;
+
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      layout: {
+        padding: {
+          top: 12,
+          right: 20,
+          bottom: 6,
+          left: 10
+        }
+      },
+      elements: {
+        line: {
+          borderJoinStyle: 'round',
+          borderCapStyle: 'round'
+        },
+        point: {
+          radius: 3,
+          hitRadius: 10,
+          hoverRadius: 6
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 14,
+            font: { size: 12, weight: '600' }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          padding: 12,
+          borderColor: this.hexToRgba(this.colors.primary, 0.3),
+          borderWidth: 1,
+          displayColors: true,
+          callbacks: {
+            title: (items) => {
+              if (!items?.length) return '';
+              const index = items[0].dataIndex;
+              return labelsDetailed[index] || items[0].label;
+            },
+            label: (context) => {
+              const value = Number(context.parsed.y);
+              if (context.dataset.label?.includes('Intensity')) {
+                return `${context.dataset.label}: ${value.toFixed(2)}`;
+              }
+              if (context.dataset.label?.includes('Avg')) {
+                return `${context.dataset.label}: ${value.toFixed(3)}`;
+              }
+              return `${context.dataset.label}: ${value.toFixed(3)}`;
+            },
+            afterBody: (items) => {
+              if (!items?.length) return '';
+              const index = items[0].dataIndex;
+              const sample = timeseries[index];
+              if (!sample) return '';
+              const lines = [];
+              if (Number.isFinite(sample.np)) lines.push(`NP: ${sample.np.toFixed(0)} W`);
+              if (Number.isFinite(sample.hr)) lines.push(`HR: ${sample.hr.toFixed(0)} bpm`);
+              if (Number.isFinite(sample.intensityFactor)) lines.push(`IF: ${sample.intensityFactor.toFixed(2)}`);
+              return lines.length ? `\n${lines.join(' · ')}` : '';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 0,
+            font: { size: 11 }
+          }
+        },
+        y: {
+          beginAtZero: false,
+          grid: { color: 'rgba(148, 163, 184, 0.14)' },
+          title: {
+            display: true,
+            text: 'Efficiency Factor',
+            font: { size: 12, weight: '600' },
+            color: '#425466'
+          }
+        },
+        y1: hasIntensity ? {
+          position: 'right',
+          beginAtZero: false,
+          grid: { drawOnChartArea: false },
+          ticks: {
+            font: { size: 11 },
+            color: this.colors.primary,
+            callback: (value) => value.toFixed(2)
+          },
+          title: {
+            display: true,
+            text: 'Intensity Factor',
+            font: { size: 12, weight: '600' },
+            color: this.colors.primary
+          }
+        } : undefined
+      }
+    };
+
+    if (!hasIntensity && options.scales?.y1) {
+      delete options.scales.y1;
+    }
+
+    return options;
+  }
+
   /**
    * Format duration in seconds to readable string
    * @param {number} seconds - Duration in seconds
@@ -455,9 +877,74 @@ class ChartService {
    */
   formatDuration(seconds) {
     if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-    if (seconds < 7200) return `${Math.round(seconds / 60)}m`;
-    return `${Math.round(seconds / 3600)}h`;
+    if (seconds < 3600) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      if (remainingSeconds === 0) return `${minutes}m`;
+      if (minutes < 10) return `${minutes}m ${remainingSeconds}s`;
+      return `${minutes}m`;
+    }
+    const hours = Math.floor(seconds / 3600);
+    const remainingMinutes = Math.round((seconds % 3600) / 60);
+    if (remainingMinutes === 0) return `${hours}h`;
+    if (remainingMinutes < 10) return `${hours}h ${remainingMinutes}m`;
+    return `${hours}h`;
+  }
+
+  /**
+   * Format duration with minutes/seconds detail
+   * @param {number} seconds - Duration in seconds
+   * @returns {string} Detailed duration string
+   */
+  formatDurationDetail(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      return '';
+    }
+
+    const wholeSeconds = Math.round(seconds);
+
+    if (wholeSeconds < 60) {
+      return `${wholeSeconds}s`;
+    }
+
+    const minutes = Math.floor(wholeSeconds / 60);
+    const remainingSeconds = wholeSeconds % 60;
+
+    if (minutes < 60) {
+      return remainingSeconds === 0 ? `${minutes}m` : `${minutes}m ${remainingSeconds}s`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (remainingMinutes === 0 && remainingSeconds === 0) {
+      return `${hours}h`;
+    }
+
+    const minutePart = remainingMinutes > 0 ? `${remainingMinutes}m` : '';
+    const secondPart = remainingSeconds > 0 ? `${remainingSeconds}s` : '';
+    return `${hours}h ${minutePart}${minutePart && secondPart ? ' ' : ''}${secondPart}`.trim();
+  }
+
+  formatDetailedDuration(date, mode = 'daily', endDate = null) {
+    const ensureDate = (value) => {
+      if (value instanceof Date) return value;
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const start = ensureDate(date);
+    if (!start) return String(date ?? '');
+
+    const options = { month: 'short', day: 'numeric' };
+    const startLabel = start.toLocaleDateString(undefined, options);
+
+    if (mode === 'weekly' && endDate) {
+      const end = ensureDate(endDate) || start;
+      const endLabel = end.toLocaleDateString(undefined, options);
+      return `${startLabel} – ${endLabel}`;
+    }
+
+    return startLabel;
   }
 
   /**

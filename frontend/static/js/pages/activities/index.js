@@ -26,7 +26,8 @@ class ActivitiesPage {
       
       this.activities = await Services.data.getActivities({ 
         limit: this.limit, 
-        offset: this.currentPage * this.limit 
+        skip: this.currentPage * this.limit, 
+        forceRefresh: true
       });
       
       this.render();
@@ -105,17 +106,17 @@ class ActivitiesPage {
         <tbody>
           ${this.activities.map(activity => `
             <tr onclick="window.router.navigateTo('activity/${activity.id}')">
-              <td class="act-activity-name">${this.escapeHtml(activity.name || 'Untitled Ride')}</td>
+              <td class="act-activity-name">${this.escapeHtml(activity.file_name || 'Untitled Ride')}</td>
               <td>${this.formatDate(activity.start_time)}</td>
-              <td>${this.formatDuration(activity.moving_time)}</td>
-              <td>${activity.distance ? (activity.distance / 1000).toFixed(1) + ' km' : '-'}</td>
+              <td>${this.formatDuration(activity.duration)}</td>
+              <td>${activity.distance ? activity.distance.toFixed(1) + ' km' : '-'}</td>
               <td>
                 <span class="act-metric-badge power">
-                  ${activity.average_power ? Math.round(activity.average_power) + 'W' : '-'}
+                  ${activity.avg_power ? Math.round(activity.avg_power) + 'W' : '-'}
                 </span>
               </td>
               <td>${activity.normalized_power ? Math.round(activity.normalized_power) + 'W' : '-'}</td>
-              <td>${activity.training_stress_score ? Math.round(activity.training_stress_score) : '-'}</td>
+              <td>${activity.tss ? Math.round(activity.tss) : '-'}</td>
             </tr>
           `).join('')}
         </tbody>

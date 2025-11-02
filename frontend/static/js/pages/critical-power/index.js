@@ -12,6 +12,9 @@ class CriticalPowerPage {
     this.config = CONFIG;
     this.chart = null;
     this.tooltipTimeout = null;
+    this.powerCurveData = null;
+    this.powerCurvePoints = [];
+    this.modelPowerPoints = [];
   }
 
   async load() {
@@ -21,18 +24,31 @@ class CriticalPowerPage {
       
       // Fetch CP model data (required)
       this.data = await Services.data.getCriticalPower();
+      this.modelPowerPoints = this.prepareModelPowerPoints(this.data);
+      if (this.modelPowerPoints.length > 0) {
+        console.table(
+          this.modelPowerPoints.slice(0, 10),
+          ['duration', 'power']
+        );
+      }
       
       // Try to fetch power curve data (optional)
       try {
-        this.powerCurve = await Services.data.getPowerCurve();
-        // Ensure it's an array
-        if (!Array.isArray(this.powerCurve)) {
-          console.warn('[CP] Power curve data is not an array, using empty array');
-          this.powerCurve = [];
+        this.powerCurveData = await Services.data.getPowerCurve();
+        this.powerCurvePoints = this.preparePowerCurvePoints(this.powerCurveData);
+
+        if (this.powerCurvePoints.length === 0) {
+          console.warn('[CP] Power curve data has no valid points');
+        } else {
+          console.table(
+            this.powerCurvePoints.slice(0, 10),
+            ['duration', 'power']
+          );
         }
       } catch (error) {
         console.warn('[CP] Could not load power curve data:', error);
-        this.powerCurve = [];
+        this.powerCurveData = null;
+        this.powerCurvePoints = [];
       }
       
       this.render();
@@ -45,7 +61,7 @@ class CriticalPowerPage {
   }
 
   render() {
-    const container = document.getElementById('page-content');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) {
       console.error('[CP] Page content container not found');
       return;
@@ -108,7 +124,7 @@ class CriticalPowerPage {
               <div>
                 <div class="cp-chart-title">Power Duration Model vs Actual</div>
                 <div class="cp-chart-subtitle">
-                  ${this.powerCurve && this.powerCurve.length > 0 
+                  ${this.hasActualPowerData() 
                     ? 'Compare theoretical CP model predictions with your best recorded powers' 
                     : 'Showing CP model prediction (upload activities to see actual power comparison)'}
                 </div>
@@ -133,6 +149,8 @@ class CriticalPowerPage {
             <canvas id="cpComparisonChart"></canvas>
           </div>
         </div>
+        
+        ${this.renderDataOverview()}
         
         <!-- Two-column layout for info and insights -->
         <div class="cp-dual-column">
@@ -274,6 +292,189 @@ class CriticalPowerPage {
     return icons[icon] || icons['zap'];
   }
 
+  preparePowerCurvePoints(data) {
+    if (!data || !Array.isArray(data.durations) || !Array.isArray(data.powers)) {
+      return [];
+    }
+
+    const maxLength = Math.min(data.durations.length, data.powers.length);
+    const pairs = new Map();
+
+    for (let i = 0; i < maxLength; i += 1) {
+      const duration = data.durations[i];
+      const power = data.powers[i];
+
+      if (duration == null || power == null) {
+        continue;
+      }
+
+      const durationNumber = Number(duration);
+      const powerNumber = Number(power);
+
+      if (!Number.isFinite(durationNumber) || !Number.isFinite(powerNumber)) {
+        continue;
+      }
+
+      const durationValue = Math.max(1, Math.round(durationNumber));
+      const powerValue = powerNumber;
+
+      const existing = pairs.get(durationValue);
+      if (existing === undefined || powerValue > existing) {
+        pairs.set(durationValue, powerValue);
+      }
+    }
+
+    const sortedDurations = Array.from(pairs.keys()).sort((a, b) => a - b);
+
+    return sortedDurations.map(duration => ({
+      duration,
+      power: pairs.get(duration)
+    }));
+  }
+
+  prepareModelPowerPoints(data) {
+    if (!data || !Array.isArray(data.durations) || !Array.isArray(data.actual)) {
+      return [];
+    }
+
+    const maxLength = Math.min(data.durations.length, data.actual.length);
+    const pairs = [];
+
+    for (let i = 0; i < maxLength; i += 1) {
+      const duration = Number(data.durations[i]);
+      const power = Number(data.actual[i]);
+
+      if (!Number.isFinite(duration) || !Number.isFinite(power)) {
+        continue;
+      }
+
+      const durationValue = Math.max(1, Math.round(duration));
+      pairs.push({
+        duration: durationValue,
+        power
+      });
+    }
+
+    pairs.sort((a, b) => a.duration - b.duration);
+    return pairs;
+  }
+
+  hasActualPowerData() {
+    return (Array.isArray(this.powerCurvePoints) && this.powerCurvePoints.length > 0) ||
+      (Array.isArray(this.modelPowerPoints) && this.modelPowerPoints.length > 0);
+  }
+
+  findPowerInPoints(points, duration, tolerance = 5) {
+    if (!Array.isArray(points) || points.length === 0) {
+      return null;
+    }
+
+    const exactMatch = points.find(point => point.duration === duration);
+    if (exactMatch) {
+      return exactMatch.power;
+    }
+
+    const nearMatch = points.find(point => Math.abs(point.duration - duration) <= tolerance);
+    return nearMatch ? nearMatch.power : null;
+  }
+
+  getActualPower(duration) {
+    const powerFromCurve = this.findPowerInPoints(this.powerCurvePoints, duration);
+    if (powerFromCurve !== null && powerFromCurve !== undefined) {
+      return powerFromCurve;
+    }
+
+    return this.findPowerInPoints(this.modelPowerPoints, duration, 120);
+  }
+
+  getModelPower(duration, criticalPower, wPrime, actualHint = null) {
+    if (!Number.isFinite(duration) || duration <= 0) {
+      return null;
+    }
+
+    const effectiveDuration = Math.max(1, duration);
+    let predicted = criticalPower + (wPrime / effectiveDuration);
+
+    if (!Number.isFinite(predicted)) {
+      return null;
+    }
+
+    const nearbyActual = actualHint ??
+      this.findPowerInPoints(this.powerCurvePoints, duration, 120) ??
+      this.findPowerInPoints(this.modelPowerPoints, duration, 120);
+
+    if (nearbyActual != null) {
+      const upperBound = nearbyActual * 1.5;
+      const lowerBound = Math.max(0, nearbyActual * 0.5);
+      predicted = Math.min(Math.max(predicted, lowerBound), upperBound);
+    }
+
+    return Math.max(predicted, 0);
+  }
+
+  renderDataOverview() {
+    if (!this.data) {
+      return '';
+    }
+
+    const sampleDurations = [5, 60, 300, 1200];
+    const rows = sampleDurations.map(duration => {
+      const actual = this.getActualPower(duration);
+      const model = this.getModelPower(duration, this.data?.critical_power || 0, this.data?.w_prime || 0, actual);
+      const difference = actual != null && model != null ? actual - model : null;
+
+      return `
+        <tr>
+          <td>${this.formatDuration(duration)}</td>
+          <td>${actual != null ? `${Math.round(actual)} W` : '—'}</td>
+          <td>${model != null ? `${Math.round(model)} W` : '—'}</td>
+          <td>${difference != null ? `${difference > 0 ? '↑' : '↓'} ${Math.abs(Math.round(difference))} W` : '—'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const pointsCount = this.powerCurvePoints.length || this.modelPowerPoints.length || 0;
+    const sourceLabel = this.powerCurvePoints.length > 0 ? 'Power Curve' : 'CP Model';
+
+    return `
+      <div class="cp-data-overview">
+        <div class="cp-data-header">
+          <h3>Data Overview</h3>
+          <p>${pointsCount > 0
+            ? `Showing ${pointsCount} data points (${sourceLabel})`
+            : 'No actual power data available yet'}</p>
+        </div>
+        <div class="cp-data-grid">
+          <div class="cp-data-card">
+            <div class="cp-data-label">Critical Power</div>
+            <div class="cp-data-value">${this.data?.critical_power ? `${Math.round(this.data.critical_power)} W` : '—'}</div>
+          </div>
+          <div class="cp-data-card">
+            <div class="cp-data-label">W′ (Anaerobic)</div>
+            <div class="cp-data-value">${this.data?.w_prime ? `${Math.round(this.data.w_prime)} J` : '—'}</div>
+          </div>
+          <div class="cp-data-card">
+            <div class="cp-data-label">Data Source</div>
+            <div class="cp-data-value">${pointsCount > 0 ? sourceLabel : 'None'}</div>
+          </div>
+        </div>
+        <table class="cp-data-table">
+          <thead>
+            <tr>
+              <th>Duration</th>
+              <th>Actual</th>
+              <th>Model</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
   initChart() {
     const canvas = document.getElementById('cpComparisonChart');
     if (!canvas) {
@@ -282,42 +483,91 @@ class CriticalPowerPage {
     }
 
     const { critical_power, w_prime } = this.data;
-    
-    // Generate time points (1 second to 1 hour in log scale)
-    const durations = [
-      1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 
-      600, 900, 1200, 1800, 2400, 3000, 3600
+
+    const DEFAULT_DURATIONS = [
+      1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240,
+      300, 420, 600, 900, 1200, 1500, 1800, 2400, 3000, 3600
     ];
-    
-    // Calculate CP model predictions
-    const modelData = durations.map(t => ({
-      x: t,
-      y: t < 10 ? null : critical_power + (w_prime / t)
-    }));
-    
-    // Get actual power curve data (matching durations)
-    const actualData = durations.map(t => {
-      // Safety check - ensure powerCurve is an array
-      if (!Array.isArray(this.powerCurve) || this.powerCurve.length === 0) {
-        return { x: t, y: null };
+
+    const durationSet = new Set(
+      DEFAULT_DURATIONS
+        .concat(this.powerCurvePoints.map(point => point.duration))
+        .concat(this.modelPowerPoints.map(point => point.duration))
+    );
+
+    const earliestDuration = this.powerCurvePoints.length > 0
+      ? this.powerCurvePoints[0].duration
+      : (this.modelPowerPoints.length > 0 ? this.modelPowerPoints[0].duration : 1);
+
+    const rawDurations = Array.from(durationSet)
+      .filter(value => Number.isFinite(value) && value >= Math.max(1, earliestDuration))
+      .sort((a, b) => a - b);
+
+    const durations = [];
+    rawDurations.forEach(duration => {
+      if (durations.length === 0) {
+        durations.push(duration);
+        return;
       }
-      
-      const power = this.powerCurve.find(p => Math.abs(p.duration - t) < 5);
-      return {
-        x: t,
-        y: power ? power.power : null
-      };
+      const previous = durations[durations.length - 1];
+      const ratio = duration / previous;
+      if (ratio >= 1.08 || duration - previous >= 30) {
+        durations.push(duration);
+      }
     });
-    
-    // Calculate difference for shading
-    const differenceData = durations.map((t, i) => {
-      const actual = actualData[i].y;
-      const model = modelData[i].y;
-      return {
-        x: t,
-        y: (actual && model) ? Math.abs(actual - model) : null
-      };
+
+    if (durations.length === 0) {
+      durations.push(1, 5, 60, 300, 1200);
+    }
+
+    const actualData = [];
+    const modelData = [];
+    const differenceData = [];
+
+    let lastActual = null;
+    let lastModel = null;
+
+    durations.forEach(duration => {
+      const actualRaw = this.getActualPower(duration);
+      const model = this.getModelPower(duration, critical_power, w_prime, actualRaw) ?? lastModel;
+      const actual = actualRaw ?? lastActual ?? model;
+
+      if (actual != null) {
+        lastActual = actual;
+      }
+      if (model != null) {
+        lastModel = model;
+      }
+
+      actualData.push({
+        x: duration,
+        y: actual ?? null
+      });
+
+      modelData.push({
+        x: duration,
+        y: model ?? null
+      });
+
+      differenceData.push({
+        x: duration,
+        y: (actual != null && model != null) ? Math.max(Math.abs(actual - model), 0.5) : 0
+      });
     });
+
+    const minDuration = durations[0];
+    const maxDuration = durations[durations.length - 1];
+
+    const tickCandidates = [...DEFAULT_DURATIONS];
+    while (tickCandidates[tickCandidates.length - 1] < maxDuration) {
+      tickCandidates.push(tickCandidates[tickCandidates.length - 1] * 2);
+    }
+
+    const tickValues = Array.from(new Set(
+      tickCandidates
+        .filter(value => value >= minDuration && value <= maxDuration * 1.05)
+        .concat([minDuration, maxDuration])
+    )).sort((a, b) => a - b);
 
     const chartData = {
       datasets: [
@@ -327,13 +577,13 @@ class CriticalPowerPage {
           borderColor: '#8b5cf6',
           backgroundColor: 'rgba(139, 92, 246, 0.1)',
           borderWidth: 3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          pointBackgroundColor: '#8b5cf6',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointHitRadius: 8,
+          tension: 0.45,
+          cubicInterpolationMode: 'monotone',
           fill: false,
+          spanGaps: true,
           order: 1
         },
         {
@@ -343,13 +593,14 @@ class CriticalPowerPage {
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
           borderWidth: 3,
           borderDash: [8, 4],
-          pointRadius: 4,
+          pointRadius: 0,
           pointHoverRadius: 6,
-          pointBackgroundColor: '#3b82f6',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          tension: 0.4,
+          pointHitRadius: 8,
+          tension: 0.45,
+          cubicInterpolationMode: 'monotone',
+          borderCapStyle: 'round',
           fill: false,
+          spanGaps: true,
           order: 2
         },
         {
@@ -360,7 +611,8 @@ class CriticalPowerPage {
           borderWidth: 2,
           pointRadius: 0,
           tension: 0.4,
-          fill: true,
+          fill: 'origin',
+          spanGaps: true,
           order: 3
         }
       ]
@@ -406,7 +658,7 @@ class CriticalPowerPage {
               const actual = actualData.find(d => d.x === seconds)?.y;
               const model = modelData.find(d => d.x === seconds)?.y;
               
-              if (actual && model) {
+              if (actual != null && model != null && model !== 0) {
                 const diff = actual - model;
                 const pct = ((diff / model) * 100).toFixed(1);
                 return `\n${diff > 0 ? '↑' : '↓'} ${Math.abs(pct)}% vs model`;
@@ -430,21 +682,7 @@ class CriticalPowerPage {
             color: '#6b7280'
           },
           ticks: {
-            callback: (value) => {
-              // Only show clean durations
-              if (value === 1) return '1s';
-              if (value === 5) return '5s';
-              if (value === 10) return '10s';
-              if (value === 30) return '30s';
-              if (value === 60) return '1m';
-              if (value === 120) return '2m';
-              if (value === 300) return '5m';
-              if (value === 600) return '10m';
-              if (value === 1200) return '20m';
-              if (value === 1800) return '30m';
-              if (value === 3600) return '1h';
-              return null;
-            },
+            callback: (value) => this.formatDuration(value),
             color: '#6b7280',
             font: {
               size: 11
@@ -453,12 +691,16 @@ class CriticalPowerPage {
             minRotation: 0,
             autoSkip: false
           },
+          afterBuildTicks: (scale) => {
+            scale.ticks = tickValues.map(value => ({ value }));
+            return scale.ticks;
+          },
           grid: {
             color: 'rgba(0, 0, 0, 0.05)',
             drawBorder: false
           },
-          min: 1,
-          max: 3600
+          min: minDuration,
+          max: maxDuration * 1.05
         },
         y: {
           beginAtZero: false,
@@ -494,11 +736,36 @@ class CriticalPowerPage {
   }
 
   formatDuration(seconds) {
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.round((seconds % 3600) / 60);
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      return '';
+    }
+
+    const wholeSeconds = Math.round(seconds);
+
+    if (wholeSeconds < 60) {
+      return `${wholeSeconds}s`;
+    }
+
+    if (wholeSeconds < 3600) {
+      const minutes = Math.floor(wholeSeconds / 60);
+      const remainingSeconds = wholeSeconds % 60;
+      if (remainingSeconds === 0) return `${minutes}m`;
+      if (minutes < 10) return `${minutes}m ${remainingSeconds}s`;
+      return `${minutes}m`;
+    }
+
+    const hours = Math.floor(wholeSeconds / 3600);
+    const remainingMinutes = Math.floor((wholeSeconds % 3600) / 60);
+    const remainingSeconds = wholeSeconds % 60;
+
+    if (remainingMinutes === 0 && remainingSeconds === 0) {
+      return `${hours}h`;
+    }
+
+    let label = `${hours}h`;
+    if (remainingMinutes > 0) label += ` ${remainingMinutes}m`;
+    if (remainingSeconds > 0 && hours < 2) label += ` ${remainingSeconds}s`;
+    return label;
   }
 
   attachEventListeners() {
@@ -540,7 +807,7 @@ class CriticalPowerPage {
   }
 
   renderLoading() {
-    const container = document.getElementById('page-content');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) return;
     
     container.innerHTML = `
@@ -558,7 +825,7 @@ class CriticalPowerPage {
   }
 
   renderError(error) {
-    const container = document.getElementById('page-content');
+    const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) {
       console.error('[CP] Cannot render error - container not found');
       return;

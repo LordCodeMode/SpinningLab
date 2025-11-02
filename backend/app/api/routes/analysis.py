@@ -20,6 +20,54 @@ from ...services.analysis.efficiency_service import EfficiencyService
 from ...services.analysis.fitness_state_service import FitnessStateService
 from ...services.analysis.zone_balance_service import ZoneBalanceService
 
+
+def _prepare_power_curve_response(raw_curve, weighted: bool):
+    """Normalize power curve response shape for API consumers."""
+    if not raw_curve:
+        return {"durations": [], "powers": [], "weighted": weighted}
+
+    # Accept cached dicts or raw lists from service
+    if isinstance(raw_curve, dict):
+        durations = raw_curve.get("durations")
+        powers = raw_curve.get("powers")
+        response_weighted = raw_curve.get("weighted", weighted)
+    elif isinstance(raw_curve, list):
+        durations = list(range(1, len(raw_curve) + 1))
+        powers = raw_curve
+        response_weighted = weighted
+    else:
+        return {"durations": [], "powers": [], "weighted": weighted}
+
+    if not isinstance(durations, list) or not isinstance(powers, list):
+        return {"durations": [], "powers": [], "weighted": weighted}
+
+    # Pair up durations/powers, coerce types, and drop invalid entries
+    pairs = []
+    for duration, power in zip(durations, powers):
+        if duration is None or power is None:
+            continue
+        try:
+            duration_val = int(round(float(duration)))
+            power_val = float(power)
+        except (TypeError, ValueError):
+            continue
+        if duration_val <= 0:
+            continue
+        pairs.append((duration_val, power_val))
+
+    if not pairs:
+        return {"durations": [], "powers": [], "weighted": response_weighted}
+
+    pairs.sort(key=lambda item: item[0])
+    normalized_durations = [item[0] for item in pairs]
+    normalized_powers = [item[1] for item in pairs]
+
+    return {
+        "durations": normalized_durations,
+        "powers": normalized_powers,
+        "weighted": response_weighted
+    }
+
 router = APIRouter()
 
 # ============================================
@@ -36,20 +84,46 @@ async def get_training_load(
     Returns a list of daily values.
     """
     try:
+        # Try to get from cache first
+        from ...services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+        cache_key = f"training_load_{days}d"
+
+        cached_data = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
+
+        if cached_data:
+            print(f"[Cache HIT] Training load for {days} days from cache")
+            # Cache contains TrainingLoadResponse objects, convert to dicts
+            return [
+                {
+                    "date": item.date.isoformat() if hasattr(item.date, 'isoformat') else str(item.date),
+                    "ctl": float(item.ctl) if item.ctl is not None else 0.0,
+                    "atl": float(item.atl) if item.atl is not None else 0.0,
+                    "tsb": float(item.tsb) if item.tsb is not None else 0.0,
+                    "tss": float(getattr(item, "tss", 0.0) or 0.0)
+                }
+                for item in cached_data
+            ]
+
+        # Cache miss - calculate and return (don't cache here, cache builder handles it)
+        print(f"[Cache MISS] Calculating training load for {days} days")
         service = TrainingLoadService(db)
         training_load = service.calculate_training_load(current_user, days=days)
-        
+
         return [
             {
                 "date": item.date.isoformat(),
                 "ctl": float(item.ctl) if item.ctl is not None else 0.0,
                 "atl": float(item.atl) if item.atl is not None else 0.0,
-                "tsb": float(item.tsb) if item.tsb is not None else 0.0
+                "tsb": float(item.tsb) if item.tsb is not None else 0.0,
+                "tss": float(getattr(item, "tss", 0.0) or 0.0)
             }
             for item in training_load
         ]
     except Exception as e:
-        print(f"Error calculating training load: {e}")
+        print(f"Error getting training load: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 # ============================================
@@ -58,30 +132,44 @@ async def get_training_load(
 @router.get("/power-curve")
 async def get_power_curve(
     weighted: bool = Query(False, description="Return watts per kg instead of absolute watts"),
+    start: Optional[str] = Query(None, description="Start date (YYYY-MM-DD) for filtering activities"),
+    end: Optional[str] = Query(None, description="End date (YYYY-MM-DD) for filtering activities"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get user's power duration curve (all-time best power for each duration).
+    Get user's power duration curve (best power for each duration within date range).
     """
     try:
+        # Try to get from cache first
+        from ...services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+
+        # Build cache key including date range
+        cache_key = "power_curve_weighted" if weighted else "power_curve_absolute"
+        if start and end:
+            cache_key += f"_{start}_{end}"
+
+        curve = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
+
+        if curve:
+            print(f"[Cache HIT] Power curve ({'weighted' if weighted else 'absolute'}, {start or 'all'}-{end or 'all'}) from cache")
+            return _prepare_power_curve_response(curve, weighted)
+
+        # Cache miss - calculate
+        print(f"[Cache MISS] Calculating power curve ({'weighted' if weighted else 'absolute'}, {start or 'all'}-{end or 'all'})")
         service = PowerCurveService(db)
-        curve = service.get_user_power_curve(current_user, weighted=weighted)
-        
-        if not curve or len(curve) == 0:
+        curve_data = service.get_user_power_curve(current_user, weighted=weighted, start_date=start, end_date=end)
+
+        if not curve_data or len(curve_data) == 0:
             return {"durations": [], "powers": [], "weighted": weighted}
-        
-        # curve is a list of power values, index = duration in seconds
-        durations = list(range(1, len(curve) + 1))
-        powers = [float(p) if p is not None else 0.0 for p in curve]
-        
-        return {
-            "durations": durations,
-            "powers": powers,
-            "weighted": weighted
-        }
+
+        # curve_data is a dict with durations and powers
+        return _prepare_power_curve_response(curve_data, weighted)
     except Exception as e:
         print(f"Error getting power curve: {e}")
+        import traceback
+        traceback.print_exc()
         return {"durations": [], "powers": [], "weighted": weighted}
 
 # ============================================
@@ -96,9 +184,21 @@ async def get_critical_power(
     Get critical power model parameters and curve data.
     """
     try:
+        # Try to get from cache first
+        from ...services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+
+        cp_model = cache_manager.get("critical_power", current_user.id, max_age_hours=24)
+
+        if cp_model:
+            print(f"[Cache HIT] Critical power from cache")
+            return cp_model
+
+        # Cache miss - calculate
+        print(f"[Cache MISS] Calculating critical power")
         service = CriticalPowerService(db)
         cp_model = service.calculate_critical_power(current_user)
-        
+
         # Ensure all values are JSON-serializable
         return {
             "critical_power": float(cp_model.get("critical_power", 0)),
@@ -109,6 +209,8 @@ async def get_critical_power(
         }
     except Exception as e:
         print(f"Error getting critical power: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "critical_power": 0.0,
             "w_prime": 0.0,
@@ -130,10 +232,23 @@ async def get_efficiency_analysis(
     Get efficiency factor (EF = NP / HR) analysis over time.
     """
     try:
+        # Try to get from cache first
+        from ...services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+        cache_key = f"efficiency_{days}d"
+
+        cached_data = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
+
+        if cached_data:
+            print(f"[Cache HIT] Efficiency for {days} days from cache")
+            return cached_data
+
+        # Cache miss - calculate
+        print(f"[Cache MISS] Calculating efficiency for {days} days")
         service = EfficiencyService(db)
         efficiency_data = service.get_efficiency_factors(current_user, days)
         efficiency_trend = service.get_efficiency_trend(current_user, days)
-        
+
         # Format data for frontend
         formatted_data = []
         for item in efficiency_data:
@@ -144,13 +259,15 @@ async def get_efficiency_analysis(
                 "intensity_factor": float(item.intensity_factor) if item.intensity_factor else None,
                 "ef": float(item.ef) if item.ef else None
             })
-        
+
         return {
             "efficiency_data": formatted_data,
             "trend": efficiency_trend if efficiency_trend else {"trend": "no_data"}
         }
     except Exception as e:
         print(f"Error getting efficiency analysis: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "efficiency_data": [],
             "trend": {"trend": "no_data"}
@@ -168,20 +285,34 @@ async def get_fitness_state(
     Get comprehensive fitness state analysis including CTL/ATL/TSB and recommendations.
     """
     try:
+        # Try to get from cache first
+        from ...services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+
+        fitness_state = cache_manager.get("fitness_state", current_user.id, max_age_hours=24)
+
+        if fitness_state:
+            print(f"[Cache HIT] Fitness state from cache")
+            return fitness_state
+
+        # Cache miss - calculate
+        print(f"[Cache MISS] Calculating fitness state")
         service = FitnessStateService(db)
-        fitness_state = service.analyze_fitness_state(current_user)
-        
+        fitness_state_data = service.analyze_fitness_state(current_user)
+
         return {
-            "status": fitness_state.status if fitness_state else "unknown",
-            "status_description": fitness_state.status_description if fitness_state else "Unable to determine",
-            "ctl": float(fitness_state.ctl) if fitness_state and fitness_state.ctl else 0.0,
-            "atl": float(fitness_state.atl) if fitness_state and fitness_state.atl else 0.0,
-            "tsb": float(fitness_state.tsb) if fitness_state and fitness_state.tsb else 0.0,
-            "ef_trend": float(fitness_state.ef_trend) if fitness_state and fitness_state.ef_trend else 0.0,
-            "recommendations": fitness_state.recommendations if fitness_state else ["Ensure you have sufficient training data"]
+            "status": fitness_state_data.status if fitness_state_data else "unknown",
+            "status_description": fitness_state_data.status_description if fitness_state_data else "Unable to determine",
+            "ctl": float(fitness_state_data.ctl) if fitness_state_data and fitness_state_data.ctl else 0.0,
+            "atl": float(fitness_state_data.atl) if fitness_state_data and fitness_state_data.atl else 0.0,
+            "tsb": float(fitness_state_data.tsb) if fitness_state_data and fitness_state_data.tsb else 0.0,
+            "ef_trend": float(fitness_state_data.ef_trend) if fitness_state_data and fitness_state_data.ef_trend else 0.0,
+            "recommendations": fitness_state_data.recommendations if fitness_state_data else ["Ensure you have sufficient training data"]
         }
     except Exception as e:
         print(f"Error getting fitness state: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "status": "unknown",
             "status_description": "Unable to determine fitness state",
@@ -511,6 +642,7 @@ async def get_best_power_values(
 # ============================================
 @router.get("/vo2max")
 async def get_vo2max(
+    days: int = Query(90, ge=30, le=365, description="Number of days to analyze"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -518,11 +650,26 @@ async def get_vo2max(
     Get VO2max estimates over time.
     """
     try:
+        # Try to get from cache first
+        from ...services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+        cache_key = f"vo2max_{days}d"
+
+        vo2max_data = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
+
+        if vo2max_data:
+            print(f"[Cache HIT] VO2max for {days} days from cache")
+            return vo2max_data
+
+        # Cache miss - calculate
+        print(f"[Cache MISS] Calculating VO2max for {days} days")
         service = VO2MaxService(db)
-        result = service.estimate_vo2max_trend(current_user)
+        result = service.estimate_vo2max(current_user, days=days)
         return result if result else []
     except Exception as e:
         print(f"Error getting VO2max: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 # ============================================

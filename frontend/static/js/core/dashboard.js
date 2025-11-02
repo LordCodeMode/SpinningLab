@@ -3,30 +3,32 @@
 // ADD THIS IMPORT AT THE VERY TOP
 // ============================================
 
+import CONFIG from '/static/js/core/config.js';
 import { AuthAPI, API, AnalysisAPI } from '/static/js/core/api.js';
 import { notify, setLoading } from '/static/js/core/utils.js';
 import { router } from '/static/js/core/router.js';
+import overviewPage from '../pages/overview/index.js';
 
 // ⭐ ADD THIS CRITICAL IMPORT - Loads all services and makes them global
 import Services from '/static/js/services/index.js';
 
-// CRITICAL: Define TOKEN_STORAGE_KEY here as fallback
-const TOKEN_STORAGE_KEY = 'auth_token';
+// CRITICAL: Use the same TOKEN_STORAGE_KEY as config.js
+const TOKEN_STORAGE_KEY = CONFIG.TOKEN_STORAGE_KEY || 'training_dashboard_token';
 
 const PAGE_DEFINITIONS = {
-  overview: { path: '../pages/overview/index.js' },
-  activities: { path: '../pages/activities/index.js' },
-  settings: { path: '../pages/settings/index.js' },
-  upload: { path: '../pages/upload/index.js' },
-  'training-load': { path: '../pages/training-load/index.js' },
-  'power-curve': { path: '../pages/power-curve/index.js' },
-  'critical-power': { path: '../pages/critical-power/index.js' },
-  efficiency: { path: '../pages/efficiency/index.js' },
-  'best-powers': { path: '../pages/best-powers/index.js' },
-  'fitness-state': { path: '../pages/fitness-state/index.js' },
-  zones: { path: '../pages/zones/index.js' },
-  vo2max: { path: '../pages/vo2max/index.js' },
-  'hr-zones': { path: '../pages/hr-zones/index.js' }
+  overview: { module: overviewPage },
+  activities: { path: '/static/js/pages/activities/index.js' },
+  settings: { path: '/static/js/pages/settings/index.js' },
+  upload: { path: '/static/js/pages/upload/index.js' },
+  'training-load': { path: '/static/js/pages/training-load/index.js' },
+  'power-curve': { path: '/static/js/pages/power-curve/index.js' },
+  'critical-power': { path: '/static/js/pages/critical-power/index.js' },
+  efficiency: { path: '/static/js/pages/efficiency/index.js' },
+  'best-powers': { path: '/static/js/pages/best-powers/index.js' },
+  'fitness-state': { path: '/static/js/pages/fitness-state/index.js' },
+  zones: { path: '/static/js/pages/zones/index.js' },
+  vo2max: { path: '/static/js/pages/vo2max/index.js' },
+  'hr-zones': { path: '/static/js/pages/hr-zones/index.js' }
 };
 
 const FALLBACK_MESSAGE = 'This page is not available yet. Check back soon!';
@@ -86,13 +88,18 @@ class Dashboard {
 
   updateUserDisplay() {
     console.log('[Dashboard] Updating user display...');
-    
-    // Update username in sidebar footer (displays username, NOT email)
+    console.log('[Dashboard] Current user data:', this.currentUser);
+
+    // Update username in sidebar footer (displays name, fallback to username, then email)
     const userEmailEl = document.getElementById('userEmail');
     if (userEmailEl && this.currentUser) {
-      // Display username field from API response
-      userEmailEl.textContent = this.currentUser.username || 'User';
-      console.log('[Dashboard] Set display name to:', this.currentUser.username);
+      // Display name field first, then username, then email prefix
+      const displayName = this.currentUser.name || this.currentUser.username || this.currentUser.email?.split('@')[0] || 'User';
+      userEmailEl.textContent = displayName;
+      console.log('[Dashboard] Set display name to:', displayName);
+      console.log('[Dashboard] Name from API:', this.currentUser.name);
+      console.log('[Dashboard] Username from API:', this.currentUser.username);
+      console.log('[Dashboard] Email from API:', this.currentUser.email);
     } else {
       console.warn('[Dashboard] userEmail element not found or no currentUser');
     }
@@ -100,18 +107,20 @@ class Dashboard {
     // Also support old ID for backwards compatibility
     const currentUserEl = document.getElementById('current-user');
     if (currentUserEl && this.currentUser) {
-      currentUserEl.textContent = this.currentUser.username || 'User';
+      const displayName = this.currentUser.name || this.currentUser.username || this.currentUser.email?.split('@')[0] || 'User';
+      currentUserEl.textContent = displayName;
     }
-    
-    // Update avatar with first letter of username
+
+    // Update avatar with first letter of name/username
     const avatarElement = document.getElementById('user-avatar');
-    if (avatarElement && this.currentUser?.username) {
+    if (avatarElement && this.currentUser) {
+      const displayName = this.currentUser.name || this.currentUser.username || this.currentUser.email?.split('@')[0] || 'User';
       // Clear existing content and set text
       avatarElement.innerHTML = '';
-      avatarElement.textContent = this.currentUser.username.charAt(0).toUpperCase();
-      console.log('[Dashboard] Set avatar to:', this.currentUser.username.charAt(0).toUpperCase());
+      avatarElement.textContent = displayName.charAt(0).toUpperCase();
+      console.log('[Dashboard] Set avatar to:', displayName.charAt(0).toUpperCase());
     } else {
-      console.warn('[Dashboard] user-avatar element not found or no username');
+      console.warn('[Dashboard] user-avatar element not found or no user');
     }
   }
 
@@ -314,8 +323,15 @@ class Dashboard {
     console.log('[Dashboard] Registering pages...');
     
     for (const [pageKey, definition] of Object.entries(PAGE_DEFINITIONS)) {
+      const preloaded = definition.module;
       const modulePath = definition.path;
-      
+
+      if (preloaded) {
+        console.log(`[Dashboard] Using preloaded module for ${pageKey}`);
+        router.registerPage(pageKey, this.resolvePageModule(pageKey, { default: preloaded }) || preloaded);
+        continue;
+      }
+
       if (!modulePath) {
         console.info(`[Dashboard] Placeholder registered for ${pageKey}`);
         router.registerPage(pageKey, this.createPlaceholderPage(pageKey));
@@ -548,6 +564,7 @@ class Dashboard {
       // Clear all authentication data from localStorage
       const tokenKeys = [
         TOKEN_STORAGE_KEY,
+        'training_dashboard_token',
         'auth_token',
         'token',
         'access_token',
@@ -555,8 +572,9 @@ class Dashboard {
         'authToken',
         'bearerToken'
       ];
-      
+
       console.log('[Dashboard] Clearing localStorage tokens...');
+      console.log('[Dashboard] Primary token key:', TOKEN_STORAGE_KEY);
       let tokensCleared = 0;
       tokenKeys.forEach(key => {
         if (localStorage.getItem(key)) {
@@ -598,7 +616,8 @@ class Dashboard {
       // Small delay to ensure all console logs are visible
       setTimeout(() => {
         console.log('[Dashboard] ➡ Redirecting NOW to /index.html');
-        window.location.href = '/index.html';
+        // Use replace() to prevent back button from returning to logged-in state
+        window.location.replace('/index.html');
       }, 100);
       
     } catch (error) {
@@ -619,7 +638,7 @@ class Dashboard {
       // Force redirect regardless
       console.log('[Dashboard] ➡ Force redirecting to /index.html');
       setTimeout(() => {
-        window.location.href = '/index.html';
+        window.location.replace('/index.html');
       }, 100);
     }
   }
@@ -637,6 +656,7 @@ class Dashboard {
     // Clear all possible token storage
     const tokenKeys = [
       TOKEN_STORAGE_KEY,
+      'training_dashboard_token',
       'auth_token',
       'token',
       'access_token',
@@ -656,9 +676,9 @@ class Dashboard {
     
     console.log('[Dashboard] ✓ Auth data cleared');
     console.log('[Dashboard] ➡ Redirecting to login');
-    
-    // Redirect to login
-    window.location.href = '/index.html';
+
+    // Redirect to login - use replace() to prevent back button issues
+    window.location.replace('/index.html');
   }
 
   // Public methods for debugging
