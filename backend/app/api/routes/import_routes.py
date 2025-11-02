@@ -31,20 +31,31 @@ async def import_fit_files(
 ):
     """
     Import FIT files for the current user.
-    
+
     After successful import, automatically triggers cache rebuild in background
     to ensure all analysis data (training load, power curve, etc.) is updated
     with the new activities.
     """
-    
+
+    # Maximum file size: 50MB per file (FIT files are typically 100KB-5MB)
+    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB in bytes
+
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
-    
-    # Validate file types
+
+    # Limit number of files per request
+    MAX_FILES_PER_REQUEST = 100
+    if len(files) > MAX_FILES_PER_REQUEST:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many files. Maximum {MAX_FILES_PER_REQUEST} files per request."
+        )
+
+    # Validate file types and sizes
     for file in files:
         if not file.filename.lower().endswith('.fit'):
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Invalid file type: {file.filename}. Only .fit files are allowed."
             )
     
@@ -60,6 +71,25 @@ async def import_fit_files(
         try:
             # Read file content
             content = await file.read()
+
+            # Validate file size
+            if len(content) > MAX_FILE_SIZE:
+                results.append({
+                    "filename": file.filename,
+                    "success": False,
+                    "message": f"File too large. Maximum size is {MAX_FILE_SIZE / 1024 / 1024:.0f}MB"
+                })
+                continue
+
+            # Check for empty files
+            if len(content) == 0:
+                results.append({
+                    "filename": file.filename,
+                    "success": False,
+                    "message": "File is empty"
+                })
+                continue
+
             file_hash = hashlib.md5(content).hexdigest()
             
             # Check for duplicates

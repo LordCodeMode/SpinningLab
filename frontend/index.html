@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Cycling Performance Analytics - Login">
-  <title>Login - Cycling Analytics</title>
+  <meta name="description" content="SpinningLab - Professional cycling performance analytics platform">
+  <title>Login - SpinningLab</title>
   
   <!-- Preconnect to improve performance -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,16 +35,131 @@
     <div class="auth-container">
       <!-- Header -->
       <div class="auth-header">
-        <div class="logo">
-          <div class="logo-icon">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
-          </div>
-          <h1>CyclingMetrics</h1>
+        <div class="logo" style="gap: 20px;">
+          <svg viewBox="0 0 100 100" width="140" height="140" class="spinning-lab-logo">
+            <defs>
+              <linearGradient id="authLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+              </linearGradient>
+              <filter id="authGlow">
+                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+
+            <!-- Animated outer ring -->
+            <circle cx="50" cy="50" r="45" fill="none" stroke="url(#authLogoGradient)" stroke-width="1.5" opacity="0.2">
+              <animate attributeName="r" values="45;47;45" dur="4s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values="0.2;0.1;0.2" dur="4s" repeatCount="indefinite"/>
+            </circle>
+
+            <!-- Orbiting metric icons (counter-rotate to wheel) -->
+            <g class="auth-orbiting-icons" style="transform-origin: 50px 50px; animation: auth-orbit 40s linear infinite;">
+              <!-- Icon 1: Home -->
+              <g transform="translate(50, 8)">
+                <circle r="5.5" fill="rgba(102, 126, 234, 0.3)"/>
+                <path d="M-2 0.7 L0 -1.3 L2 0.7 V2.7 H0.7 V1.3 H-0.7 V2.7 H-2 Z" fill="url(#authLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 2: Trending Up (30°) -->
+              <g transform="translate(73, 14.5)">
+                <circle r="5.5" fill="rgba(118, 75, 162, 0.3)"/>
+                <path d="M0.7 2 L2 0.7 M2 0.7 L2 2 M2 0.7 L0.7 0.7 M-2 2 L0 0" stroke="url(#authLogoGradient)" stroke-width="1" fill="none" stroke-linecap="round"/>
+              </g>
+              <!-- Icon 3: Activity (60°) -->
+              <g transform="translate(85.5, 35.5)">
+                <circle r="5.5" fill="rgba(240, 147, 251, 0.3)"/>
+                <path d="M-2.7 0.7 L-1.3 0.7 L0 -2 L1.3 2 L2.7 0" stroke="url(#authLogoGradient)" stroke-width="1" fill="none" stroke-linecap="round"/>
+              </g>
+              <!-- Icon 4: Target (90°) -->
+              <g transform="translate(92, 50)">
+                <circle r="5.5" fill="rgba(102, 126, 234, 0.3)"/>
+                <circle cx="0" cy="0" r="2.3" fill="none" stroke="url(#authLogoGradient)" stroke-width="1"/>
+                <circle cx="0" cy="0" r="1" fill="url(#authLogoGradient)"/>
+              </g>
+              <!-- Icon 5: Percent (120°) -->
+              <g transform="translate(85.5, 64.5)">
+                <circle r="5.5" fill="rgba(118, 75, 162, 0.3)"/>
+                <path d="M-1.3 2 L1.3 -2 M-1.3 -1.3 a0.5 0.5 0 1 0 0.02 0 M1.3 1.3 a0.5 0.5 0 1 0 0.02 0" stroke="url(#authLogoGradient)" stroke-width="1" fill="none"/>
+              </g>
+              <!-- Icon 6: Award (150°) -->
+              <g transform="translate(73, 85.5)">
+                <circle r="5.5" fill="rgba(240, 147, 251, 0.3)"/>
+                <circle cx="0" cy="-0.3" r="1.7" fill="none" stroke="url(#authLogoGradient)" stroke-width="1"/>
+                <path d="M-1 1 L-0.7 2.3 L0 1.7 L0.7 2.3 L1 1" fill="url(#authLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 7: Layers (180°) -->
+              <g transform="translate(50, 92)">
+                <circle r="5.5" fill="rgba(102, 126, 234, 0.3)"/>
+                <path d="M0 -2 L2 -1 L0 0 L-2 -1 Z M0 0 L2 1 L0 2 L-2 1 Z" fill="url(#authLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 8: Heart (210°) -->
+              <g transform="translate(27, 85.5)">
+                <circle r="5.5" fill="rgba(118, 75, 162, 0.3)"/>
+                <path d="M0 2 L-1.7 0.5 Q-2 -0.3 -1.3 -1 Q-0.7 -1.7 0 -0.7 Q0.7 -1.7 1.3 -1 Q2 -0.3 1.7 0.5 Z" fill="url(#authLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 9: Wind (240°) -->
+              <g transform="translate(14.5, 64.5)">
+                <circle r="5.5" fill="rgba(240, 147, 251, 0.3)"/>
+                <path d="M-2 -1 L1.3 -1 Q2 -1 2 -0.3 M-2 1 L0.7 1 Q1.3 1 1.3 1.7" stroke="url(#authLogoGradient)" stroke-width="1" fill="none" stroke-linecap="round"/>
+              </g>
+              <!-- Icon 10: Thermometer (270°) -->
+              <g transform="translate(8, 50)">
+                <circle r="5.5" fill="rgba(102, 126, 234, 0.3)"/>
+                <path d="M0 -2 L0 0.5 M-1 1.3 Q0 2.3 1 1.3 Q1.3 0.7 1 0 L0.5 0 L0.5 -2 L-0.5 -2 L-0.5 0 L-1 0 Q-1.3 0.7 -1 1.3 Z" fill="url(#authLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 11: List (300°) -->
+              <g transform="translate(14.5, 35.5)">
+                <circle r="5.5" fill="rgba(118, 75, 162, 0.3)"/>
+                <path d="M-0.7 -1.7 L2 -1.7 M-0.7 0 L2 0 M-0.7 1.7 L2 1.7 M-2 -1.7 L-1.7 -1.7 M-2 0 L-1.7 0 M-2 1.7 L-1.7 1.7" stroke="url(#authLogoGradient)" stroke-width="1" stroke-linecap="round"/>
+              </g>
+              <!-- Icon 12: Upload (330°) -->
+              <g transform="translate(27, 14.5)">
+                <circle r="5.5" fill="rgba(240, 147, 251, 0.3)"/>
+                <path d="M0 -2 L0 2 M0 -2 L-1.3 -0.7 M0 -2 L1.3 -0.7" stroke="url(#authLogoGradient)" stroke-width="1" fill="none" stroke-linecap="round"/>
+              </g>
+            </g>
+
+            <!-- Main spinning wheel -->
+            <g class="auth-spin" style="transform-origin: 50px 50px; animation: auth-spin 20s linear infinite;">
+              <!-- Outer rim -->
+              <circle cx="50" cy="50" r="28" fill="none" stroke="url(#authLogoGradient)" stroke-width="3" filter="url(#authGlow)"/>
+
+              <!-- 6 spokes -->
+              <line x1="50" y1="22" x2="50" y2="78" stroke="url(#authLogoGradient)" stroke-width="2.5"/>
+              <line x1="22" y1="50" x2="78" y2="50" stroke="url(#authLogoGradient)" stroke-width="2.5"/>
+              <line x1="30.2" y1="30.2" x2="69.8" y2="69.8" stroke="url(#authLogoGradient)" stroke-width="2.5"/>
+              <line x1="69.8" y1="30.2" x2="30.2" y2="69.8" stroke="url(#authLogoGradient)" stroke-width="2.5"/>
+
+              <!-- Inner hub -->
+              <circle cx="50" cy="50" r="8" fill="url(#authLogoGradient)"/>
+              <circle cx="50" cy="50" r="5" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/>
+            </g>
+          </svg>
+          <h1>SpinningLab</h1>
         </div>
-        <p class="tagline">Analyze your cycling performance</p>
+        <p class="tagline">Where data meets performance</p>
       </div>
+
+      <style>
+        @keyframes auth-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        @keyframes auth-orbit {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(-360deg); }
+        }
+
+        .spinning-lab-logo {
+          display: block;
+        }
+      </style>
 
       <!-- Tab Navigation -->
       <div class="tab-navigation">

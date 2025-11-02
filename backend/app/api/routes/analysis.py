@@ -132,28 +132,34 @@ async def get_training_load(
 @router.get("/power-curve")
 async def get_power_curve(
     weighted: bool = Query(False, description="Return watts per kg instead of absolute watts"),
+    start: Optional[str] = Query(None, description="Start date (YYYY-MM-DD) for filtering activities"),
+    end: Optional[str] = Query(None, description="End date (YYYY-MM-DD) for filtering activities"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get user's power duration curve (all-time best power for each duration).
+    Get user's power duration curve (best power for each duration within date range).
     """
     try:
         # Try to get from cache first
         from ...services.cache.cache_manager import CacheManager
         cache_manager = CacheManager()
+
+        # Build cache key including date range
         cache_key = "power_curve_weighted" if weighted else "power_curve_absolute"
+        if start and end:
+            cache_key += f"_{start}_{end}"
 
         curve = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
 
         if curve:
-            print(f"[Cache HIT] Power curve ({'weighted' if weighted else 'absolute'}) from cache")
+            print(f"[Cache HIT] Power curve ({'weighted' if weighted else 'absolute'}, {start or 'all'}-{end or 'all'}) from cache")
             return _prepare_power_curve_response(curve, weighted)
 
         # Cache miss - calculate
-        print(f"[Cache MISS] Calculating power curve ({'weighted' if weighted else 'absolute'})")
+        print(f"[Cache MISS] Calculating power curve ({'weighted' if weighted else 'absolute'}, {start or 'all'}-{end or 'all'})")
         service = PowerCurveService(db)
-        curve_data = service.get_user_power_curve(current_user, weighted=weighted)
+        curve_data = service.get_user_power_curve(current_user, weighted=weighted, start_date=start, end_date=end)
 
         if not curve_data or len(curve_data) == 0:
             return {"durations": [], "powers": [], "weighted": weighted}

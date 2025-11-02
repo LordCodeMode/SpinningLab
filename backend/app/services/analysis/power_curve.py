@@ -45,33 +45,71 @@ class PowerCurveService:
             print(f"Error extracting power from {file_path}: {e}")
             return []
 
-    def get_user_power_curve(self, user: User, weighted: bool = False) -> Optional[List[float]]:
-        """Get all-time power curve for a user."""
-        activities = self.db.query(Activity).filter(
+    def get_user_power_curve(self, user: User, weighted: bool = False, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Optional[List[float]]:
+        """Get power curve for a user, optionally filtered by date range."""
+        from datetime import datetime, timedelta
+
+        # Build query with date filters
+        query = self.db.query(Activity).filter(
             Activity.user_id == user.id,
             Activity.avg_power.isnot(None)
-        ).all()
-        
+        )
+
+        # Apply date filters if provided
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                query = query.filter(Activity.start_time >= start_dt)
+                print(f"[PowerCurve] Filtering from date: {start_dt}")
+            except ValueError:
+                print(f"Invalid start date format: {start_date}")
+
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                # Include the full end day (until 23:59:59)
+                end_dt = end_dt + timedelta(days=1) - timedelta(seconds=1)
+                query = query.filter(Activity.start_time <= end_dt)
+                print(f"[PowerCurve] Filtering to date: {end_dt}")
+            except ValueError:
+                print(f"Invalid end date format: {end_date}")
+
+        activities = query.all()
+        print(f"[PowerCurve] Found {len(activities)} activities with power data in date range")
+
         all_curves = []
-        user_fit_dir = os.path.join(settings.FIT_FILES_DIR, str(user.id))
-        
+        skipped_no_filename = 0
+        skipped_no_power_values = 0
+        skipped_too_short = 0
+
         for activity in activities:
             if not activity.file_name:
+                skipped_no_filename += 1
                 continue
-                
+
             # For now, create a synthetic power curve from best power values
             # In a real implementation, you'd read the actual FIT files
             power_values = self.create_synthetic_power_curve(activity)
-            
+
+            if not power_values:
+                skipped_no_power_values += 1
+                continue
+
             if weighted and user.weight:
                 power_values = [p / user.weight for p in power_values if p]
 
-            if power_values and len(power_values) > 30:
-                curve = self.compute_power_curve(power_values)
-                if curve:
-                    all_curves.append(curve)
+            if len(power_values) < 30:
+                skipped_too_short += 1
+                continue
+
+            curve = self.compute_power_curve(power_values)
+            if curve:
+                all_curves.append(curve)
+
+        print(f"[PowerCurve] Processed activities - Valid curves: {len(all_curves)}, Skipped (no filename): {skipped_no_filename}, Skipped (no power): {skipped_no_power_values}, Skipped (too short): {skipped_too_short}")
 
         if not all_curves:
+            print(f"[PowerCurve] No valid power curves generated from {len(activities)} activities")
             return None
 
         # Combine all curves to get maximum values
@@ -86,6 +124,10 @@ class PowerCurveService:
     
     def create_synthetic_power_curve(self, activity: Activity) -> List[float]:
         """Create synthetic power curve from activity best power values."""
+        # Check if activity has any power data at all
+        if not activity.avg_power or activity.avg_power <= 0:
+            return []
+
         # This is a simplified version - in reality you'd read the FIT file
         best_powers = {
             5: activity.max_5sec_power,
@@ -96,16 +138,26 @@ class PowerCurveService:
             1200: activity.max_20min_power,
             1800: activity.max_30min_power
         }
-        
+
+        # Check if we have at least some best power values
+        has_power_data = any(v and v > 0 for v in best_powers.values())
+        if not has_power_data:
+            # If no best power values, we can't create a meaningful curve
+            return []
+
         # Interpolate between known values
         power_curve = []
         duration = activity.duration or 3600
-        
+
+        if duration <= 0:
+            return []
+
         for i in range(1, min(int(duration) + 1, 3601)):
             # Find the best power for this duration by interpolation
-            power = self.interpolate_power(i, best_powers, activity.avg_power or 200)
-            power_curve.append(power)
-        
+            power = self.interpolate_power(i, best_powers, activity.avg_power)
+            if power and power > 0:
+                power_curve.append(power)
+
         return power_curve
     
     def interpolate_power(self, duration: int, best_powers: dict, avg_power: float) -> float:

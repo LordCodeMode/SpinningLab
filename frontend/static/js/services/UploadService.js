@@ -48,22 +48,24 @@ class UploadService {
       notify('Cache rebuild is taking longer than expected. Data will update shortly.', 'warning', 6000);
     }
 
-    if (window.Services?.data) {
-      window.Services.data.clearAllCaches();
-      await window.Services.data.prefetchCommonData({ forceRefresh: true });
-    }
-
+    // Emit DATA_IMPORTED event which will trigger cache clearing via DataService listener
     eventBus.emit(EVENTS.DATA_IMPORTED, {
       fileCount: successCount,
       timestamp: Date.now(),
       cacheRebuildTriggered: true
     });
 
+    // Small delay to ensure event handlers complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Refresh the current page to load fresh data
+    // The page's load() method will fetch data with forceRefresh=true
     if (window.router?.refresh) {
       try {
+        console.log('[Upload] Refreshing current page after import...');
         await window.router.refresh();
       } catch (err) {
-        console.warn('[Upload] Router refresh failed:', err);
+        console.error('[Upload] Router refresh failed:', err);
       }
     }
 

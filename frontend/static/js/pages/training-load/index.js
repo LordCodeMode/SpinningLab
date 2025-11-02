@@ -16,6 +16,9 @@ class TrainingLoadPage {
     this.mainChart = null;
     this.weeklyChart = null;
     this.distributionChart = null;
+    this.gaugeChart = null;
+    this.sparklineCharts = {};
+    this.chartMode = 'area'; // area, line
   }
 
   async load() {
@@ -24,7 +27,6 @@ class TrainingLoadPage {
       this.renderLoading();
       await this.fetchData(this.currentDays);
       this.render();
-      this.renderCharts();
       this.setupEventListeners();
     } catch (error) {
       console.error('[TrainingLoadPage] load failed:', error);
@@ -70,13 +72,12 @@ class TrainingLoadPage {
       return;
     }
 
+    // COMPLETELY NEW LAYOUT - Breaking from hero > charts > sections pattern
     container.innerHTML = `
-      <div class="tl-shell">
-        ${this.renderHero()}
-        ${this.renderTrendSection()}
-        ${this.renderVisualisationsSection()}
-        ${this.renderHighlightsSection()}
-        ${this.renderInsightsSection()}
+      <div class="tl-dashboard">
+        ${this.renderTopBar()}
+        ${this.renderMainGrid()}
+        ${this.renderBottomInsights()}
       </div>
     `;
 
@@ -85,244 +86,290 @@ class TrainingLoadPage {
     }
 
     this.attachTooltips();
+    this.renderGaugeChart();
+    this.renderSparklines();
+    this.renderAllCharts();
   }
 
-  renderHero() {
-    const {
-      current,
-      ctlChangeShort,
-      atlChangeShort,
-      tsbStatus,
-      rollingTss7,
-      heavyDays,
-      moderateDays,
-      acuteChronicRatio,
-      trainingStreak
-    } = this.metrics;
+  // COMPLETELY NEW RENDER METHODS - UNIQUE LAYOUT
 
+  renderTopBar() {
+    const { tsbStatus, trainingStreak } = this.metrics;
     return `
-      <section class="tl-hero">
-        <div class="tl-hero__content">
-          <div class="tl-hero__meta">
-            <span class="tl-pill"><i data-feather="activity"></i>Training Load</span>
-            <span class="tl-pill tl-pill--muted"><i data-feather="calendar"></i>Last ${this.currentDays} days</span>
-            <span class="tl-pill tl-pill--muted">${trainingStreak}d load streak</span>
-          </div>
-
-          <h1>Training Load Overview</h1>
-          <p class="tl-hero__description">
-            Monitor chronic fitness (CTL), acute fatigue (ATL), and your training stress balance to keep progression and recovery in sync.
-          </p>
-
-          <div class="tl-hero__stats">
-            <div class="tl-stat-card" data-tooltip="Chronic Training Load represents long-term fitness based on your recent workload.">
-              <span class="tl-stat-label">Fitness (CTL)</span>
-              <span class="tl-stat-value">${this.formatNumber(current.ctl, 1)}</span>
-              <span class="tl-stat-meta">Δ 14d: ${this.formatDelta(ctlChangeShort)}</span>
-            </div>
-            <div class="tl-stat-card" data-tooltip="Acute Training Load captures how much stress you accumulated recently.">
-              <span class="tl-stat-label">Fatigue (ATL)</span>
-              <span class="tl-stat-value">${this.formatNumber(current.atl, 1)}</span>
-              <span class="tl-stat-meta">Δ 7d: ${this.formatDelta(atlChangeShort)}</span>
-            </div>
-            <div class="tl-stat-card" data-tooltip="Training Stress Balance (TSB) reflects your freshness. Positive values indicate readiness, negative values signal fatigue.">
-              <span class="tl-stat-label">Form (TSB)</span>
-              <span class="tl-stat-value">${this.formatNumber(current.tsb, 1)}</span>
-              <span class="tl-stat-meta">${tsbStatus.label}</span>
-            </div>
-          </div>
-
-          <div class="tl-hero__quick-stats">
-            <div class="tl-quick-stat">
-              <span class="tl-quick-stat__label">7-day Load</span>
-              <span class="tl-quick-stat__value">${this.formatNumber(rollingTss7, 0)} TSS</span>
-              <span class="tl-quick-stat__meta">Rolling weekly stress</span>
-            </div>
-            <div class="tl-quick-stat">
-              <span class="tl-quick-stat__label">High Load Days</span>
-              <span class="tl-quick-stat__value">${heavyDays}</span>
-              <span class="tl-quick-stat__meta">${moderateDays} productive days</span>
-            </div>
-            <div class="tl-quick-stat">
-              <span class="tl-quick-stat__label">Acute : Chronic</span>
-              <span class="tl-quick-stat__value">${this.formatNumber(acuteChronicRatio, 2)}</span>
-              <span class="tl-quick-stat__meta">Balance between fatigue and fitness</span>
-            </div>
-          </div>
-
-          <div class="tl-hero__controls">
-            ${[30, 60, 90, 180, 365].map(days => `
-              <button class="tl-range-btn ${this.currentDays === days ? 'active' : ''}" data-range="${days}">${days <= 360 ? `${days}d` : '1y'}</button>
-            `).join('')}
+      <div class="tl-topbar">
+        <div class="tl-topbar-left">
+          <h1 class="tl-page-title">Training Load</h1>
+          <div class="tl-breadcrumb">
+            <span class="tl-badge ${tsbStatus.badgeClass}">${tsbStatus.label}</span>
+            <span class="tl-badge tl-badge-muted">${trainingStreak}d streak</span>
+            <span class="tl-badge tl-badge-muted">${this.currentDays}d view</span>
           </div>
         </div>
-
-        <div class="tl-hero__chart">
-          <div class="tl-hero__chart-header">
-            <h3>CTL · ATL · TSB Overview</h3>
-            <button class="tl-info-icon" data-tooltip="Bars show daily training stress; lines track chronic and acute load while form reflects ATL minus CTL.">
-              <i data-feather="info"></i>
+        <div class="tl-topbar-controls">
+          ${[30, 60, 90, 180, 365].map(days => `
+            <button class="tl-range-pill ${this.currentDays === days ? 'active' : ''}" data-range="${days}">
+              ${days <= 360 ? days + 'd' : '1y'}
             </button>
-          </div>
-          <div class="tl-hero__chart-wrapper">
-            <canvas id="tl-trend-chart" aria-label="Training load trend chart"></canvas>
-          </div>
+          `).join('')}
         </div>
-      </section>
+      </div>
     `;
   }
 
-  renderTrendSection() {
+  renderMainGrid() {
+    const { current, ctlChangeShort, atlChangeShort, tsbStatus, rollingTss7, acuteChronicRatio } = this.metrics;
+    const weekly = this.data.slice(-7);
+    const weeklyAvg = weekly.reduce((sum, d) => sum + (d.tss || 0), 0) / 7;
+    const rampRate = weekly.length >= 7 ? (weekly[6].ctl - weekly[0].ctl) : 0;
+
     return `
-      <section class="tl-section">
-        <header class="tl-section__header">
-          <h2 class="tl-section__title">Daily Load History</h2>
-          <p class="tl-section__subtitle">Track how fitness, fatigue, and form evolve alongside daily training stress.</p>
-        </header>
-        <div class="tl-chart-card">
-          <div class="tl-chart-card__header">
-            <div>
-              <h3>Training Load Timeline</h3>
-              <span class="tl-chart-card__hint">CTL · ATL · TSB with daily TSS</span>
+      <div class="tl-main-grid">
+        <!-- Left Column: Gauge + Quick Stats -->
+        <div class="tl-left-column">
+          <!-- Form Gauge -->
+          <div class="tl-gauge-widget">
+            <div class="tl-widget-header">
+              <h3>Current Form</h3>
+              <span class="tl-widget-badge ${tsbStatus.badgeClass}">${tsbStatus.label}</span>
+            </div>
+            <div class="tl-gauge-wrapper">
+              <canvas id="tl-form-gauge"></canvas>
+              <div class="tl-gauge-center">
+                <div class="tl-gauge-value">${this.formatNumber(current.tsb, 1)}</div>
+                <div class="tl-gauge-label">TSB</div>
+              </div>
+            </div>
+            <p class="tl-gauge-desc">${tsbStatus.description}</p>
+          </div>
+
+          <!-- Quick Stats Grid -->
+          <div class="tl-quick-grid">
+            <div class="tl-stat-mini">
+              <div class="tl-stat-mini-label">7d TSS Avg</div>
+              <div class="tl-stat-mini-value">${this.formatNumber(weeklyAvg, 0)}</div>
+            </div>
+            <div class="tl-stat-mini">
+              <div class="tl-stat-mini-label">Ramp Rate</div>
+              <div class="tl-stat-mini-value">${rampRate > 0 ? '+' : ''}${this.formatNumber(rampRate, 1)}</div>
+            </div>
+            <div class="tl-stat-mini">
+              <div class="tl-stat-mini-label">ATL/CTL</div>
+              <div class="tl-stat-mini-value">${this.formatNumber(acuteChronicRatio, 2)}</div>
             </div>
           </div>
-          <div class="tl-chart-card__body">
-            <canvas id="tl-main-chart"></canvas>
+        </div>
+
+        <!-- Center Column: Main Chart -->
+        <div class="tl-center-column">
+          <div class="tl-chart-widget">
+            <div class="tl-widget-header">
+              <h3>Load Timeline</h3>
+              <div class="tl-chart-legend">
+                <span class="tl-legend-item"><i style="background:#3b82f6"></i>CTL</span>
+                <span class="tl-legend-item"><i style="background:#f59e0b"></i>ATL</span>
+                <span class="tl-legend-item"><i style="background:#10b981"></i>TSB</span>
+              </div>
+            </div>
+            <div class="tl-chart-canvas-wrapper">
+              <canvas id="tl-main-chart"></canvas>
+            </div>
           </div>
         </div>
-      </section>
+
+        <!-- Right Column: Metrics Stack -->
+        <div class="tl-right-column">
+          <div class="tl-metric-tile" data-color="blue">
+            <div class="tl-metric-tile-header">
+              <span class="tl-metric-tile-label">Fitness</span>
+              <span class="tl-metric-tile-change">${this.formatDelta(ctlChangeShort)}</span>
+            </div>
+            <div class="tl-metric-tile-value">${this.formatNumber(current.ctl, 1)}</div>
+            <div class="tl-metric-tile-chart">
+              <canvas id="ctl-sparkline"></canvas>
+            </div>
+            <div class="tl-metric-tile-footer">Chronic Training Load</div>
+          </div>
+
+          <div class="tl-metric-tile" data-color="orange">
+            <div class="tl-metric-tile-header">
+              <span class="tl-metric-tile-label">Fatigue</span>
+              <span class="tl-metric-tile-change">${this.formatDelta(atlChangeShort)}</span>
+            </div>
+            <div class="tl-metric-tile-value">${this.formatNumber(current.atl, 1)}</div>
+            <div class="tl-metric-tile-chart">
+              <canvas id="atl-sparkline"></canvas>
+            </div>
+            <div class="tl-metric-tile-footer">Acute Training Load</div>
+          </div>
+
+          <div class="tl-metric-tile" data-color="green">
+            <div class="tl-metric-tile-header">
+              <span class="tl-metric-tile-label">Form</span>
+              <span class="tl-metric-tile-change">TSB</span>
+            </div>
+            <div class="tl-metric-tile-value">${this.formatNumber(current.tsb, 1)}</div>
+            <div class="tl-metric-tile-chart">
+              <canvas id="tsb-sparkline"></canvas>
+            </div>
+            <div class="tl-metric-tile-footer">Training Stress Balance</div>
+          </div>
+        </div>
+      </div>
     `;
   }
 
-  renderVisualisationsSection() {
-    const hasDistribution = this.metrics?.loadDistribution?.total > 0;
-    const hasWeekly = Array.isArray(this.metrics?.weeklyTrend) && this.metrics.weeklyTrend.length > 0;
+  renderBottomInsights() {
+    const { loadDistribution, weeklyTrend, volatilityScore, longestBuildStreak } = this.metrics;
 
-    if (!hasDistribution && !hasWeekly) return '';
-
-    const cards = [];
-
-    if (hasDistribution) {
-      cards.push(`
-        <article class="tl-visual-card">
-          <div class="tl-visual-card__header">
-            <h3>Load Distribution</h3>
-            <button class="tl-info-icon" data-tooltip="Split by daily training stress scores. Heavy > 100 TSS, productive 50-100 TSS, easy < 50 TSS.">
-              <i data-feather="pie-chart"></i>
-            </button>
-          </div>
-          <div class="tl-visual-card__body">
-            <canvas id="tl-distribution-chart"></canvas>
-          </div>
-        </article>
-      `);
-    }
-
-    if (hasWeekly) {
-      cards.push(`
-        <article class="tl-visual-card">
-          <div class="tl-visual-card__header">
-            <h3>Weekly Stress Trend</h3>
-            <button class="tl-info-icon" data-tooltip="Weekly TSS (bars) with change from the previous week (line).">
-              <i data-feather="trending-up"></i>
-            </button>
-          </div>
-          <div class="tl-visual-card__body">
-            <canvas id="tl-weekly-chart"></canvas>
-          </div>
-        </article>
-      `);
-    }
+    const weeklyCards = weeklyTrend && weeklyTrend.length >= 2 ? weeklyTrend.slice(-4).map(week => `
+      <div class="tl-week-card">
+        <div class="tl-week-label">${week.label}</div>
+        <div class="tl-week-value">${week.load}</div>
+        <div class="tl-week-delta ${week.delta >= 0 ? 'positive' : 'negative'}">
+          ${week.delta > 0 ? '+' : ''}${week.delta}
+        </div>
+      </div>
+    `).join('') : '';
 
     return `
-      <section class="tl-section">
-        <header class="tl-section__header">
-          <h2 class="tl-section__title">Adaptation Visualisations</h2>
-          <p class="tl-section__subtitle">See how day-to-day stress combines into productive build phases and freshness windows.</p>
-        </header>
-        <div class="tl-visual-grid">
-          ${cards.join('')}
-        </div>
-      </section>
-    `;
-  }
-
-  renderHighlightsSection() {
-    const { tsbStatus, loadDistribution, volatilityScore, longestBuildStreak, lightDaysUpcoming } = this.metrics;
-
-    return `
-      <section class="tl-section">
-        <header class="tl-section__header">
-          <h2 class="tl-section__title">Focus Highlights</h2>
-          <p class="tl-section__subtitle">Quick-read coaching cues derived from your current training block.</p>
-        </header>
-        <div class="tl-highlight-grid">
-          <article class="tl-highlight-card">
-            <header>
-              <span class="tl-pill ${tsbStatus.badgeClass}">${tsbStatus.label}</span>
-              <button class="tl-info-icon" data-tooltip="TSB compares ATL and CTL to indicate freshness. Aim for small positives before goal events.">
-                <i data-feather="info"></i>
-              </button>
-            </header>
-            <p>${tsbStatus.description}</p>
-            <footer>${lightDaysUpcoming > 0 ? `${lightDaysUpcoming} light days in next week recommended.` : 'Maintain current recovery rhythm.'}</footer>
-          </article>
-          <article class="tl-highlight-card">
-            <header>
-              <span class="tl-pill tl-pill--primary">Load Mix</span>
-              <button class="tl-info-icon" data-tooltip="Breakdown of easy, productive, and heavy days based on daily TSS.">
-                <i data-feather="bar-chart-2"></i>
-              </button>
-            </header>
-            <p>Easy ${this.formatNumber(loadDistribution.easyPct, 0)}% · Productive ${this.formatNumber(loadDistribution.steadyPct, 0)}% · Heavy ${this.formatNumber(loadDistribution.intensePct, 0)}%.</p>
-            <footer>${longestBuildStreak} day build streak detected.</footer>
-          </article>
-          <article class="tl-highlight-card">
-            <header>
-              <span class="tl-pill tl-pill--success">Consistency</span>
-              <button class="tl-info-icon" data-tooltip="Week-to-week TSS volatility below 15% indicates a smooth progressive build.">
-                <i data-feather="target"></i>
-              </button>
-            </header>
-            <p>${volatilityScore.label}</p>
-            <footer>Week-to-week change: ${this.formatNumber(volatilityScore.changePct, 1)}%</footer>
-          </article>
-        </div>
-      </section>
-    `;
-  }
-
-  renderInsightsSection() {
-    if (!this.insights || !this.insights.length) {
-      return '';
-    }
-
-    const cards = this.insights.map(insight => `
-      <article class="tl-insight-card">
-        <header>
-          <span class="tl-pill ${this.getInsightBadgeClass(insight.type)}">${this.escapeHtml(insight.title)}</span>
-          <button class="tl-info-icon" data-tooltip="${this.escapeHtml(insight.text)}"><i data-feather="help-circle"></i></button>
-        </header>
-        <p>${this.escapeHtml(insight.text)}</p>
-        ${insight.recommendations && insight.recommendations.length ? `
-          <footer>
-            ${insight.recommendations.map(item => `<span>• ${this.escapeHtml(item)}</span>`).join('<br/>')}
-          </footer>
+      <div class="tl-bottom-section">
+        <!-- Weekly Trend Cards -->
+        ${weeklyCards ? `
+          <div class="tl-weekly-strip">
+            <h3 class="tl-section-title">Last 4 Weeks</h3>
+            <div class="tl-week-grid">
+              ${weeklyCards}
+            </div>
+          </div>
         ` : ''}
-      </article>
-    `).join('');
 
-    return `
-      <section class="tl-section">
-        <header class="tl-section__header">
-          <h2 class="tl-section__title">Training Insights</h2>
-          <p class="tl-section__subtitle">AI-generated guidance to balance your build and recovery phases.</p>
-        </header>
-        <div class="tl-insight-grid">
-          ${cards}
+        <!-- Distribution & Insights -->
+        <div class="tl-insights-grid">
+          <div class="tl-insight-card">
+            <div class="tl-insight-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+              <i data-feather="bar-chart-2"></i>
+            </div>
+            <div class="tl-insight-content">
+              <h4>Load Distribution</h4>
+              <p>Easy ${this.formatNumber(loadDistribution.easyPct, 0)}% · Productive ${this.formatNumber(loadDistribution.steadyPct, 0)}% · Heavy ${this.formatNumber(loadDistribution.intensePct, 0)}%</p>
+            </div>
+          </div>
+
+          <div class="tl-insight-card">
+            <div class="tl-insight-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+              <i data-feather="trending-up"></i>
+            </div>
+            <div class="tl-insight-content">
+              <h4>Consistency</h4>
+              <p>${volatilityScore.label} – ${this.formatNumber(volatilityScore.changePct, 1)}% week-to-week variability</p>
+            </div>
+          </div>
+
+          <div class="tl-insight-card">
+            <div class="tl-insight-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+              <i data-feather="zap"></i>
+            </div>
+            <div class="tl-insight-content">
+              <h4>Build Streak</h4>
+              <p>${longestBuildStreak} consecutive productive days detected in this period</p>
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
     `;
+  }
+
+  renderAllCharts() {
+    // Render main chart
+    const mainCanvas = document.getElementById('tl-main-chart');
+    if (mainCanvas && this.metrics?.hasData) {
+      this.renderMainChart();
+    }
+  }
+
+  renderMainChart() {
+    const canvas = document.getElementById('tl-main-chart');
+    if (!canvas || typeof Chart === 'undefined' || !this.data) return;
+
+    if (this.mainChart) {
+      this.mainChart.destroy();
+    }
+
+    const labels = this.data.map(entry => this.formatDate(entry.date));
+    const ctlValues = this.data.map(entry => entry.ctl || 0);
+    const atlValues = this.data.map(entry => entry.atl || 0);
+    const tsbValues = this.data.map(entry => entry.tsb || 0);
+
+    this.mainChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'CTL (Fitness)',
+            data: ctlValues,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            borderWidth: 3,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 5
+          },
+          {
+            label: 'ATL (Fatigue)',
+            data: atlValues,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            fill: true,
+            borderWidth: 3,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 5
+          },
+          {
+            label: 'TSB (Form)',
+            data: tsbValues,
+            borderColor: '#10b981',
+            backgroundColor: 'transparent',
+            fill: false,
+            borderWidth: 2,
+            borderDash: [5, 3],
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 5
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            padding: 12,
+            titleFont: { size: 13, weight: 'bold' },
+            bodyFont: { size: 12 },
+            callbacks: {
+              label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(1)}`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            grid: { color: 'rgba(0,0,0,0.05)' },
+            ticks: { font: { size: 11 }, color: '#6b7280' }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 10 }, color: '#6b7280', maxRotation: 0 }
+          }
+        }
+      }
+    });
   }
 
   renderEmptyState() {
@@ -347,295 +394,8 @@ class TrainingLoadPage {
     `;
   }
 
-  renderCharts() {
-    const trendCanvas = document.getElementById('tl-main-chart');
-    const heroCanvas = document.getElementById('tl-trend-chart');
-    const distributionCanvas = document.getElementById('tl-distribution-chart');
-    const weeklyCanvas = document.getElementById('tl-weekly-chart');
-
-    if (!this.metrics?.hasData || typeof Chart === 'undefined') return;
-
-    const labels = this.data.map(entry => this.formatDate(entry.date));
-    const tssValues = this.data.map(entry => entry.tss || 0);
-    const ctlValues = this.data.map(entry => entry.ctl || 0);
-    const atlValues = this.data.map(entry => entry.atl || 0);
-    const tsbValues = this.data.map(entry => entry.tsb || 0);
-
-    const colors = CONFIG.CHART_COLORS || {
-      primary: '#2563eb',
-      secondary: '#7c3aed',
-      info: '#0ea5e9',
-      warning: '#f59e0b'
-    };
-
-    if (this.mainChart) {
-      this.mainChart.destroy();
-      this.mainChart = null;
-    }
-    if (this.weeklyChart) {
-      this.weeklyChart.destroy();
-      this.weeklyChart = null;
-    }
-    if (this.distributionChart) {
-      this.distributionChart.destroy();
-      this.distributionChart = null;
-    }
-
-    if (trendCanvas) {
-      this.mainChart = new Chart(trendCanvas, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [
-            {
-              type: 'bar',
-              label: 'Daily TSS',
-              data: tssValues,
-              backgroundColor: 'rgba(14, 165, 233, 0.25)',
-              borderColor: 'rgba(14, 165, 233, 0.55)',
-              borderWidth: 1,
-              borderRadius: 6,
-              yAxisID: 'tss'
-            },
-            {
-              type: 'line',
-              label: 'CTL',
-              data: ctlValues,
-              borderColor: colors.primary || '#2563eb',
-              backgroundColor: 'rgba(37, 99, 235, 0.12)',
-              borderWidth: 2.5,
-              fill: false,
-              tension: 0.3,
-              pointRadius: 0,
-              yAxisID: 'load'
-            },
-            {
-              type: 'line',
-              label: 'ATL',
-              data: atlValues,
-              borderColor: colors.secondary || '#7c3aed',
-              backgroundColor: 'rgba(124, 58, 237, 0.12)',
-              borderWidth: 2.5,
-              fill: false,
-              tension: 0.3,
-              pointRadius: 0,
-              yAxisID: 'load'
-            },
-            {
-              type: 'line',
-              label: 'TSB',
-              data: tsbValues,
-              borderColor: '#0f172a',
-              backgroundColor: 'rgba(15, 23, 42, 0.08)',
-              borderWidth: 2,
-              fill: false,
-              borderDash: [6, 4],
-              tension: 0.3,
-              pointRadius: 0,
-              yAxisID: 'tsb'
-            }
-          ]
-        },
-        options: {
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            tss: {
-              position: 'left',
-              beginAtZero: true,
-              grid: { color: 'rgba(148, 163, 184, 0.12)' },
-              title: { display: true, text: 'TSS', font: { size: 12, weight: '600' } }
-            },
-            load: {
-              position: 'right',
-              grid: { display: false },
-              title: { display: true, text: 'Load', font: { size: 12, weight: '600' } }
-            },
-            tsb: {
-              position: 'right',
-              grid: { display: false },
-              suggestedMin: Math.min(...tsbValues, -20),
-              suggestedMax: Math.max(...tsbValues, 20),
-              ticks: { callback: value => `${value}` },
-              title: { display: true, text: 'TSB', font: { size: 12, weight: '600' } }
-            }
-          },
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: { usePointStyle: true, color: '#334155' }
-            },
-            tooltip: {
-              callbacks: {
-                label: context => `${context.dataset.label}: ${this.formatNumber(context.parsed.y, 1)}`
-              }
-            }
-          }
-        }
-      });
-    }
-
-    if (heroCanvas) {
-      new Chart(heroCanvas, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: 'CTL',
-              data: ctlValues,
-              borderColor: colors.primary || '#2563eb',
-              backgroundColor: 'rgba(37, 99, 235, 0.08)',
-              fill: true,
-              borderWidth: 2.5,
-              tension: 0.35,
-              pointRadius: 0
-            },
-            {
-              label: 'ATL',
-              data: atlValues,
-              borderColor: colors.secondary || '#7c3aed',
-              backgroundColor: 'rgba(124, 58, 237, 0.08)',
-              fill: false,
-              borderWidth: 2,
-              tension: 0.35,
-              pointRadius: 0
-            },
-            {
-              label: 'TSB',
-              data: tsbValues,
-              borderColor: '#0f172a',
-              backgroundColor: 'rgba(15, 23, 42, 0.05)',
-              fill: false,
-              borderWidth: 1.5,
-              borderDash: [6, 4],
-              tension: 0.35,
-              pointRadius: 0
-            }
-          ]
-        },
-        options: {
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: false,
-              grid: { color: 'rgba(148, 163, 184, 0.12)' }
-            },
-            x: {
-              grid: { display: false }
-            }
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: context => `${context.dataset.label}: ${this.formatNumber(context.parsed.y, 1)}`
-              }
-            }
-          }
-        }
-      });
-    }
-
-    if (distributionCanvas && this.metrics?.loadDistribution?.total > 0) {
-      const { easyPct, steadyPct, intensePct } = this.metrics.loadDistribution;
-      this.distributionChart = new Chart(distributionCanvas, {
-        type: 'doughnut',
-        data: {
-          labels: ['Easy', 'Productive', 'Heavy'],
-          datasets: [{
-            data: [easyPct, steadyPct, intensePct],
-            backgroundColor: [
-              'rgba(191, 219, 254, 0.85)',
-              'rgba(125, 211, 252, 0.85)',
-              'rgba(99, 102, 241, 0.85)'
-            ],
-            borderColor: '#fff',
-            borderWidth: 2,
-            hoverOffset: 6
-          }]
-        },
-        options: {
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: { usePointStyle: true, color: '#334155' }
-            }
-          }
-        }
-      });
-    }
-
-    if (weeklyCanvas && this.metrics.weeklyTrend.length) {
-      const weeklyLabels = this.metrics.weeklyTrend.map(item => item.label);
-      const weeklyLoad = this.metrics.weeklyTrend.map(item => item.load);
-      const weeklyDelta = this.metrics.weeklyTrend.map(item => item.delta);
-      const maxDelta = weeklyDelta.reduce((acc, value) => Math.max(acc, Math.abs(value)), 0);
-      const deltaRange = Math.max(25, Math.ceil(maxDelta / 10) * 10);
-
-      this.weeklyChart = new Chart(weeklyCanvas, {
-        type: 'bar',
-        data: {
-          labels: weeklyLabels,
-          datasets: [
-            {
-              type: 'bar',
-              label: 'Weekly TSS',
-              data: weeklyLoad,
-              backgroundColor: 'rgba(165, 180, 252, 0.65)',
-              borderColor: 'rgba(99, 102, 241, 0.85)',
-              borderWidth: 1,
-              borderRadius: 10,
-              yAxisID: 'load'
-            },
-            {
-              type: 'line',
-              label: 'Δ vs prior week',
-              data: weeklyDelta,
-              borderColor: '#2563eb',
-              backgroundColor: 'rgba(37, 99, 235, 0.2)',
-              yAxisID: 'delta',
-              tension: 0.3,
-              pointRadius: 4,
-              pointHoverRadius: 6
-            }
-          ]
-        },
-        options: {
-          maintainAspectRatio: false,
-          scales: {
-            load: {
-              beginAtZero: true,
-              grid: { color: 'rgba(148, 163, 184, 0.12)' },
-              title: { display: true, text: 'Weekly TSS', font: { size: 12, weight: '600' } }
-            },
-            delta: {
-              position: 'right',
-              beginAtZero: true,
-              suggestedMin: -deltaRange,
-              suggestedMax: deltaRange,
-              grid: { display: false },
-              ticks: { callback: value => `${value > 0 ? '+' : ''}${Number(value).toFixed(0)}` },
-              title: { display: true, text: 'Δ TSS', font: { size: 12, weight: '600' }, color: '#2563eb' }
-            },
-            x: {
-              grid: { display: false },
-              ticks: { font: { size: 12, weight: '600' } }
-            }
-          },
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: { usePointStyle: true, color: '#334155' }
-            }
-          }
-        }
-      });
-    }
-  }
-
   setupEventListeners() {
-    document.querySelectorAll('.tl-range-btn').forEach(btn => {
+    document.querySelectorAll('.tl-range-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         const range = Number(btn.dataset.range);
         this.handleRangeChange(range);
@@ -649,7 +409,6 @@ class TrainingLoadPage {
       this.renderLoading();
       await this.fetchData(days, { forceRefresh: true });
       this.render();
-      this.renderCharts();
       this.setupEventListeners();
     } catch (error) {
       this.renderError(error);
@@ -986,6 +745,107 @@ class TrainingLoadPage {
       .replace(/'/g, '&#039;');
   }
 
+  renderGaugeChart() {
+    const canvas = document.getElementById('tl-form-gauge');
+    if (!canvas || typeof Chart === 'undefined' || !this.metrics) return;
+
+    const tsb = this.metrics.current.tsb || 0;
+
+    // Map TSB to gauge value (0-100 scale)
+    const gaugeValue = Math.max(0, Math.min(100, ((tsb + 30) / 55) * 100));
+
+    // Determine color based on TSB
+    let gaugeColor;
+    if (tsb >= 15) gaugeColor = '#10b981';
+    else if (tsb >= 5) gaugeColor = '#3b82f6';
+    else if (tsb >= -5) gaugeColor = '#6366f1';
+    else if (tsb >= -15) gaugeColor = '#f59e0b';
+    else gaugeColor = '#ef4444';
+
+    if (this.gaugeChart) {
+      this.gaugeChart.destroy();
+    }
+
+    this.gaugeChart = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        datasets: [{
+          data: [gaugeValue, 100 - gaugeValue],
+          backgroundColor: [gaugeColor, '#e5e7eb'],
+          borderWidth: 0,
+          circumference: 180,
+          rotation: 270
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '75%',
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false }
+        }
+      }
+    });
+
+    // Update status colors
+    const statusEl = document.getElementById('tl-gauge-status');
+    if (statusEl) {
+      statusEl.style.backgroundColor = `${gaugeColor}15`;
+      const titleEl = statusEl.querySelector('.tl-gauge-status-title');
+      if (titleEl) titleEl.style.color = gaugeColor;
+    }
+  }
+
+  renderSparklines() {
+    if (!this.data || !this.data.length || typeof Chart === 'undefined') return;
+
+    const last30 = this.data.slice(-30);
+
+    this.createSparkline('ctl-sparkline', last30, 'ctl', '#3b82f6');
+    this.createSparkline('atl-sparkline', last30, 'atl', '#f59e0b');
+    this.createSparkline('tsb-sparkline', last30, 'tsb', '#10b981');
+  }
+
+  createSparkline(canvasId, data, field, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const values = data.map(d => d[field] || 0);
+
+    if (this.sparklineCharts[canvasId]) {
+      this.sparklineCharts[canvasId].destroy();
+    }
+
+    this.sparklineCharts[canvasId] = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: data.map(() => ''),
+        datasets: [{
+          data: values,
+          borderColor: color,
+          backgroundColor: `${color}20`,
+          fill: true,
+          tension: 0.4,
+          borderWidth: 2,
+          pointRadius: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false }
+        },
+        scales: {
+          x: { display: false },
+          y: { display: false }
+        }
+      }
+    });
+  }
+
   onUnload() {
     if (this.mainChart) {
       this.mainChart.destroy();
@@ -999,6 +859,12 @@ class TrainingLoadPage {
       this.distributionChart.destroy();
       this.distributionChart = null;
     }
+    if (this.gaugeChart) {
+      this.gaugeChart.destroy();
+      this.gaugeChart = null;
+    }
+    Object.values(this.sparklineCharts).forEach(chart => chart?.destroy());
+    this.sparklineCharts = {};
   }
 }
 

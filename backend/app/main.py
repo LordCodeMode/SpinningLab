@@ -1,16 +1,94 @@
-from fastapi import FastAPI, APIRouter, Depends
+from fastapi import FastAPI, APIRouter, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 import os
+import logging
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from .core.config import settings
 from .database.connection import init_db, get_db
 from .database.models import User
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        # Prevent clickjacking attacks
+        response.headers["X-Frame-Options"] = "DENY"
+
+        # Prevent MIME type sniffing
+        response.headers["X-Content-Type-Options"] = "nosniff"
+
+        # Enable XSS protection (legacy browsers)
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+
+        # Content Security Policy
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' http://localhost:* http://127.0.0.1:*"
+        )
+
+        # Strict Transport Security (HSTS) - only enable in production with HTTPS
+        # Uncomment when deploying with HTTPS:
+        # response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        # Referrer Policy
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # Permissions Policy (formerly Feature Policy)
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=(), payment=()"
+        )
+
+        return response
+
+
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    """Limit maximum request body size to prevent DoS attacks."""
+
+    def __init__(self, app, max_upload_size: int = 500 * 1024 * 1024):  # 500MB default
+        super().__init__(app)
+        self.max_upload_size = max_upload_size
+
+    async def dispatch(self, request: Request, call_next):
+        # Check Content-Length header
+        if request.headers.get("content-length"):
+            content_length = int(request.headers["content-length"])
+            if content_length > self.max_upload_size:
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "detail": f"Request body too large. Maximum size is {self.max_upload_size / 1024 / 1024:.0f}MB"
+                    }
+                )
+
+        response = await call_next(request)
+        return response
+
 
 # Create directories if they don't exist
 os.makedirs(settings.FIT_FILES_DIR, exist_ok=True)
 os.makedirs(settings.CACHE_DIR, exist_ok=True)
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -18,7 +96,42 @@ app = FastAPI(
     description="Training Dashboard Pro API"
 )
 
-# CORS middleware
+# Add rate limiter to app state
+app.state.limiter = limiter
+
+# Custom rate limit handler with CORS support
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Custom rate limit exceeded handler that includes CORS headers."""
+    from fastapi.responses import JSONResponse
+    response = JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded. Please try again later."}
+    )
+    # Add CORS headers manually to rate limit responses
+    origin = request.headers.get("origin")
+    if origin in [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ]:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+# Request size limit middleware (500MB max for batch uploads)
+app.add_middleware(RequestSizeLimitMiddleware, max_upload_size=500 * 1024 * 1024)
+
+# Security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CORS middleware (MUST be added LAST to be outermost - executes first)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -34,8 +147,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize database
-init_db()
+
+# Startup event: Initialize database automatically
+@app.on_event("startup")
+async def startup_event():
+    """
+    Run on application startup.
+
+    Automatically initializes the database if it doesn't exist.
+    This means users just need to start the app - no manual commands!
+    """
+    logger.info("="*60)
+    logger.info("Training Dashboard Pro - Starting Up")
+    logger.info("="*60)
+
+    # Auto-initialize database (creates tables if they don't exist)
+    init_db()
+
+    logger.info("="*60)
+    logger.info("✓ Application ready!")
+    logger.info("="*60)
 
 # Import and include routers
 from .api.routes.auth import router as auth_router

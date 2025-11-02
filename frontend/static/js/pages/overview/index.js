@@ -12,6 +12,7 @@ class OverviewPage {
     this.config = CONFIG;
     this.charts = {};
     this.data = {};
+    this.currentUser = null;
     this.availableRanges = (this.config?.charts?.trainingLoad?.availableRanges || [30, 90, 180, 360]).sort((a, b) => a - b);
     const defaultTrainingRange = Number.parseInt(this.config?.charts?.trainingLoad?.defaultRange ?? CONFIG?.DEFAULT_DAYS?.trainingLoad, 10);
     const fallbackRange = this.availableRanges.includes(defaultTrainingRange) ? defaultTrainingRange : this.availableRanges[1] || this.availableRanges[0] || 90;
@@ -28,17 +29,21 @@ class OverviewPage {
   async load() {
     try {
       Services.analytics.trackPageView('overview');
-      
+
       // Show loading state
       this.renderLoading();
-      
+
+      // Get user info for welcome message
+      const { AuthAPI } = await import('../../core/api.js');
+      this.currentUser = await AuthAPI.me().catch(() => ({ username: 'Athlete' }));
+
       // Fetch all data in parallel
       const maxRange = Math.max(...this.availableRanges, this.trainingLoadRange);
       const dateBounds = this.getDateBounds(maxRange);
 
       const [trainingLoadFull, activitiesFull, settings, fitnessState] = await Promise.all([
         Services.data.getTrainingLoad({ days: maxRange, forceRefresh: true }),
-        Services.data.getActivities({ 
+        Services.data.getActivities({
           limit: this.activitiesForChartLimit,
           skip: 0,
           startDate: dateBounds.start,
@@ -96,73 +101,419 @@ class OverviewPage {
   render() {
     const container = document.getElementById('pageContent') || document.getElementById('page-content');
     if (!container) return;
-    
+
     const { trainingLoad, activities, settings, insights, fitnessState } = this.data;
-    
-    // ✅ Using classes from overview.css - NO inline styles
+    // Display name priority: name → username → email prefix → 'Athlete'
+    const userName = this.currentUser?.name || this.currentUser?.username || this.currentUser?.email?.split('@')[0] || 'Athlete';
+    const timeOfDay = this.getTimeOfDay();
+
+    // UNIQUE DASHBOARD LAYOUT - Different from Training Load
     container.innerHTML = `
-      <div class="ov-section">
-        <!-- Header -->
-        <div class="ov-header">
-          <h1>Dashboard Overview</h1>
-          <p>Your training metrics and recent performance</p>
-        </div>
-
-        <!-- KPI Metrics Grid -->
-        <div class="metrics-grid">
-          ${this.renderMetrics()}
-        </div>
-
-        <!-- Training Load Chart -->
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="chart-header-content">
-              <div class="chart-title-row">
-                <div class="chart-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                          d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                  </svg>
-                </div>
-                <div>
-                  <div class="chart-title">Training Load (30 days)</div>
-                  <div class="chart-subtitle">CTL, ATL, and TSB progression</div>
-                </div>
-              </div>
-            </div>
-            <div class="chart-controls">
-              ${this.availableRanges.map(days => `
-                <button class="chart-control ${this.trainingLoadRange === days ? 'active' : ''}" data-range="${days}">${days}d</button>
-              `).join('')}
-            </div>
-          </div>
-          <div class="chart-container">
-            <canvas id="trainingLoadChart"></canvas>
-          </div>
-        </div>
-
-        <!-- AI Insights -->
-        ${insights && insights.length > 0 ? `
-          <div class="insights-section">
-            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;">AI Insights</h3>
-            <div class="insights-grid">
-              ${insights.map(insight => InsightCard(insight)).join('')}
-            </div>
-          </div>
-        ` : ''}
-
-        <!-- Recent Activities -->
-        ${this.renderActivities(activities)}
+      <div class="ov-dashboard">
+        ${this.renderWelcomeHero(userName, timeOfDay)}
+        ${this.renderQuickStats()}
+        ${this.renderMainContent()}
+        ${this.renderRecentActivities(activities)}
+        ${insights && insights.length > 0 ? this.renderInsightsSection(insights) : ''}
       </div>
     `;
-    
+
     // Setup chart controls
     this.setupChartControls();
-    
+
     // Initialize icons
     if (typeof feather !== 'undefined') {
       feather.replace();
     }
+  }
+
+  getTimeOfDay() {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
+  }
+
+  renderWelcomeHero(userName, timeOfDay) {
+    const greeting = timeOfDay === 'morning' ? 'Good morning' :
+                     timeOfDay === 'afternoon' ? 'Good afternoon' : 'Good evening';
+
+    const date = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    return `
+      <div class="ov-welcome-hero">
+        <div class="ov-welcome-content">
+          <h1 class="ov-welcome-title">${greeting}, ${this.escapeHtml(userName)}!</h1>
+          <p class="ov-welcome-subtitle">${date} • Here's your training overview</p>
+        </div>
+        <div class="ov-welcome-graphic">
+          <svg viewBox="0 0 200 200" class="ov-hero-logo">
+            <defs>
+              <linearGradient id="heroLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                <stop offset="40%" style="stop-color:#764ba2;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+              </linearGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+
+            <!-- Animated background rings -->
+            <circle cx="100" cy="100" r="85" fill="none" stroke="url(#heroLogoGradient)" stroke-width="1.5" opacity="0.15">
+              <animate attributeName="r" values="85;90;85" dur="4s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values="0.15;0.08;0.15" dur="4s" repeatCount="indefinite"/>
+            </circle>
+
+            <!-- Orbiting metric icons (counter-rotate to wheel) -->
+            <g class="orbiting-icons" style="transform-origin: 100px 100px; animation: orbit-icons 40s linear infinite;">
+              <!-- Icon 1: Home (top) -->
+              <g transform="translate(100, 20)">
+                <circle r="11" fill="rgba(102, 126, 234, 0.25)"/>
+                <path d="M-4 1.5 L0 -2.5 L4 1.5 V5 H1.5 V2.5 H-1.5 V5 H-4 Z" fill="url(#heroLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 2: Trending Up (30°) -->
+              <g transform="translate(143, 31)">
+                <circle r="11" fill="rgba(118, 75, 162, 0.25)"/>
+                <path d="M1.5 4 L4 1.5 M4 1.5 L4 4 M4 1.5 L1.5 1.5 M-4 4 L0 0" stroke="url(#heroLogoGradient)" stroke-width="2" fill="none" stroke-linecap="round"/>
+              </g>
+              <!-- Icon 3: Activity (60°) -->
+              <g transform="translate(169, 69)">
+                <circle r="11" fill="rgba(240, 147, 251, 0.25)"/>
+                <path d="M-5 1.5 L-2.5 1.5 L0 -4 L2.5 4 L5 0" stroke="url(#heroLogoGradient)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <!-- Icon 4: Target (90°) -->
+              <g transform="translate(180, 100)">
+                <circle r="11" fill="rgba(102, 126, 234, 0.25)"/>
+                <circle cx="0" cy="0" r="4.5" fill="none" stroke="url(#heroLogoGradient)" stroke-width="2"/>
+                <circle cx="0" cy="0" r="2" fill="url(#heroLogoGradient)"/>
+              </g>
+              <!-- Icon 5: Percent (120°) -->
+              <g transform="translate(169, 131)">
+                <circle r="11" fill="rgba(118, 75, 162, 0.25)"/>
+                <path d="M-2.5 4 L2.5 -4 M-2.5 -2.5 a1.2 1.2 0 1 0 0.1 0 M2.5 2.5 a1.2 1.2 0 1 0 0.1 0" stroke="url(#heroLogoGradient)" stroke-width="2" fill="none" stroke-linecap="round"/>
+              </g>
+              <!-- Icon 6: Award (150°) -->
+              <g transform="translate(143, 169)">
+                <circle r="11" fill="rgba(240, 147, 251, 0.25)"/>
+                <circle cx="0" cy="-0.5" r="3.5" fill="none" stroke="url(#heroLogoGradient)" stroke-width="2"/>
+                <path d="M-2 2 L-1.5 4.5 L0 3.5 L1.5 4.5 L2 2" fill="url(#heroLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 7: Layers (180°) -->
+              <g transform="translate(100, 180)">
+                <circle r="11" fill="rgba(102, 126, 234, 0.25)"/>
+                <path d="M0 -4 L4 -2 L0 0 L-4 -2 Z M0 0 L4 2 L0 4 L-4 2 Z" fill="url(#heroLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 8: Heart (210°) -->
+              <g transform="translate(57, 169)">
+                <circle r="11" fill="rgba(118, 75, 162, 0.25)"/>
+                <path d="M0 4 L-3.5 1 Q-4 -0.5 -2.5 -2 Q-1.5 -3 0 -1.5 Q1.5 -3 2.5 -2 Q4 -0.5 3.5 1 Z" fill="url(#heroLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 9: Wind (240°) -->
+              <g transform="translate(31, 131)">
+                <circle r="11" fill="rgba(240, 147, 251, 0.25)"/>
+                <path d="M-4 -2 L2.5 -2 Q4 -2 4 -0.5 Q4 1 2.5 1 M-4 2 L1.5 2 Q2.5 2 2.5 3.5" stroke="url(#heroLogoGradient)" stroke-width="2" fill="none" stroke-linecap="round"/>
+              </g>
+              <!-- Icon 10: Thermometer (270°) -->
+              <g transform="translate(20, 100)">
+                <circle r="11" fill="rgba(102, 126, 234, 0.25)"/>
+                <path d="M0 -4 L0 1 M-2 2.5 Q0 4.5 2 2.5 Q2.5 1.5 2 0 L1 0 L1 -4 L-1 -4 L-1 0 L-2 0 Q-2.5 1.5 -2 2.5 Z" fill="url(#heroLogoGradient)" stroke="none"/>
+              </g>
+              <!-- Icon 11: List (300°) -->
+              <g transform="translate(31, 69)">
+                <circle r="11" fill="rgba(118, 75, 162, 0.25)"/>
+                <path d="M-1.5 -3.5 L4 -3.5 M-1.5 0 L4 0 M-1.5 3.5 L4 3.5 M-4 -3.5 L-3.5 -3.5 M-4 0 L-3.5 0 M-4 3.5 L-3.5 3.5" stroke="url(#heroLogoGradient)" stroke-width="2" stroke-linecap="round"/>
+              </g>
+              <!-- Icon 12: Upload (330°) -->
+              <g transform="translate(57, 31)">
+                <circle r="11" fill="rgba(240, 147, 251, 0.25)"/>
+                <path d="M0 -4 L0 4 M0 -4 L-2.5 -1.5 M0 -4 L2.5 -1.5" stroke="url(#heroLogoGradient)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+            </g>
+
+            <!-- Main spinning wheel structure -->
+            <g class="spinning-element" style="transform-origin: 100px 100px; animation: spin-logo 20s linear infinite;">
+              <!-- Outer wheel rim -->
+              <circle cx="100" cy="100" r="55" fill="none" stroke="url(#heroLogoGradient)" stroke-width="4" filter="url(#glow)"/>
+
+              <!-- 6 spokes radiating from center -->
+              <line x1="100" y1="45" x2="100" y2="155" stroke="url(#heroLogoGradient)" stroke-width="3"/>
+              <line x1="45" y1="100" x2="155" y2="100" stroke="url(#heroLogoGradient)" stroke-width="3"/>
+              <line x1="61.1" y1="61.1" x2="138.9" y2="138.9" stroke="url(#heroLogoGradient)" stroke-width="3"/>
+              <line x1="138.9" y1="61.1" x2="61.1" y2="138.9" stroke="url(#heroLogoGradient)" stroke-width="3"/>
+
+              <!-- Inner hub circle -->
+              <circle cx="100" cy="100" r="20" fill="url(#heroLogoGradient)" opacity="0.8"/>
+              <circle cx="100" cy="100" r="12" fill="none" stroke="white" stroke-width="2" opacity="0.5"/>
+            </g>
+          </svg>
+
+          <style>
+            @keyframes spin-logo {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            @keyframes orbit-icons {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(-360deg); }
+            }
+            .ov-hero-logo {
+              width: 100%;
+              height: 100%;
+            }
+          </style>
+        </div>
+      </div>
+    `;
+  }
+
+  renderQuickStats() {
+    const { trainingLoad, activities } = this.data;
+
+    // Get activities from the last 7 calendar days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const recentActivities = (this.activitiesAll || activities || []).filter(a => {
+      if (!a.start_time) return false;
+      const activityDate = new Date(a.start_time);
+      return activityDate >= sevenDaysAgo;
+    });
+
+    const totalDistance = recentActivities.reduce((sum, a) => sum + (Number(a.distance) || 0), 0);
+    const totalTSS = recentActivities.reduce((sum, a) => sum + (Number(a.tss) || 0), 0);
+    const totalDuration = recentActivities.reduce((sum, a) => sum + (Number(a.duration) || 0), 0);
+
+    return `
+      <div class="ov-quick-stats">
+        <div class="ov-stat-card" data-color="blue">
+          <div class="ov-stat-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+            </svg>
+          </div>
+          <div class="ov-stat-content">
+            <div class="ov-stat-label">Last 7 Days</div>
+            <div class="ov-stat-value">${recentActivities.length}</div>
+            <div class="ov-stat-subtitle">Activities</div>
+          </div>
+        </div>
+
+        <div class="ov-stat-card" data-color="purple">
+          <div class="ov-stat-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+            </svg>
+          </div>
+          <div class="ov-stat-content">
+            <div class="ov-stat-label">Total Distance</div>
+            <div class="ov-stat-value">${totalDistance.toFixed(0)}</div>
+            <div class="ov-stat-subtitle">Kilometers</div>
+          </div>
+        </div>
+
+        <div class="ov-stat-card" data-color="orange">
+          <div class="ov-stat-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <div class="ov-stat-content">
+            <div class="ov-stat-label">Training Stress</div>
+            <div class="ov-stat-value">${totalTSS.toFixed(0)}</div>
+            <div class="ov-stat-subtitle">TSS Points</div>
+          </div>
+        </div>
+
+        <div class="ov-stat-card" data-color="green">
+          <div class="ov-stat-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div class="ov-stat-content">
+            <div class="ov-stat-label">Training Time</div>
+            <div class="ov-stat-value">${(totalDuration / 3600).toFixed(1)}</div>
+            <div class="ov-stat-subtitle">Hours</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderMainContent() {
+    const { trainingLoad } = this.data;
+
+    return `
+      <div class="ov-main-content">
+        <!-- Left: Metrics -->
+        <div class="ov-left-panel">
+          ${this.renderMetricsPanel()}
+        </div>
+
+        <!-- Right: Chart -->
+        <div class="ov-right-panel">
+          <div class="ov-chart-widget">
+            <div class="ov-chart-header">
+              <div>
+                <h3 class="ov-chart-title">Training Load Trend</h3>
+                <p class="ov-chart-subtitle">CTL, ATL, and TSB progression</p>
+              </div>
+              <div class="ov-chart-controls">
+                ${this.availableRanges.map(days => `
+                  <button class="ov-chart-btn ${this.trainingLoadRange === days ? 'active' : ''}" data-range="${days}">${days}d</button>
+                `).join('')}
+              </div>
+            </div>
+            <div class="ov-chart-canvas">
+              <canvas id="trainingLoadChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderMetricsPanel() {
+    const { trainingLoad } = this.data;
+    const ctl = trainingLoad?.current?.ctl || 0;
+    const atl = trainingLoad?.current?.atl || 0;
+    const tsb = trainingLoad?.current?.tsb || 0;
+
+    return `
+      <div class="ov-metrics-panel">
+        <h3 class="ov-panel-title">Current Load</h3>
+
+        <div class="ov-metric-large">
+          <div class="ov-metric-large-label">Fitness (CTL)</div>
+          <div class="ov-metric-large-value" style="color: #3b82f6;">${ctl.toFixed(1)}</div>
+          <div class="ov-metric-large-bar">
+            <div class="ov-metric-large-fill" style="width: ${Math.min(100, (ctl / 100) * 100)}%; background: #3b82f6;"></div>
+          </div>
+        </div>
+
+        <div class="ov-metric-large">
+          <div class="ov-metric-large-label">Fatigue (ATL)</div>
+          <div class="ov-metric-large-value" style="color: #f59e0b;">${atl.toFixed(1)}</div>
+          <div class="ov-metric-large-bar">
+            <div class="ov-metric-large-fill" style="width: ${Math.min(100, (atl / 100) * 100)}%; background: #f59e0b;"></div>
+          </div>
+        </div>
+
+        <div class="ov-metric-large">
+          <div class="ov-metric-large-label">Form (TSB)</div>
+          <div class="ov-metric-large-value" style="color: ${tsb >= 0 ? '#10b981' : '#ef4444'};">${tsb > 0 ? '+' : ''}${tsb.toFixed(1)}</div>
+          <div class="ov-metric-large-bar">
+            <div class="ov-metric-large-fill" style="width: ${Math.abs(tsb) * 2}%; background: ${tsb >= 0 ? '#10b981' : '#ef4444'};"></div>
+          </div>
+        </div>
+
+        <div class="ov-form-status">
+          <div class="ov-form-badge ${tsb > 5 ? 'fresh' : tsb > -5 ? 'balanced' : 'fatigued'}">
+            ${tsb > 5 ? 'Fresh' : tsb > -5 ? 'Balanced' : 'Fatigued'}
+          </div>
+          <p class="ov-form-text">
+            ${tsb > 5 ? 'Great time for high-intensity work' :
+              tsb > -5 ? 'Balanced training and recovery' :
+              'Consider adding recovery'}
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
+  renderRecentActivities(activities) {
+    if (!activities || activities.length === 0) return '';
+
+    const activityCards = activities.slice(0, 6).map(activity => {
+      // Distance is already in kilometers in the database, no need to divide
+      const distance = Number(activity.distance) || Number(activity.total_distance) || 0;
+      const distanceKm = distance > 0 ? distance.toFixed(1) : '0.0';
+      const tss = Math.round(Number(activity.tss) || 0);
+      const avgPower = Math.round(Number(activity.avg_power) || 0);
+      const normalizedPower = Math.round(Number(activity.normalized_power) || 0);
+      const intensityFactor = Number(activity.intensity_factor) || 0;
+      const ifDisplay = intensityFactor > 0 ? intensityFactor.toFixed(2) : '-';
+      const activityId = activity.id || activity._id;
+
+      return `
+        <div class="ov-activity-card" onclick="window.router.navigateTo('activities')" style="cursor: pointer;">
+          <div class="ov-activity-header">
+            <div class="ov-activity-type">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+              </svg>
+              ${this.escapeHtml(activity.type || activity.file_name || 'Ride')}
+            </div>
+            <div class="ov-activity-date">${this.formatDate(activity.start_time)}</div>
+          </div>
+          <div class="ov-activity-primary-stats">
+            <div class="ov-activity-stat">
+              <span class="ov-activity-stat-value">${distanceKm}</span>
+              <span class="ov-activity-stat-unit">km</span>
+            </div>
+            <div class="ov-activity-stat">
+              <span class="ov-activity-stat-value">${tss}</span>
+              <span class="ov-activity-stat-unit">TSS</span>
+            </div>
+            <div class="ov-activity-stat">
+              <span class="ov-activity-stat-value">${avgPower}</span>
+              <span class="ov-activity-stat-unit">W avg</span>
+            </div>
+          </div>
+          <div class="ov-activity-secondary-stats">
+            <div class="ov-activity-badge">
+              <span class="ov-activity-badge-label">NP:</span>
+              <span class="ov-activity-badge-value">${normalizedPower}W</span>
+            </div>
+            <div class="ov-activity-badge">
+              <span class="ov-activity-badge-label">IF:</span>
+              <span class="ov-activity-badge-value">${ifDisplay}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="ov-activities-section">
+        <h3 class="ov-section-title">Recent Activities</h3>
+        <div class="ov-activities-grid">
+          ${activityCards}
+        </div>
+      </div>
+    `;
+  }
+
+  renderInsightsSection(insights) {
+    return `
+      <div class="ov-insights-section">
+        <h3 class="ov-section-title">AI Insights</h3>
+        <div class="ov-insights-grid">
+          ${insights.map(insight => InsightCard(insight)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   getDateBounds(days) {
@@ -315,183 +666,11 @@ class OverviewPage {
   }
 
   highlightActiveRange() {
-    const controls = document.querySelectorAll('.chart-control');
+    const controls = document.querySelectorAll('.ov-chart-btn');
     controls.forEach(btn => {
       const value = Number.parseInt(btn.dataset.range, 10);
       btn.classList.toggle('active', value === this.trainingLoadRange);
     });
-  }
-
-  renderMetrics() {
-    const { trainingLoad } = this.data;
-    const daily = trainingLoad?.daily || [];
-    const hasData = this.hasTrainingLoadData(daily);
-
-    if (!trainingLoad || !trainingLoad.current || !hasData) {
-      return this.renderMetricsPlaceholder();
-    }
-
-    const ctl = this.safeNumber(trainingLoad.current.ctl);
-    const atl = this.safeNumber(trainingLoad.current.atl);
-    const tsb = this.safeNumber(trainingLoad.current.tsb);
-    const fitnessCharge = this.calculateFitnessCharge(ctl, atl, tsb);
-    const { totalTss, averageTss, peakTss } = this.calculateTssSummary(daily);
-    const rangeLabel = `${daily.length} day${daily.length === 1 ? '' : 's'}`;
-
-    return `
-      <div class="metric-card">
-        <div class="metric-header-row">
-          <div class="metric-icon primary">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-            </svg>
-          </div>
-          <div class="metric-label">Fitness (CTL)</div>
-        </div>
-        <div class="metric-value">${ctl.toFixed(1)}</div>
-        <div class="metric-subtitle">Chronic Training Load</div>
-      </div>
-      
-      <div class="metric-card">
-        <div class="metric-header-row">
-          <div class="metric-icon purple">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-          <div class="metric-label">Fatigue (ATL)</div>
-        </div>
-        <div class="metric-value">${atl.toFixed(1)}</div>
-        <div class="metric-subtitle">Acute Training Load</div>
-      </div>
-      
-      <div class="metric-card">
-        <div class="metric-header-row">
-          <div class="metric-icon green">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-          <div class="metric-label">Form (TSB)</div>
-        </div>
-        <div class="metric-value">${tsb.toFixed(1)}</div>
-        <div class="metric-subtitle">${this.getTSBStatus(tsb)}</div>
-      </div>
-
-      <div class="metric-card">
-        <div class="metric-header-row">
-          <div class="metric-icon amber">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M17 8h2a2 2 0 012 2v8a2 2 0 01-2 2h-2m-4 0h4m-4 0l-4-8m0 0l-4 8m4-8V4"/>
-            </svg>
-          </div>
-          <div class="metric-label">Training Stress</div>
-        </div>
-        <div class="metric-value">${Math.round(totalTss)}</div>
-        <div class="metric-subtitle">Total TSS · ${rangeLabel}</div>
-      </div>
-
-      <div class="metric-card">
-        <div class="metric-header-row">
-          <div class="metric-icon slate">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1m-5.198 6C8.881 14.598 9.85 14 11 14m1-10v2m0 12v2m7-9a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-          <div class="metric-label">Fitness Charge</div>
-        </div>
-        <div class="metric-value">${fitnessCharge}%</div>
-        <div class="metric-subtitle">Avg TSS ${averageTss.toFixed(1)} · Peak ${peakTss.toFixed(0)}</div>
-      </div>
-    `;
-  }
-
-  renderActivities(activities) {
-    if (!activities || activities.length === 0) {
-      return `
-        <div class="activities-card">
-          <div class="activities-card-header">
-            <div class="activities-card-icon">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
-            </div>
-            <div class="activities-card-title">Recent Activities</div>
-            <div class="activities-card-subtitle">Last ${displayedActivities.length} session${displayedActivities.length === 1 ? '' : 's'}</div>
-          </div>
-          <div class="no-data">
-            No recent activities found
-          </div>
-        </div>
-      `;
-    }
-    
-    const displayedActivities = activities.slice(0, Math.min(5, activities.length));
-
-    return `
-      <div class="activities-card">
-        <div class="activities-card-header">
-          <div class="activities-card-icon">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-            </svg>
-          </div>
-          <div class="activities-card-title">Recent Activities</div>
-          <div class="activities-card-subtitle">Last ${displayedActivities.length} session${displayedActivities.length === 1 ? '' : 's'}</div>
-        </div>
-        <div class="activities-grid">
-          <div class="activities-grid__row activities-grid__row--head">
-            <div>Activity</div>
-            <div>Date</div>
-            <div>Duration</div>
-            <div>Power</div>
-            <div>Stress</div>
-          </div>
-          <div class="activities-grid__body">
-            ${displayedActivities.map(activity => {
-              const name = this.escapeHtml(activity.file_name || `Ride #${activity.id}`);
-              const distance = this.formatDistance(activity.distance);
-              const metaSegments = [];
-              if (distance && distance !== '—') metaSegments.push(distance);
-              const normalized = this.formatPower(activity.normalized_power, null);
-              if (normalized && normalized !== '—') metaSegments.push(`NP ${normalized.replace(' W', '')}`);
-              const meta = metaSegments.length ? `<div class="activity-meta">${metaSegments.join(' · ')}</div>` : '';
-              const avgPower = this.formatPower(activity.avg_power);
-              const normalizedPower = this.formatPower(activity.normalized_power);
-              const powerMeta = normalizedPower !== '—' ? `NP ${normalizedPower}` : '';
-              const tssValue = this.formatTss(activity.tss);
-              const ifValue = this.formatIntensity(activity.intensity_factor);
-              const tssBadge = tssValue === '—' ? '' : `<span class="badge badge--tss">${tssValue}</span>`;
-              const ifBadge = ifValue === '—' ? '' : `<span class="badge badge--if">${ifValue}</span>`;
-              const badges = [tssBadge, ifBadge].filter(Boolean).join('') || '<span class="badge badge--empty">—</span>';
-
-              return `
-                <div class="activities-grid__row activities-grid__row--data" onclick="window.router.navigateTo('activities')">
-                  <div class="activities-grid__cell activities-grid__cell--activity">
-                    <div class="activity-title">${name}</div>
-                    ${meta}
-                  </div>
-                  <div class="activities-grid__cell">${this.formatDate(activity.start_time)}</div>
-                  <div class="activities-grid__cell">${this.formatDuration(activity.duration)}</div>
-                  <div class="activities-grid__cell activities-grid__cell--power activity-power">
-                    <div class="activity-power__value">${avgPower}</div>
-                    ${powerMeta ? `<div class="activity-power__meta">${powerMeta}</div>` : ''}
-                  </div>
-                  <div class="activities-grid__cell activities-grid__cell--stress">${badges}</div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      </div>
-    `;
   }
 
   renderLoading() {
@@ -534,56 +713,164 @@ class OverviewPage {
   }
 
   initTrainingLoadChart() {
-    const container = document.querySelector('.chart-container');
-    if (!container || !this.data.trainingLoad) return;
+    const canvas = document.querySelector('#trainingLoadChart');
+    if (!canvas || !this.data.trainingLoad) return;
 
     const chartSeries = this.buildTrainingChartSeries(this.trainingLoadRange);
     const daily = chartSeries.points;
 
     if (!this.hasTrainingLoadData(daily)) {
       this.destroyChart('trainingLoad');
-      container.innerHTML = this.renderChartEmptyState();
+      const container = canvas.parentElement;
+      if (container) container.innerHTML = this.renderChartEmptyState();
       return;
     }
 
-    if (!container.querySelector('#trainingLoadChart')) {
-      container.innerHTML = '<canvas id="trainingLoadChart"></canvas>';
-    }
-
-    const canvas = container.querySelector('#trainingLoadChart');
-    if (!canvas) return;
-
     this.destroyChart('trainingLoad');
 
-    const chartPacket = Services.chart.prepareTrainingLoadChart(daily, { mode: chartSeries.mode });
-    const chartData = {
-      labels: chartPacket.labels,
-      datasets: chartPacket.datasets
-    };
-    const chartOptions = Services.chart.getTrainingLoadChartOptions(chartPacket.meta);
+    // Build labels
+    const labels = daily.map(point => point.label);
 
-    chartOptions.onClick = () => {
-      Services.analytics.trackChartInteraction('training-load', 'click');
+    // Build datasets: TSS (bars), Distance (line), CTL (line)
+    const datasets = [];
+
+    // 1. TSS as bars
+    if (chartSeries.hasTss) {
+      datasets.push({
+        label: 'TSS',
+        data: daily.map(point => point.tss || 0),
+        type: 'bar',
+        backgroundColor: 'rgba(245, 158, 11, 0.6)',
+        borderColor: 'rgba(245, 158, 11, 1)',
+        borderWidth: 2,
+        yAxisID: 'y',
+        order: 3
+      });
+    }
+
+    // 2. Distance as line (already in km, no conversion needed)
+    if (chartSeries.hasDistance) {
+      datasets.push({
+        label: 'Distance (km)',
+        data: daily.map(point => point.distance || 0),
+        type: 'line',
+        borderColor: 'rgba(139, 92, 246, 1)',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 3,
+        fill: false,
+        tension: 0.4,
+        yAxisID: 'y1',
+        order: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      });
+    }
+
+    // 3. CTL as line
+    datasets.push({
+      label: 'Fitness (CTL)',
+      data: daily.map(point => point.ctl || 0),
+      type: 'line',
+      borderColor: 'rgba(59, 130, 246, 1)',
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      borderWidth: 3,
+      fill: false,
+      tension: 0.4,
+      yAxisID: 'y',
+      order: 1,
+      pointRadius: 4,
+      pointHoverRadius: 6
+    });
+
+    const chartData = { labels, datasets };
+
+    // Build options with dual y-axes
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: { size: 12, weight: '600' }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          titleColor: '#111827',
+          bodyColor: '#6b7280',
+          borderColor: '#e5e7eb',
+          borderWidth: 1,
+          padding: 12,
+          displayColors: true,
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) label += ': ';
+              if (context.parsed.y !== null) {
+                if (context.dataset.label === 'Distance (km)') {
+                  label += context.parsed.y.toFixed(1) + ' km';
+                } else if (context.dataset.label === 'TSS') {
+                  label += Math.round(context.parsed.y);
+                } else {
+                  label += context.parsed.y.toFixed(1);
+                }
+              }
+              return label;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11 }, color: '#6b7280' }
+        },
+        y: {
+          type: 'linear',
+          position: 'left',
+          title: { display: true, text: 'TSS / CTL', font: { size: 12, weight: '600' }, color: '#111827' },
+          grid: { color: 'rgba(0, 0, 0, 0.05)' },
+          ticks: { font: { size: 11 }, color: '#6b7280' }
+        },
+        y1: {
+          type: 'linear',
+          position: 'right',
+          title: { display: true, text: 'Distance (km)', font: { size: 12, weight: '600' }, color: '#111827' },
+          grid: { display: false },
+          ticks: { font: { size: 11 }, color: '#6b7280' }
+        }
+      },
+      onClick: () => {
+        Services.analytics.trackChartInteraction('overview-training-load', 'click');
+      }
     };
 
     this.charts.trainingLoad = new Chart(canvas, {
-      type: 'line',
+      type: 'bar',
       data: chartData,
       options: chartOptions
     });
   }
 
   setupChartControls() {
-    document.querySelectorAll('.chart-control').forEach(btn => {
+    document.querySelectorAll('.ov-chart-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         // Remove active from all
-        btn.parentElement.querySelectorAll('.chart-control').forEach(b => 
+        btn.parentElement.querySelectorAll('.ov-chart-btn').forEach(b =>
           b.classList.remove('active')
         );
-        
+
         // Add active to clicked
         btn.classList.add('active');
-        
+
         // Get range and reload chart
         const days = parseInt(btn.dataset.range, 10) || this.trainingLoadRange;
         this.trainingLoadRange = days;
@@ -617,9 +904,9 @@ class OverviewPage {
   // ========== HELPER METHODS ==========
 
   updateMetricsUI() {
-    const metricsRoot = document.querySelector('.metrics-grid');
-    if (!metricsRoot) return;
-    metricsRoot.innerHTML = this.renderMetrics();
+    const metricsPanel = document.querySelector('.ov-metrics-panel');
+    if (!metricsPanel) return;
+    metricsPanel.innerHTML = this.renderMetricsPanel();
   }
 
   destroyChart(key) {

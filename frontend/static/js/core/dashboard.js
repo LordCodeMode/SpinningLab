@@ -3,6 +3,7 @@
 // ADD THIS IMPORT AT THE VERY TOP
 // ============================================
 
+import CONFIG from '/static/js/core/config.js';
 import { AuthAPI, API, AnalysisAPI } from '/static/js/core/api.js';
 import { notify, setLoading } from '/static/js/core/utils.js';
 import { router } from '/static/js/core/router.js';
@@ -11,8 +12,8 @@ import overviewPage from '../pages/overview/index.js';
 // ⭐ ADD THIS CRITICAL IMPORT - Loads all services and makes them global
 import Services from '/static/js/services/index.js';
 
-// CRITICAL: Define TOKEN_STORAGE_KEY here as fallback
-const TOKEN_STORAGE_KEY = 'auth_token';
+// CRITICAL: Use the same TOKEN_STORAGE_KEY as config.js
+const TOKEN_STORAGE_KEY = CONFIG.TOKEN_STORAGE_KEY || 'training_dashboard_token';
 
 const PAGE_DEFINITIONS = {
   overview: { module: overviewPage },
@@ -87,13 +88,18 @@ class Dashboard {
 
   updateUserDisplay() {
     console.log('[Dashboard] Updating user display...');
-    
-    // Update username in sidebar footer (displays username, NOT email)
+    console.log('[Dashboard] Current user data:', this.currentUser);
+
+    // Update username in sidebar footer (displays name, fallback to username, then email)
     const userEmailEl = document.getElementById('userEmail');
     if (userEmailEl && this.currentUser) {
-      // Display username field from API response
-      userEmailEl.textContent = this.currentUser.username || 'User';
-      console.log('[Dashboard] Set display name to:', this.currentUser.username);
+      // Display name field first, then username, then email prefix
+      const displayName = this.currentUser.name || this.currentUser.username || this.currentUser.email?.split('@')[0] || 'User';
+      userEmailEl.textContent = displayName;
+      console.log('[Dashboard] Set display name to:', displayName);
+      console.log('[Dashboard] Name from API:', this.currentUser.name);
+      console.log('[Dashboard] Username from API:', this.currentUser.username);
+      console.log('[Dashboard] Email from API:', this.currentUser.email);
     } else {
       console.warn('[Dashboard] userEmail element not found or no currentUser');
     }
@@ -101,18 +107,20 @@ class Dashboard {
     // Also support old ID for backwards compatibility
     const currentUserEl = document.getElementById('current-user');
     if (currentUserEl && this.currentUser) {
-      currentUserEl.textContent = this.currentUser.username || 'User';
+      const displayName = this.currentUser.name || this.currentUser.username || this.currentUser.email?.split('@')[0] || 'User';
+      currentUserEl.textContent = displayName;
     }
-    
-    // Update avatar with first letter of username
+
+    // Update avatar with first letter of name/username
     const avatarElement = document.getElementById('user-avatar');
-    if (avatarElement && this.currentUser?.username) {
+    if (avatarElement && this.currentUser) {
+      const displayName = this.currentUser.name || this.currentUser.username || this.currentUser.email?.split('@')[0] || 'User';
       // Clear existing content and set text
       avatarElement.innerHTML = '';
-      avatarElement.textContent = this.currentUser.username.charAt(0).toUpperCase();
-      console.log('[Dashboard] Set avatar to:', this.currentUser.username.charAt(0).toUpperCase());
+      avatarElement.textContent = displayName.charAt(0).toUpperCase();
+      console.log('[Dashboard] Set avatar to:', displayName.charAt(0).toUpperCase());
     } else {
-      console.warn('[Dashboard] user-avatar element not found or no username');
+      console.warn('[Dashboard] user-avatar element not found or no user');
     }
   }
 
@@ -556,6 +564,7 @@ class Dashboard {
       // Clear all authentication data from localStorage
       const tokenKeys = [
         TOKEN_STORAGE_KEY,
+        'training_dashboard_token',
         'auth_token',
         'token',
         'access_token',
@@ -563,8 +572,9 @@ class Dashboard {
         'authToken',
         'bearerToken'
       ];
-      
+
       console.log('[Dashboard] Clearing localStorage tokens...');
+      console.log('[Dashboard] Primary token key:', TOKEN_STORAGE_KEY);
       let tokensCleared = 0;
       tokenKeys.forEach(key => {
         if (localStorage.getItem(key)) {
@@ -606,7 +616,8 @@ class Dashboard {
       // Small delay to ensure all console logs are visible
       setTimeout(() => {
         console.log('[Dashboard] ➡ Redirecting NOW to /index.html');
-        window.location.href = '/index.html';
+        // Use replace() to prevent back button from returning to logged-in state
+        window.location.replace('/index.html');
       }, 100);
       
     } catch (error) {
@@ -627,7 +638,7 @@ class Dashboard {
       // Force redirect regardless
       console.log('[Dashboard] ➡ Force redirecting to /index.html');
       setTimeout(() => {
-        window.location.href = '/index.html';
+        window.location.replace('/index.html');
       }, 100);
     }
   }
@@ -645,6 +656,7 @@ class Dashboard {
     // Clear all possible token storage
     const tokenKeys = [
       TOKEN_STORAGE_KEY,
+      'training_dashboard_token',
       'auth_token',
       'token',
       'access_token',
@@ -664,9 +676,9 @@ class Dashboard {
     
     console.log('[Dashboard] ✓ Auth data cleared');
     console.log('[Dashboard] ➡ Redirecting to login');
-    
-    // Redirect to login
-    window.location.href = '/index.html';
+
+    // Redirect to login - use replace() to prevent back button issues
+    window.location.replace('/index.html');
   }
 
   // Public methods for debugging
