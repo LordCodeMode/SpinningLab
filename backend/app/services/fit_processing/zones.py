@@ -1,5 +1,4 @@
 import pandas as pd
-from fitparse import FitFile
 from typing import Dict
 
 POWER_ZONE_RANGES = {
@@ -12,13 +11,20 @@ POWER_ZONE_RANGES = {
     "Z7 (Sprint)": (1.50, 10.0)
 }
 
-def compute_power_zones(filepath: str, ftp: float) -> Dict[str, int]:
-    """Compute time spent in power zones."""
-    try:
-        fitfile = FitFile(filepath)
-        records = [{field.name: field.value for field in rec} for rec in fitfile.get_messages('record')]
-        df = pd.DataFrame(records)
+def compute_power_zones(df: pd.DataFrame, ftp: float) -> Dict[str, int]:
+    """
+    Compute time spent in power zones.
 
+    OPTIMIZED: Now accepts DataFrame instead of filepath to avoid re-parsing FIT files.
+
+    Args:
+        df: DataFrame with power data from FIT file records
+        ftp: Functional Threshold Power
+
+    Returns:
+        Dictionary mapping zone labels to seconds spent in each zone
+    """
+    try:
         if df.empty or "power" not in df.columns:
             return {}
 
@@ -35,5 +41,5 @@ def compute_power_zones(filepath: str, ftp: float) -> Dict[str, int]:
         return zone_seconds
 
     except Exception as e:
-        print(f"Error computing power zones for {filepath}: {e}")
+        print(f"Error computing power zones: {e}")
         return {}

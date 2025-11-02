@@ -12,53 +12,70 @@ router = APIRouter()
 
 @router.get("/")
 async def get_activities(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0, description="Number of records to skip (for pagination)"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    start_date: Optional[str] = Query(None, description="Filter activities after this date (ISO format)"),
+    end_date: Optional[str] = Query(None, description="Filter activities before this date (ISO format)"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get user activities."""
+    """
+    Get user activities with pagination.
+
+    OPTIMIZED: Uses database indexes for fast queries, supports pagination.
+
+    Returns:
+        Dictionary with 'activities' array, 'total' count, and pagination info
+    """
     query = db.query(Activity).filter(Activity.user_id == current_user.id)
-    
+
     if start_date:
         try:
             start_dt = datetime.fromisoformat(start_date)
             query = query.filter(Activity.start_time >= start_dt)
         except ValueError:
             pass
-    
+
     if end_date:
         try:
             end_dt = datetime.fromisoformat(end_date)
             query = query.filter(Activity.start_time <= end_dt)
         except ValueError:
             pass
-    
+
+    # Get total count for pagination (using optimized composite index)
+    total = query.count()
+
+    # Get paginated results
     activities = query.order_by(desc(Activity.start_time)).offset(skip).limit(limit).all()
-    
-    return [{
-        "id": activity.id,
-        "start_time": activity.start_time.isoformat() if activity.start_time else None,
-        "file_name": activity.file_name,
-        "duration": activity.duration,
-        "distance": activity.distance,
-        "avg_power": activity.avg_power,
-        "normalized_power": activity.normalized_power,
-        "max_5sec_power": activity.max_5sec_power,
-        "max_1min_power": activity.max_1min_power,
-        "max_3min_power": activity.max_3min_power,
-        "max_5min_power": activity.max_5min_power,
-        "max_10min_power": activity.max_10min_power,
-        "max_20min_power": activity.max_20min_power,
-        "max_30min_power": activity.max_30min_power,
-        "max_60min_power": activity.max_60min_power,
-        "avg_heart_rate": activity.avg_heart_rate,
-        "tss": activity.tss,
-        "intensity_factor": activity.intensity_factor,
-        "efficiency_factor": activity.efficiency_factor
-    } for activity in activities]
+
+    return {
+        "activities": [{
+            "id": activity.id,
+            "start_time": activity.start_time.isoformat() if activity.start_time else None,
+            "file_name": activity.file_name,
+            "duration": activity.duration,
+            "distance": activity.distance,
+            "avg_power": activity.avg_power,
+            "normalized_power": activity.normalized_power,
+            "max_5sec_power": activity.max_5sec_power,
+            "max_1min_power": activity.max_1min_power,
+            "max_3min_power": activity.max_3min_power,
+            "max_5min_power": activity.max_5min_power,
+            "max_10min_power": activity.max_10min_power,
+            "max_20min_power": activity.max_20min_power,
+            "max_30min_power": activity.max_30min_power,
+            "max_60min_power": activity.max_60min_power,
+            "avg_heart_rate": activity.avg_heart_rate,
+            "tss": activity.tss,
+            "intensity_factor": activity.intensity_factor,
+            "efficiency_factor": activity.efficiency_factor
+        } for activity in activities],
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "has_more": skip + len(activities) < total
+    }
 
 @router.get("/summary")
 async def get_activities_summary(

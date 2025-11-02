@@ -72,9 +72,10 @@ class FitImportService:
             self.db.flush()  # Get the activity ID
 
             # Process power zones
-            if power_metrics.get("avg_power"):
+            # OPTIMIZED: Pass DataFrame instead of re-parsing file
+            if power_metrics.get("avg_power") and not df.empty:
                 try:
-                    power_zones = compute_power_zones(file_path, user.ftp or 250)
+                    power_zones = compute_power_zones(df, user.ftp or 250)
                     for zone_label, seconds in power_zones.items():
                         if seconds > 0:
                             power_zone = PowerZone(
@@ -87,9 +88,10 @@ class FitImportService:
                     print(f"Error processing power zones: {e}")
 
             # Process HR zones
-            if hr_series is not None and not hr_series.empty:
+            # OPTIMIZED: Pass DataFrame instead of re-parsing file
+            if hr_series is not None and not hr_series.empty and not df.empty:
                 try:
-                    hr_zones = compute_hr_zones(file_path, user.hr_max or 190)
+                    hr_zones = compute_hr_zones(df, user.hr_max or 190)
                     if hr_zones:
                         for zone_label, seconds in hr_zones.items():
                             if seconds > 0:
