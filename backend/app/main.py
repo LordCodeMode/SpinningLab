@@ -1,7 +1,6 @@
-from fastapi import FastAPI, APIRouter, Depends, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from sqlalchemy.orm import Session
 import os
 import logging
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -9,8 +8,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from .core.config import settings
-from .database.connection import init_db, get_db
-from .database.models import User
+from .database.connection import init_db
 
 # Configure logging
 logging.basicConfig(
@@ -201,49 +199,15 @@ async def startup_event():
 
 # Import and include routers
 from .api.routes.auth import router as auth_router
-from .api.routes.activities import router as activities_router  
+from .api.routes.activities import router as activities_router
 from .api.routes.analysis import router as analysis_router
 from .api.routes.import_routes import router as import_router
-from .api.dependencies import get_current_active_user
+from .api.routes.settings import router as settings_router
 
 app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
 app.include_router(activities_router, prefix="/api/activities", tags=["activities"])
 app.include_router(analysis_router, prefix="/api/analysis", tags=["analysis"])
 app.include_router(import_router, prefix="/api/import", tags=["import"])
-
-# Settings endpoint (simple inline implementation)
-settings_router = APIRouter()
-
-@settings_router.get("/")
-async def get_settings(current_user: User = Depends(get_current_active_user)):
-    return {
-        "ftp": current_user.ftp or 250,
-        "weight": current_user.weight or 70,
-        "hr_max": current_user.hr_max or 190,
-        "hr_rest": current_user.hr_rest or 60
-    }
-
-@settings_router.put("/")
-async def update_settings(
-    settings_data: dict,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    # Update user settings
-    for key, value in settings_data.items():
-        if hasattr(current_user, key) and value is not None:
-            setattr(current_user, key, value)
-    
-    db.commit()
-    db.refresh(current_user)
-    
-    return {
-        "ftp": current_user.ftp or 250,
-        "weight": current_user.weight or 70,
-        "hr_max": current_user.hr_max or 190,
-        "hr_rest": current_user.hr_rest or 60
-    }
-
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 
 @app.get("/")

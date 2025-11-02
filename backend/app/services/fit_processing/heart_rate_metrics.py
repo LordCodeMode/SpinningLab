@@ -1,12 +1,7 @@
 import pandas as pd
 
-HR_ZONES = {
-    "Z1 (Recovery)": (0.50, 0.60),
-    "Z2 (Endurance)": (0.60, 0.70),
-    "Z3 (GA2)": (0.70, 0.80),
-    "Z4 (Threshold)": (0.80, 0.90),
-    "Z5 (VO2max)": (0.90, 1.00),
-}
+# Import canonical zone definitions
+from shared.constants.training_zones import HEART_RATE_ZONES as HR_ZONES
 
 def extract_hr_series(df):
     """Extract heart rate series from DataFrame."""

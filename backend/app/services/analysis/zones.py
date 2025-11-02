@@ -5,24 +5,8 @@ from sqlalchemy import and_, func
 
 from ...database.models import User, Activity, PowerZone, HrZone
 from shared.models.schemas import ZoneDistributionResponse, ZoneData
-
-POWER_ZONES = {
-    "Z1 (Recovery)": (0.0, 0.55),
-    "Z2 (Endurance)": (0.55, 0.75),
-    "Z3 (Tempo)": (0.75, 0.90),
-    "Z4 (Threshold)": (0.90, 1.05),
-    "Z5 (VO2max)": (1.05, 1.20),
-    "Z6 (Anaerobic)": (1.20, 1.50),
-    "Z7 (Sprint)": (1.50, 10.0)
-}
-
-HR_ZONES = {
-    "Z1 (Recovery)": (0.50, 0.60),
-    "Z2 (Endurance)": (0.60, 0.70),
-    "Z3 (GA2)": (0.70, 0.80),
-    "Z4 (Threshold)": (0.80, 0.90),
-    "Z5 (VO2max)": (0.90, 1.00),
-}
+# Import canonical zone definitions
+from shared.constants.training_zones import POWER_ZONES, HEART_RATE_ZONES as HR_ZONES
 
 class ZoneAnalysisService:
     def __init__(self, db: Session):
