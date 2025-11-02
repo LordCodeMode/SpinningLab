@@ -14,10 +14,12 @@ from ...api.dependencies import get_current_active_user
 from ...services.analysis.power_curve import PowerCurveService
 from ...services.analysis.training_load import TrainingLoadService
 from ...services.analysis.vo2max_service import VO2MaxService
-from ...services.analysis.critical_power import CriticalPowerService 
+from ...services.analysis.critical_power import CriticalPowerService
 from ...services.analysis.rider_profile_service import RiderProfileService
 from ...services.analysis.efficiency_service import EfficiencyService
 from ...services.analysis.fitness_state_service import FitnessStateService
+# Import canonical zone definitions
+from shared.constants.training_zones import POWER_ZONES, HEART_RATE_ZONES
 from ...services.analysis.zone_balance_service import ZoneBalanceService
 
 
@@ -393,29 +395,11 @@ async def get_power_zone_distribution(
         
         # Calculate total time
         total_time = sum(result.total_seconds for result in results) or 1
-        
-        # Define all zones
-        all_zones = [
-            "Z1 (Recovery)",
-            "Z2 (Endurance)",
-            "Z3 (Tempo)",
-            "Z4 (Threshold)",
-            "Z5 (VO2max)",
-            "Z6 (Anaerobic)",
-            "Z7 (Sprint)"
-        ]
-        
-        # Get FTP for watt ranges
+
+        # Use canonical power zone definitions
+        all_zones = list(POWER_ZONES.keys())
         ftp = current_user.ftp or 250
-        zone_ranges = {
-            "Z1 (Recovery)": (0.0, 0.55),
-            "Z2 (Endurance)": (0.55, 0.75),
-            "Z3 (Tempo)": (0.75, 0.90),
-            "Z4 (Threshold)": (0.90, 1.05),
-            "Z5 (VO2max)": (1.05, 1.20),
-            "Z6 (Anaerobic)": (1.20, 1.50),
-            "Z7 (Sprint)": (1.50, 10.0)
-        }
+        zone_ranges = POWER_ZONES
         
         # Build zone data
         zone_data = []
@@ -473,22 +457,10 @@ async def get_hr_zone_distribution(
         results = query.group_by(HrZone.zone_label).all()
         total_time = sum(result.total_seconds for result in results) or 1
 
-        all_zones = [
-            "Z1 (Recovery)",
-            "Z2 (Endurance)",
-            "Z3 (GA2)",
-            "Z4 (Threshold)",
-            "Z5 (VO2max)"
-        ]
-        
+        # Use canonical HR zone definitions
+        all_zones = list(HEART_RATE_ZONES.keys())
         hr_max = current_user.hr_max or 190
-        zone_ranges = {
-            "Z1 (Recovery)": (0.50, 0.60),
-            "Z2 (Endurance)": (0.60, 0.70),
-            "Z3 (GA2)": (0.70, 0.80),
-            "Z4 (Threshold)": (0.80, 0.90),
-            "Z5 (VO2max)": (0.90, 1.00)
-        }
+        zone_ranges = HEART_RATE_ZONES
         
         zone_data = []
         for zone_label in all_zones:

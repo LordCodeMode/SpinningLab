@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from ...database.models import User, Activity, PowerZone
+# Import canonical zone definitions
+from shared.constants.training_zones import POWER_ZONES
 
 class ZoneBalance(NamedTuple):
     zone_label: str
@@ -40,14 +42,6 @@ class ZoneBalanceService:
         }
     }
 
-    ZONE_RANGES = {
-        "Z1 (Recovery)": (0.0, 0.55),
-        "Z2 (Endurance)": (0.55, 0.75),
-        "Z3 (Tempo)": (0.75, 0.90),
-        "Z4 (Threshold)": (0.90, 1.05),
-        "Z5 (VO2max)": (1.05, 1.20)
-    }
-
     def analyze_zone_balance(self, user: User, model: str = "polarized", weeks: int = 4) -> List[ZoneBalance]:
         """Analyze zone balance against target model."""
         if model not in self.TRAINING_MODELS:
@@ -76,7 +70,8 @@ class ZoneBalanceService:
         results = []
         ftp = user.ftp or 250
 
-        for zone_label in self.ZONE_RANGES.keys():
+        # Use canonical power zone definitions
+        for zone_label in POWER_ZONES.keys():
             actual_pct = actual_distribution.get(zone_label, 0)
             target_pct = target_zones.get(zone_label, 0)
             deviation = actual_pct - target_pct
@@ -90,7 +85,7 @@ class ZoneBalanceService:
                 status = "deficit"
 
             # Calculate watt range
-            low_factor, high_factor = self.ZONE_RANGES[zone_label]
+            low_factor, high_factor = POWER_ZONES[zone_label]
             watt_range = f"{int(low_factor * ftp)}-{int(high_factor * ftp)} W"
 
             results.append(ZoneBalance(

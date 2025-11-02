@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 
 from ...database.models import User, Activity, HrZone
+# Import canonical zone definitions
+from shared.constants.training_zones import HEART_RATE_ZONES
 
 class HeartRateService:
     def __init__(self, db: Session):
@@ -26,19 +28,9 @@ class HeartRateService:
         total_time = sum(result.total_seconds for result in results) or 1
         max_hr = user.hr_max or 190
 
-        # All HR zones
-        all_zones = [
-            "Z1 (Recovery)", "Z2 (Endurance)", "Z3 (GA2)", 
-            "Z4 (Threshold)", "Z5 (VO2max)"
-        ]
-        
-        zone_ranges = {
-            "Z1 (Recovery)": (0.50, 0.60),
-            "Z2 (Endurance)": (0.60, 0.70),
-            "Z3 (GA2)": (0.70, 0.80),
-            "Z4 (Threshold)": (0.80, 0.90),
-            "Z5 (VO2max)": (0.90, 1.00)
-        }
+        # Use canonical HR zone definitions
+        all_zones = list(HEART_RATE_ZONES.keys())
+        zone_ranges = HEART_RATE_ZONES
         
         for zone_label in all_zones:
             seconds = next(
