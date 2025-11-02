@@ -59,6 +59,34 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
+    """Log API endpoint response times for performance monitoring."""
+
+    async def dispatch(self, request: Request, call_next):
+        import time
+        start_time = time.time()
+
+        response = await call_next(request)
+
+        process_time = time.time() - start_time
+        response.headers["X-Process-Time"] = str(process_time)
+
+        # Log slow requests (> 1 second)
+        if process_time > 1.0:
+            logger.warning(
+                f"Slow request: {request.method} {request.url.path} "
+                f"took {process_time:.2f}s"
+            )
+        # Log all requests in debug mode
+        elif logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                f"{request.method} {request.url.path} "
+                f"completed in {process_time:.3f}s"
+            )
+
+        return response
+
+
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     """Limit maximum request body size to prevent DoS attacks."""
 
@@ -124,6 +152,9 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     return response
 
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+# Performance monitoring middleware (logs response times)
+app.add_middleware(PerformanceMonitoringMiddleware)
 
 # Request size limit middleware (500MB max for batch uploads)
 app.add_middleware(RequestSizeLimitMiddleware, max_upload_size=500 * 1024 * 1024)

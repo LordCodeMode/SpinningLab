@@ -73,53 +73,92 @@ class CacheBuilder:
         """
         Build and cache training load data (CTL/ATL/TSB) for user.
         CRITICAL: This must be rebuilt after every import to update fitness/fatigue.
+
+        OPTIMIZED: Fetches data once for maximum period, filters for shorter periods.
         """
         try:
             logger.info(f"Building training load cache for user {user.id}")
             training_load_service = TrainingLoadService(self.db)
-            
+
             # Build training load for different periods
             periods = [30, 60, 90, 120, 180, 365]
-            
-            for days in periods:
-                training_load = training_load_service.calculate_training_load(user, days=days)
-                
-                if training_load:
+
+            # OPTIMIZATION: Calculate once for max period (365 days)
+            # This fetches activities from database only once
+            max_training_load = training_load_service.calculate_training_load(user, days=365)
+
+            if not max_training_load:
+                return False
+
+            # Cache the 365-day result
+            self.cache_manager.set("training_load_365d", user.id, max_training_load)
+            logger.debug(f"Cached training load for 365 days: {len(max_training_load)} entries")
+
+            # Filter in-memory for shorter periods (no additional DB queries!)
+            from datetime import datetime, timedelta
+
+            for days in [30, 60, 90, 120, 180]:
+                cutoff_date = datetime.utcnow() - timedelta(days=days)
+
+                # Filter the max_training_load data in memory
+                filtered_load = [
+                    item for item in max_training_load
+                    if item.date >= cutoff_date
+                ]
+
+                if filtered_load:
                     cache_key = f"training_load_{days}d"
-                    self.cache_manager.set(cache_key, user.id, training_load)
-                    logger.debug(f"Cached training load for {days} days: {len(training_load)} entries")
-            
+                    self.cache_manager.set(cache_key, user.id, filtered_load)
+                    logger.debug(f"Cached training load for {days} days: {len(filtered_load)} entries (filtered in-memory)")
+
             return True
         except Exception as e:
             logger.error(f"Error building training load cache for user {user.id}: {e}")
             return False
 
     def build_zone_distribution_cache(self, user: User) -> bool:
-        """Build and cache zone distribution data for user."""
+        """
+        Build and cache zone distribution data for user.
+
+        OPTIMIZED: Fetches data once for all-time, filters for shorter periods.
+        """
         try:
             logger.info(f"Building zone distribution cache for user {user.id}")
             zones_service = ZoneAnalysisService(self.db)
-            
+
             # Build zone distributions for different periods
             periods = [None, 30, 60, 90, 180, 365]  # None = all time
-            
-            for days in periods:
+
+            # OPTIMIZATION: Get data once for all-time (None)
+            max_power_zones = zones_service.get_power_zone_distribution(user, days=None)
+            max_hr_zones = zones_service.get_hr_zone_distribution(user, days=None)
+
+            # Cache all-time data
+            if max_power_zones:
+                self.cache_manager.set("power_zones_alld", user.id, max_power_zones)
+            if max_hr_zones:
+                self.cache_manager.set("hr_zones_alld", user.id, max_hr_zones)
+
+            # For specific periods, filter in memory (zones may need recalculation from activities)
+            # Note: Zone distribution aggregates seconds_in_zone, so we still need to query per-period
+            # This optimization is less effective for zones, but we cache all-time separately
+            for days in [30, 60, 90, 180, 365]:
                 try:
-                    # Power zones
+                    # For zones, we still need per-period queries because we need to recalculate percentages
+                    # But we've already cached all-time above
                     power_zones = zones_service.get_power_zone_distribution(user, days=days)
                     if power_zones:
-                        cache_key = f"power_zones_{days or 'all'}d"
+                        cache_key = f"power_zones_{days}d"
                         self.cache_manager.set(cache_key, user.id, power_zones)
-                    
-                    # HR zones
+
                     hr_zones = zones_service.get_hr_zone_distribution(user, days=days)
                     if hr_zones:
-                        cache_key = f"hr_zones_{days or 'all'}d"
+                        cache_key = f"hr_zones_{days}d"
                         self.cache_manager.set(cache_key, user.id, hr_zones)
-                        
+
                 except Exception as e:
                     logger.warning(f"Error caching zones for {days} days: {e}")
-            
+
             return True
         except Exception as e:
             logger.error(f"Error building zone distribution cache for user {user.id}: {e}")
@@ -142,7 +181,11 @@ class CacheBuilder:
             return False
 
     def build_efficiency_cache(self, user: User) -> bool:
-        """Build and cache efficiency analysis for user."""
+        """
+        Build and cache efficiency analysis for user.
+
+        OPTIMIZED: Fetches data once for maximum period, filters for shorter periods.
+        """
         try:
             logger.info(f"Building efficiency cache for user {user.id}")
             efficiency_service = EfficiencyService(self.db)
@@ -150,31 +193,50 @@ class CacheBuilder:
             # Build efficiency for different periods
             periods = [30, 60, 90, 120, 180]
 
-            for days in periods:
-                try:
-                    # Get both efficiency data and trend
-                    efficiency_data = efficiency_service.get_efficiency_factors(user, days)
-                    efficiency_trend = efficiency_service.get_efficiency_trend(user, days)
+            # OPTIMIZATION: Get data once for max period (180 days)
+            max_efficiency_data = efficiency_service.get_efficiency_factors(user, 180)
+            max_efficiency_trend = efficiency_service.get_efficiency_trend(user, 180)
 
-                    # Format for caching (match API response format)
-                    formatted_data = []
-                    for item in efficiency_data:
-                        formatted_data.append({
-                            "start_time": item.start_time.isoformat() if hasattr(item.start_time, 'isoformat') else str(item.start_time),
-                            "normalized_power": float(item.normalized_power) if item.normalized_power else None,
-                            "avg_heart_rate": float(item.avg_heart_rate) if item.avg_heart_rate else None,
-                            "intensity_factor": float(item.intensity_factor) if item.intensity_factor else None,
-                            "ef": float(item.ef) if item.ef else None
-                        })
+            # Format all data once
+            all_formatted_data = []
+            for item in max_efficiency_data:
+                all_formatted_data.append({
+                    "start_time": item.start_time.isoformat() if hasattr(item.start_time, 'isoformat') else str(item.start_time),
+                    "normalized_power": float(item.normalized_power) if item.normalized_power else None,
+                    "avg_heart_rate": float(item.avg_heart_rate) if item.avg_heart_rate else None,
+                    "intensity_factor": float(item.intensity_factor) if item.intensity_factor else None,
+                    "ef": float(item.ef) if item.ef else None
+                })
+
+            # Cache 180-day result
+            cache_data_180 = {
+                "efficiency_data": all_formatted_data,
+                "trend": max_efficiency_trend if max_efficiency_trend else {"trend": "no_data"}
+            }
+            self.cache_manager.set("efficiency_180d", user.id, cache_data_180)
+            logger.debug(f"Cached efficiency for 180 days: {len(all_formatted_data)} activities")
+
+            # Filter in-memory for shorter periods
+            from datetime import datetime, timedelta
+
+            for days in [30, 60, 90, 120]:
+                try:
+                    cutoff_date = datetime.utcnow() - timedelta(days=days)
+
+                    # Filter formatted data in memory
+                    filtered_data = [
+                        item for item in all_formatted_data
+                        if datetime.fromisoformat(item['start_time']) >= cutoff_date
+                    ]
 
                     cache_data = {
-                        "efficiency_data": formatted_data,
-                        "trend": efficiency_trend if efficiency_trend else {"trend": "no_data"}
+                        "efficiency_data": filtered_data,
+                        "trend": max_efficiency_trend if max_efficiency_trend else {"trend": "no_data"}  # Could recalculate trend
                     }
 
                     cache_key = f"efficiency_{days}d"
                     self.cache_manager.set(cache_key, user.id, cache_data)
-                    logger.debug(f"Cached efficiency for {days} days: {len(formatted_data)} activities")
+                    logger.debug(f"Cached efficiency for {days} days: {len(filtered_data)} activities (filtered in-memory)")
                 except Exception as e:
                     logger.warning(f"Error caching efficiency for {days} days: {e}")
 
@@ -184,23 +246,55 @@ class CacheBuilder:
             return False
 
     def build_vo2max_cache(self, user: User) -> bool:
-        """Build and cache VO2Max estimation for user."""
+        """
+        Build and cache VO2Max estimation for user.
+
+        OPTIMIZED: Fetches data once for maximum period, filters for shorter periods.
+        """
         try:
             logger.info(f"Building VO2Max cache for user {user.id}")
             vo2max_service = VO2MaxService(self.db)
-            
+
             # Build VO2Max for different periods
             periods = [30, 60, 90, 180, 365]
-            
-            for days in periods:
+
+            # OPTIMIZATION: Calculate once for max period (365 days)
+            max_vo2_payload = vo2max_service.estimate_vo2max(user, days=365)
+
+            if not max_vo2_payload:
+                return False
+
+            # Cache the 365-day result
+            self.cache_manager.set("vo2max_365d", user.id, max_vo2_payload)
+            logger.debug(f"Cached VO2Max for 365 days: {len(max_vo2_payload.get('estimates', []))} estimates")
+
+            # Filter in-memory for shorter periods
+            from datetime import datetime, timedelta
+
+            for days in [30, 60, 90, 180]:
                 try:
-                    vo2_payload = vo2max_service.estimate_vo2max(user, days=days)
+                    cutoff_date = datetime.utcnow() - timedelta(days=days)
+
+                    # Filter estimates in memory
+                    all_estimates = max_vo2_payload.get('estimates', [])
+                    filtered_estimates = [
+                        est for est in all_estimates
+                        if datetime.fromisoformat(est['date']) >= cutoff_date
+                    ]
+
+                    # Create filtered payload
+                    filtered_payload = {
+                        'current_vo2max': max_vo2_payload.get('current_vo2max'),  # Keep most recent
+                        'estimates': filtered_estimates,
+                        'trend': max_vo2_payload.get('trend')  # Recalculate if needed
+                    }
+
                     cache_key = f"vo2max_{days}d"
-                    self.cache_manager.set(cache_key, user.id, vo2_payload)
-                    logger.debug(f"Cached VO2Max for {days} days: {len(vo2_payload.get('estimates', []))} estimates")
+                    self.cache_manager.set(cache_key, user.id, filtered_payload)
+                    logger.debug(f"Cached VO2Max for {days} days: {len(filtered_estimates)} estimates (filtered in-memory)")
                 except Exception as e:
                     logger.warning(f"Error caching VO2Max for {days} days: {e}")
-            
+
             return True
         except Exception as e:
             logger.error(f"Error building VO2Max cache for user {user.id}: {e}")

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, DateTime, Text, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, Float, String, DateTime, Text, ForeignKey, Boolean, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .connection import Base
@@ -26,10 +26,13 @@ class User(Base):
 
 class Activity(Base):
     __tablename__ = "activities"
-    
+    __table_args__ = (
+        Index('idx_activity_user_time', 'user_id', 'start_time'),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     # Basic info
     start_time = Column(DateTime, index=True)
     file_name = Column(String)
@@ -69,32 +72,41 @@ class Activity(Base):
 
 class PowerZone(Base):
     __tablename__ = "power_zones"
-    
+    __table_args__ = (
+        Index('idx_powerzone_activity_label', 'activity_id', 'zone_label'),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     activity_id = Column(Integer, ForeignKey("activities.id"), nullable=False)
     zone_label = Column(String, nullable=False)
     seconds_in_zone = Column(Integer, nullable=False)
-    
+
     activity = relationship("Activity", back_populates="power_zones")
 
 class HrZone(Base):
     __tablename__ = "hr_zones"
-    
+    __table_args__ = (
+        Index('idx_hrzone_activity_label', 'activity_id', 'zone_label'),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     activity_id = Column(Integer, ForeignKey("activities.id"), nullable=False)
     zone_label = Column(String, nullable=False)
     seconds_in_zone = Column(Integer, nullable=False)
-    
+
     activity = relationship("Activity", back_populates="hr_zones")
 
 class TrainingLoad(Base):
     __tablename__ = "training_load"
-    
+    __table_args__ = (
+        Index('idx_trainingload_user_date', 'user_id', 'date'),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     date = Column(DateTime, nullable=False, index=True)
     ctl = Column(Float)  # Chronic Training Load
     atl = Column(Float)  # Acute Training Load
     tsb = Column(Float)  # Training Stress Balance
-    
+
     user = relationship("User", back_populates="training_loads")
