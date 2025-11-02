@@ -209,12 +209,26 @@ Once the server is running, visit:
 
 ### Running Tests
 
-(Tests will be added in Phase 2)
+The project includes a comprehensive test suite with 68+ tests covering:
+- Authentication & security
+- Training calculations (TSS, CTL, ATL, power curves)
+- Database operations
+- API endpoints
 
 ```bash
 cd backend
-pytest
+pytest                    # Run all tests
+pytest -v                 # Verbose output
+pytest -k "auth"          # Run only auth tests
+pytest --cov              # Run with coverage report
 ```
+
+**Test Coverage:**
+- Overall: 32%
+- Authentication: 100%
+- Database models: 100%
+- Security: 93%
+- Auth service: 83%
 
 ### Code Style
 
