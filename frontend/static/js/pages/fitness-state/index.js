@@ -1,10 +1,10 @@
 // ============================================
-// FITNESS STATE PAGE
+// FITNESS STATE PAGE - REDESIGNED UX
+// Modern health dashboard with visual storytelling
 // ============================================
 
-// FILE: pages/fitness-state/index.js
 import Services from '../../services/index.js';
-import { InsightCard, LoadingSkeleton, MetricCard } from '../../components/ui/index.js';
+import { InsightCard, LoadingSkeleton } from '../../components/ui/index.js';
 import { eventBus, EVENTS } from '../../core/eventBus.js';
 import CONFIG from './config.js';
 
@@ -12,17 +12,27 @@ class FitnessStatePage {
   constructor() {
     this.config = CONFIG;
     this.handleDataImported = this.handleDataImported.bind(this);
+    this.historicalData = [];
+    this.triangleChart = null;
   }
 
   async load() {
     try {
       Services.analytics.trackPageView('fitness-state');
       this.renderLoading();
-      
-      this.data = await Services.data.getFitnessState({ forceRefresh: true });
+
+      // Fetch both current state and training load for trend
+      const [fitnessState, trainingLoad] = await Promise.all([
+        Services.data.getFitnessState({ forceRefresh: true }),
+        Services.data.getTrainingLoad({ days: 90, forceRefresh: false }).catch(() => ({ daily: [] }))
+      ]);
+
+      this.data = fitnessState;
+      this.historicalData = trainingLoad?.daily || [];
       this.insights = Services.insight.generateFitnessStateInsights(this.data);
-      
+
       this.render();
+      this.initVisualizations();
       eventBus.on(EVENTS.DATA_IMPORTED, this.handleDataImported);
     } catch (error) {
       this.renderError(error);
@@ -47,102 +57,98 @@ class FitnessStatePage {
     } = this.data || {};
 
     container.innerHTML = `
-      <div class="fs-section">
-        <div class="fs-header">
-          <h1>Fitness State Analysis</h1>
-          <p>Comprehensive analysis of your current training state</p>
+      <div class="fs-redesign">
+        <!-- Animated Header with Status Weather -->
+        <div class="fs-hero">
+          <div class="fs-hero-content">
+            <div class="fs-hero-meta">
+              <span class="fs-badge">
+                <i data-feather="activity"></i>
+                Fitness Analysis
+              </span>
+              <span class="fs-badge fs-badge-outline">
+                <i data-feather="calendar"></i>
+                Last 90 days
+              </span>
+            </div>
+            <h1 class="fs-hero-title">Your Training State</h1>
+            <p class="fs-hero-subtitle">Real-time insights into your current fitness and fatigue balance</p>
+          </div>
+
+          <!-- Large Visual Status Indicator -->
+          ${this.renderStatusWeather(status, status_description)}
         </div>
 
-        <!-- Status Banner -->
-        <div class="fs-status-banner">
-          <div class="fs-status-icon">
-            ${this.getStatusIconSVG(status)}
-          </div>
-          <div class="fs-status-content">
-            <div class="fs-status-label">Current Status</div>
-            <div class="fs-status-title">${this.capitalizeFirst(status)}</div>
-            <div class="fs-status-description">${status_description}</div>
-          </div>
+        <!-- Primary Metrics with Trends -->
+        <div class="fs-metrics-showcase">
+          ${this.renderMetricShowcase('ctl', 'Chronic Training Load', ctl, 'Fitness', 'trending-up', 'blue')}
+          ${this.renderMetricShowcase('atl', 'Acute Training Load', atl, 'Fatigue', 'zap', 'amber')}
+          ${this.renderMetricShowcase('tsb', 'Training Stress Balance', tsb, 'Form', 'target', tsb >= 0 ? 'green' : 'orange')}
         </div>
 
-        <!-- Metrics Grid -->
-        <div class="fs-metrics-grid">
-          <div class="fs-metric-card">
-            <div class="fs-metric-header">
-              <div class="fs-metric-icon blue">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                </svg>
-              </div>
-              <span class="fs-metric-label">CTL (Fitness)</span>
-            </div>
-            <div class="fs-metric-value">${this.formatMetric(ctl)}</div>
+        <!-- Interactive Triangle Visualization -->
+        <div class="fs-triangle-section">
+          <div class="fs-triangle-header">
+            <h3>The Fitness Triangle</h3>
+            <p>Visual relationship between fitness, fatigue, and form</p>
           </div>
-
-          <div class="fs-metric-card">
-            <div class="fs-metric-header">
-              <div class="fs-metric-icon amber">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+          <div class="fs-triangle-container">
+            <canvas id="fs-triangle-chart"></canvas>
+            <div class="fs-triangle-legend">
+              <div class="fs-triangle-legend-item">
+                <div class="fs-legend-dot" style="background: var(--color-blue-500)"></div>
+                <span>CTL (Fitness)</span>
               </div>
-              <span class="fs-metric-label">ATL (Fatigue)</span>
-            </div>
-            <div class="fs-metric-value">${this.formatMetric(atl)}</div>
-          </div>
-
-          <div class="fs-metric-card">
-            <div class="fs-metric-header">
-              <div class="fs-metric-icon ${tsb >= 0 ? 'green' : 'amber'}">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+              <div class="fs-triangle-legend-item">
+                <div class="fs-legend-dot" style="background: var(--color-amber-500)"></div>
+                <span>ATL (Fatigue)</span>
               </div>
-              <span class="fs-metric-label">TSB (Form)</span>
-            </div>
-            <div class="fs-metric-value">${this.formatMetric(tsb)}</div>
-          </div>
-
-          <div class="fs-metric-card">
-            <div class="fs-metric-header">
-              <div class="fs-metric-icon blue">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                </svg>
+              <div class="fs-triangle-legend-item">
+                <div class="fs-legend-dot" style="background: var(--color-green-500)"></div>
+                <span>TSB (Form)</span>
               </div>
-              <span class="fs-metric-label">Efficiency Trend</span>
             </div>
-            <div class="fs-metric-value">${this.formatMetric(ef_trend, 1, '—', true)}</div>
           </div>
         </div>
 
-        <!-- Recommendations -->
+        <!-- Action Cards Based on Status -->
         ${recommendations && recommendations.length > 0 ? `
-          <div class="fs-recommendations-card">
-            <div class="fs-recommendations-header">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-              </svg>
-              <span class="fs-recommendations-title">Recommendations</span>
+          <div class="fs-actions-grid">
+            <div class="fs-actions-header">
+              <h3>Recommended Actions</h3>
+              <p>Personalized guidance based on your current state</p>
             </div>
-            ${recommendations.map(rec => `
-              <div class="fs-recommendation-item">
-                <div class="fs-recommendation-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                  </svg>
-                </div>
-                <div class="fs-recommendation-text">${rec}</div>
-              </div>
-            `).join('')}
+            <div class="fs-action-cards">
+              ${recommendations.slice(0, 3).map((rec, index) => this.renderActionCard(rec, index, status)).join('')}
+            </div>
           </div>
         ` : ''}
 
-        <!-- Insights -->
+        <!-- Additional Metrics -->
+        ${ef_trend !== null ? `
+          <div class="fs-secondary-metrics">
+            <div class="fs-secondary-card">
+              <div class="fs-secondary-icon">
+                <i data-feather="trending-${ef_trend > 0 ? 'up' : 'down'}"></i>
+              </div>
+              <div class="fs-secondary-content">
+                <div class="fs-secondary-label">Efficiency Trend</div>
+                <div class="fs-secondary-value">${this.formatMetric(ef_trend, 2)}%</div>
+                <div class="fs-secondary-desc">
+                  ${ef_trend > 0 ? 'Improving aerobic efficiency' : ef_trend < 0 ? 'Declining efficiency - consider recovery' : 'Stable efficiency'}
+                </div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Insights Section -->
         ${this.insights && this.insights.length > 0 ? `
-          <div class="insights-container">
-            <h3 class="insights-title">Detailed Insights</h3>
+          <div class="fs-insights-section">
+            <div class="fs-insights-header">
+              <h3>Detailed Analysis</h3>
+              <p>Data-driven insights about your training patterns</p>
+            </div>
             <div class="insights-grid">
               ${this.insights.map(i => InsightCard(i)).join('')}
             </div>
@@ -154,52 +160,334 @@ class FitnessStatePage {
     if (typeof feather !== 'undefined') feather.replace();
   }
 
-  getStatusColor(status) {
-    const colors = {
-      peak: '#10b981',
-      optimal: '#10b981',
-      good: '#3b82f6',
-      overreaching: '#f59e0b',
-      fatigued: '#ef4444',
-      unknown: '#6b7280'
-    };
-    return colors[status] || colors.unknown;
+  renderStatusWeather(status, description) {
+    const statusConfig = this.getStatusConfig(status);
+
+    return `
+      <div class="fs-weather-card fs-weather-${status}">
+        <div class="fs-weather-visual">
+          <div class="fs-weather-icon-container">
+            ${statusConfig.weatherIcon}
+          </div>
+          <div class="fs-weather-particles"></div>
+        </div>
+        <div class="fs-weather-content">
+          <div class="fs-weather-status">${statusConfig.label}</div>
+          <div class="fs-weather-description">${description}</div>
+          <div class="fs-weather-badge ${statusConfig.badgeClass}">
+            ${statusConfig.badge}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
-  getStatusIcon(status) {
-    const icons = {
-      peak: '🔥',
-      optimal: '💪',
-      good: '👍',
-      overreaching: '⚠️',
-      fatigued: '😴',
-      unknown: '❓'
-    };
-    return icons[status] || icons.unknown;
+  renderMetricShowcase(key, label, value, shortLabel, icon, color) {
+    const trend = this.calculateTrend(key);
+    const trendIcon = trend > 0 ? 'trending-up' : trend < 0 ? 'trending-down' : 'minus';
+    const trendClass = trend > 0 ? 'positive' : trend < 0 ? 'negative' : 'neutral';
+
+    return `
+      <div class="fs-metric-showcase">
+        <div class="fs-metric-showcase-header">
+          <div class="fs-metric-icon fs-metric-icon-${color}">
+            <i data-feather="${icon}"></i>
+          </div>
+          <div class="fs-metric-label-group">
+            <div class="fs-metric-label">${label}</div>
+            <div class="fs-metric-short">${shortLabel}</div>
+          </div>
+        </div>
+        <div class="fs-metric-value-large">${this.formatMetric(value, 1)}</div>
+        <div class="fs-metric-trend">
+          <i data-feather="${trendIcon}" class="trend-${trendClass}"></i>
+          <span class="trend-${trendClass}">${Math.abs(trend).toFixed(1)}% vs last week</span>
+        </div>
+        <div class="fs-metric-sparkline" data-metric="${key}">
+          <canvas id="fs-sparkline-${key}"></canvas>
+        </div>
+      </div>
+    `;
   }
 
-  getStatusIconSVG(status) {
-    const icons = {
-      peak: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`,
-      optimal: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
-      good: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"/></svg>`,
-      overreaching: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`,
-      fatigued: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
-      unknown: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
-    };
-    return icons[status] || icons.unknown;
+  renderActionCard(recommendation, index, status) {
+    const icons = ['check-circle', 'alert-circle', 'info'];
+    const priorities = ['high', 'medium', 'low'];
+
+    return `
+      <div class="fs-action-card fs-action-${priorities[index] || 'low'}">
+        <div class="fs-action-icon">
+          <i data-feather="${icons[index] || 'info'}"></i>
+        </div>
+        <div class="fs-action-content">
+          <div class="fs-action-text">${recommendation}</div>
+        </div>
+        <div class="fs-action-arrow">
+          <i data-feather="arrow-right"></i>
+        </div>
+      </div>
+    `;
   }
 
-  formatMetric(value, digits = 1, fallback = '—', asPercent = false) {
+  getStatusConfig(status) {
+    const configs = {
+      peak: {
+        label: 'Peak Performance',
+        badge: 'Race Ready',
+        badgeClass: 'badge-peak',
+        weatherIcon: `
+          <svg class="fs-weather-svg" viewBox="0 0 100 100">
+            <circle class="sun-core" cx="50" cy="50" r="20" fill="url(#sunGradient)"/>
+            <g class="sun-rays">
+              ${[0, 45, 90, 135, 180, 225, 270, 315].map(angle => `
+                <line x1="50" y1="10" x2="50" y2="20"
+                      transform="rotate(${angle} 50 50)"
+                      stroke="url(#rayGradient)" stroke-width="3" stroke-linecap="round"/>
+              `).join('')}
+            </g>
+            <defs>
+              <linearGradient id="sunGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#fbbf24"/>
+                <stop offset="100%" stop-color="#f59e0b"/>
+              </linearGradient>
+              <linearGradient id="rayGradient">
+                <stop offset="0%" stop-color="#fbbf24" stop-opacity="1"/>
+                <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.5"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        `
+      },
+      optimal: {
+        label: 'Optimal State',
+        badge: 'Well Balanced',
+        badgeClass: 'badge-optimal',
+        weatherIcon: `
+          <svg class="fs-weather-svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="40" r="18" fill="url(#sunOptimal)"/>
+            <path d="M 20 60 Q 30 55, 40 60 T 60 60 T 80 60" fill="none" stroke="#94a3b8" stroke-width="2.5" opacity="0.6"/>
+            <defs>
+              <linearGradient id="sunOptimal" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#10b981"/>
+                <stop offset="100%" stop-color="#059669"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        `
+      },
+      good: {
+        label: 'Good Condition',
+        badge: 'Progressing',
+        badgeClass: 'badge-good',
+        weatherIcon: `
+          <svg class="fs-weather-svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="45" r="16" fill="url(#cloudSunGradient)"/>
+            <ellipse cx="45" cy="60" rx="18" ry="12" fill="#cbd5e1" opacity="0.7"/>
+            <ellipse cx="55" cy="62" rx="15" ry="10" fill="#e2e8f0" opacity="0.8"/>
+            <defs>
+              <linearGradient id="cloudSunGradient">
+                <stop offset="0%" stop-color="#3b82f6"/>
+                <stop offset="100%" stop-color="#2563eb"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        `
+      },
+      overreaching: {
+        label: 'Overreaching',
+        badge: 'Caution',
+        badgeClass: 'badge-warning',
+        weatherIcon: `
+          <svg class="fs-weather-svg" viewBox="0 0 100 100">
+            <path d="M 30 50 Q 40 40, 50 50 T 70 50" fill="#cbd5e1"/>
+            <path d="M 35 55 Q 42 48, 48 55 T 58 55" fill="#94a3b8"/>
+            <path d="M 45 60 L 47 75 M 55 60 L 53 75 M 50 62 L 50 78" stroke="#f59e0b" stroke-width="2" opacity="0.7"/>
+            <circle cx="48" cy="40" r="2" fill="#fbbf24" opacity="0.5"/>
+          </svg>
+        `
+      },
+      fatigued: {
+        label: 'Fatigued',
+        badge: 'Recovery Needed',
+        badgeClass: 'badge-danger',
+        weatherIcon: `
+          <svg class="fs-weather-svg" viewBox="0 0 100 100">
+            <path d="M 25 45 Q 35 35, 45 45 T 65 45 T 85 45" fill="#94a3b8"/>
+            <path d="M 30 52 Q 38 44, 46 52 T 60 52 T 74 52" fill="#64748b"/>
+            <path d="M 35 70 L 37 85 M 48 68 L 50 82 M 63 70 L 61 84" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="40" cy="65" r="1.5" fill="#ef4444" opacity="0.4"/>
+            <circle cx="55" cy="62" r="1.5" fill="#ef4444" opacity="0.4"/>
+          </svg>
+        `
+      },
+      unknown: {
+        label: 'Analyzing',
+        badge: 'Need More Data',
+        badgeClass: 'badge-neutral',
+        weatherIcon: `
+          <svg class="fs-weather-svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="18" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-dasharray="4 4"/>
+            <text x="50" y="58" text-anchor="middle" fill="#64748b" font-size="24" font-weight="bold">?</text>
+          </svg>
+        `
+      }
+    };
+
+    return configs[status] || configs.unknown;
+  }
+
+  calculateTrend(metric) {
+    if (!this.historicalData || this.historicalData.length < 14) return 0;
+
+    const recent = this.historicalData.slice(-7);
+    const previous = this.historicalData.slice(-14, -7);
+
+    const metricMap = { ctl: 'ctl', atl: 'atl', tsb: 'tsb' };
+    const key = metricMap[metric];
+    if (!key) return 0;
+
+    const recentAvg = recent.reduce((sum, d) => sum + (d[key] || 0), 0) / recent.length;
+    const previousAvg = previous.reduce((sum, d) => sum + (d[key] || 0), 0) / previous.length;
+
+    if (previousAvg === 0) return 0;
+    return ((recentAvg - previousAvg) / previousAvg) * 100;
+  }
+
+  initVisualizations() {
+    this.renderTriangleChart();
+    this.renderSparklines();
+    this.addWeatherAnimation();
+
+    if (typeof feather !== 'undefined') feather.replace();
+  }
+
+  renderTriangleChart() {
+    const canvas = document.getElementById('fs-triangle-chart');
+    if (!canvas) return;
+
+    const { ctl = 50, atl = 40, tsb = 0 } = this.data || {};
+
+    const ctx = canvas.getContext('2d');
+    const maxValue = Math.max(ctl, atl, Math.abs(tsb)) * 1.2;
+
+    if (this.triangleChart) {
+      this.triangleChart.destroy();
+    }
+
+    this.triangleChart = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: ['Fitness (CTL)', 'Fatigue (ATL)', 'Form (TSB)'],
+        datasets: [{
+          label: 'Current State',
+          data: [ctl, atl, tsb + maxValue/2], // Offset TSB to always positive
+          backgroundColor: 'rgba(59, 130, 246, 0.15)',
+          borderColor: 'rgba(59, 130, 246, 0.8)',
+          borderWidth: 3,
+          pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          r: {
+            min: 0,
+            max: maxValue,
+            ticks: {
+              stepSize: maxValue / 5,
+              font: { size: 11 },
+              color: '#64748b'
+            },
+            grid: {
+              color: 'rgba(148, 163, 184, 0.2)'
+            },
+            angleLines: {
+              color: 'rgba(148, 163, 184, 0.2)'
+            },
+            pointLabels: {
+              font: { size: 13, weight: '600' },
+              color: '#1e293b'
+            }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            padding: 12,
+            titleFont: { size: 13, weight: '600' },
+            bodyFont: { size: 12 },
+            cornerRadius: 8
+          }
+        }
+      }
+    });
+  }
+
+  renderSparklines() {
+    ['ctl', 'atl', 'tsb'].forEach(metric => {
+      const canvas = document.getElementById(`fs-sparkline-${metric}`);
+      if (!canvas) return;
+
+      const data = this.historicalData.slice(-30).map(d => d[metric] || 0);
+      const ctx = canvas.getContext('2d');
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.map((_, i) => i),
+          datasets: [{
+            data: data,
+            borderColor: metric === 'ctl' ? '#3b82f6' : metric === 'atl' ? '#f59e0b' : '#10b981',
+            borderWidth: 2,
+            fill: true,
+            backgroundColor: metric === 'ctl'
+              ? 'rgba(59, 130, 246, 0.1)'
+              : metric === 'atl'
+                ? 'rgba(245, 158, 11, 0.1)'
+                : 'rgba(16, 185, 129, 0.1)',
+            tension: 0.4,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { display: false },
+            y: { display: false }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false }
+          }
+        }
+      });
+    });
+  }
+
+  addWeatherAnimation() {
+    // Add subtle floating animation to weather particles
+    const particles = document.querySelector('.fs-weather-particles');
+    if (particles) {
+      for (let i = 0; i < 5; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'fs-particle';
+        particle.style.left = `${Math.random() * 100}%`;
+        particle.style.animationDelay = `${Math.random() * 2}s`;
+        particles.appendChild(particle);
+      }
+    }
+  }
+
+  formatMetric(value, digits = 1, fallback = '—') {
     if (value == null || Number.isNaN(value)) return fallback;
-    const num = Number(value);
-    const formatted = num.toFixed(digits);
-    return asPercent ? `${formatted}%` : formatted;
-  }
-
-  capitalizeFirst(str) {
-    if (!str || typeof str !== 'string') return 'Unknown';
-    return str.charAt(0).toUpperCase() + str.slice(1);
+    return Number(value).toFixed(digits);
   }
 
   renderLoading() {
@@ -216,15 +504,23 @@ class FitnessStatePage {
   }
 
   onUnload() {
+    if (this.triangleChart) this.triangleChart.destroy();
     this.data = null;
     eventBus.off(EVENTS.DATA_IMPORTED, this.handleDataImported);
   }
 
   async handleDataImported() {
     try {
-      this.data = await Services.data.getFitnessState({ forceRefresh: true });
+      const [fitnessState, trainingLoad] = await Promise.all([
+        Services.data.getFitnessState({ forceRefresh: true }),
+        Services.data.getTrainingLoad({ days: 90, forceRefresh: false }).catch(() => ({ daily: [] }))
+      ]);
+
+      this.data = fitnessState;
+      this.historicalData = trainingLoad?.daily || [];
       this.insights = Services.insight.generateFitnessStateInsights(this.data);
       this.render();
+      this.initVisualizations();
     } catch (error) {
       console.error('[FitnessState] Refresh failed:', error);
     }
