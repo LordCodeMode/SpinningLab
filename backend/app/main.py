@@ -220,4 +220,19 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
+    reload_enabled = settings.DEBUG
+    uvicorn_kwargs = {
+        "host": os.getenv("UVICORN_HOST", "0.0.0.0"),
+        "port": int(os.getenv("UVICORN_PORT", 8000)),
+        "reload": reload_enabled,
+    }
+
+    if reload_enabled:
+        uvicorn_kwargs["reload_dirs"] = ["app"]
+        uvicorn_kwargs["reload_excludes"] = ["data", "cache", "trainings.db", "*.db"]
+        uvicorn_app = "app.main:app"
+    else:
+        uvicorn_app = app
+
+    uvicorn.run(uvicorn_app, **uvicorn_kwargs)

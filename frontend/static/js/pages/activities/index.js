@@ -104,8 +104,16 @@ class ActivitiesPage {
           </tr>
         </thead>
         <tbody>
-          ${this.activities.map(activity => `
-            <tr onclick="window.router.navigateTo('activity/${activity.id}')">
+          ${this.activities.map(activity => {
+            const activityId = this.getActivityId(activity);
+            const route = activityId ? `activity/${activityId}` : null;
+            const rowClass = activityId ? 'act-row--clickable' : 'act-row--disabled';
+            const clickHandler = route
+              ? `onclick="window.router ? window.router.navigateTo('${route}') : (window.location.hash='#/${route}')"`
+              : '';
+
+            return `
+            <tr class="${rowClass}" data-activity-id="${activityId ?? ''}" ${clickHandler}>
               <td class="act-activity-name">${this.escapeHtml(activity.file_name || 'Untitled Ride')}</td>
               <td>${this.formatDate(activity.start_time)}</td>
               <td>${this.formatDuration(activity.duration)}</td>
@@ -117,8 +125,8 @@ class ActivitiesPage {
               </td>
               <td>${activity.normalized_power ? Math.round(activity.normalized_power) + 'W' : '-'}</td>
               <td>${activity.tss ? Math.round(activity.tss) : '-'}</td>
-            </tr>
-          `).join('')}
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>
     `;
@@ -196,6 +204,17 @@ class ActivitiesPage {
   async nextPage() {
     this.currentPage++;
     await this.load();
+  }
+
+  getActivityId(activity) {
+    if (!activity) return null;
+    return (
+      activity.id ??
+      activity.activity_id ??
+      activity.activityId ??
+      activity._id ??
+      null
+    );
   }
 
   formatDate(dateString) {

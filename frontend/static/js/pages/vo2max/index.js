@@ -111,13 +111,13 @@ class VO2MaxPage {
       return;
     }
 
+    // TRAINING LOAD STYLE LAYOUT
     container.innerHTML = `
-      <div class="vo2-shell">
-        ${this.renderHero()}
-        ${this.renderPerformanceRing()}
-        ${this.renderTrendSection()}
-        ${this.renderVisualizationsSection()}
+      <div class="vo2-dashboard">
+        ${this.renderTopBar()}
+        ${this.renderMainGrid()}
         ${this.renderSummarySection()}
+        ${this.renderVisualizationsSection()}
         ${this.renderHighlightsSection()}
         ${this.renderInsightsSection()}
         ${this.renderMethodologySection()}
@@ -126,155 +126,127 @@ class VO2MaxPage {
 
     if (typeof feather !== 'undefined') feather.replace();
     this.attachTooltips();
+    this.renderGaugeChart();
   }
 
-  renderHero() {
-    const {
-      latestEntry,
-      category,
-      bestVO2,
-      bestVO2Date,
-      change30,
-      currentDaysLabel,
-      plateauDays,
-      consistencyScore
-    } = this.metrics;
-
+  // TRAINING LOAD STYLE TOP BAR
+  renderTopBar() {
+    const { category, change30, currentDaysLabel } = this.metrics;
     const change30Label = this.formatDelta(change30);
-    const seasonHighMeta = bestVO2Date || 'Not recorded';
-    const plateauLabel = Number.isFinite(plateauDays) ? plateauDays : 0;
+    const trendClass = change30 >= 0 ? 'vo2-badge-positive' : 'vo2-badge-negative';
 
     return `
-      <section class="vo2-hero">
-        <div class="vo2-hero__content">
-          <div class="vo2-hero__meta">
-            <span class="vo2-pill"><i data-feather="activity"></i>VO₂ Max Analysis</span>
-            <span class="vo2-pill vo2-pill--muted"><i data-feather="calendar"></i>${currentDaysLabel}</span>
-          </div>
-
-          <h1>Aerobic Engine Performance</h1>
-          <p class="vo2-hero__description">
-            Track your maximal oxygen uptake, training adaptation, and aerobic capacity evolution with precision metrics and actionable insights.
-          </p>
-
-          <div class="vo2-hero__stats-grid">
-            <div class="vo2-stat-showcase" data-tooltip="Your current VO₂ Max based on recent maximal efforts">
-              <div class="vo2-stat-icon">
-                <i data-feather="trending-up"></i>
-              </div>
-              <div class="vo2-stat-content">
-                <span class="vo2-stat-label">Current VO₂ Max</span>
-                <span class="vo2-stat-value-large">${this.formatNumber(latestEntry.vo2max, 1)}<small>ml/kg/min</small></span>
-                <span class="vo2-pill ${category.badgeClass}">${category.label}</span>
-              </div>
-            </div>
-
-            <div class="vo2-stat-showcase" data-tooltip="Peak VO₂ Max achieved in this time period">
-              <div class="vo2-stat-icon vo2-stat-icon--secondary">
-                <i data-feather="award"></i>
-              </div>
-              <div class="vo2-stat-content">
-                <span class="vo2-stat-label">Season High</span>
-                <span class="vo2-stat-value-large">${this.formatNumber(bestVO2, 1)}<small>ml/kg/min</small></span>
-                <span class="vo2-stat-meta">${seasonHighMeta}</span>
-              </div>
-            </div>
-
-            <div class="vo2-stat-showcase" data-tooltip="30-day trend showing recent adaptation">
-              <div class="vo2-stat-icon vo2-stat-icon--accent">
-                <i data-feather="activity"></i>
-              </div>
-              <div class="vo2-stat-content">
-                <span class="vo2-stat-label">30-Day Trend</span>
-                <span class="vo2-stat-value-large ${change30 >= 0 ? 'vo2-trend-up' : 'vo2-trend-down'}">${change30Label}</span>
-                <span class="vo2-stat-meta">Consistency ${Math.round(consistencyScore)}/100</span>
-              </div>
-            </div>
-
-            <div class="vo2-stat-showcase" data-tooltip="Days since last meaningful improvement">
-              <div class="vo2-stat-icon vo2-stat-icon--warning">
-                <i data-feather="clock"></i>
-              </div>
-              <div class="vo2-stat-content">
-                <span class="vo2-stat-label">Plateau Duration</span>
-                <span class="vo2-stat-value-large">${plateauLabel}<small>days</small></span>
-                <span class="vo2-stat-meta">${plateauLabel > 35 ? 'Time for stimulus' : 'Actively improving'}</span>
-              </div>
-            </div>
+      <div class="vo2-topbar">
+        <div class="vo2-topbar-left">
+          <h1 class="vo2-page-title">VO₂ Max Analysis</h1>
+          <div class="vo2-breadcrumb">
+            <span class="vo2-badge ${category.badgeClass}">${category.label}</span>
+            <span class="vo2-badge ${trendClass}">30d: ${change30Label}</span>
+            <span class="vo2-badge vo2-badge-muted">${currentDaysLabel}</span>
           </div>
         </div>
-      </section>
+        <div class="vo2-topbar-controls">
+          ${[30, 60, 90, 180, 365].map(days => `
+            <button class="vo2-range-pill ${this.currentDays === days ? 'active' : ''}" data-range="${days}">
+              ${days <= 360 ? days + 'd' : '1y'}
+            </button>
+          `).join('')}
+        </div>
+      </div>
     `;
   }
 
-  renderPerformanceRing() {
+  // TRAINING LOAD STYLE MAIN GRID
+  renderMainGrid() {
     const {
       latestEntry,
       category,
       bestVO2,
+      change30,
+      consistencyScore,
       averageWeeklyHours,
-      redlineMinutes,
-      recoveryPercent,
-      rollingAverage
+      redlineMinutes
     } = this.metrics;
 
     const percentOfBest = bestVO2 > 0 ? (latestEntry.vo2max / bestVO2) * 100 : 0;
 
     return `
-      <section class="vo2-performance-ring-section">
-        <div class="vo2-ring-container">
-          <div class="vo2-ring-visual">
-            <canvas id="vo2-gauge-chart" width="280" height="280"></canvas>
-            <div class="vo2-ring-center">
-              <div class="vo2-ring-value">${this.formatNumber(latestEntry.vo2max, 1)}</div>
-              <div class="vo2-ring-label">ml/kg/min</div>
-              <div class="vo2-ring-sublabel">${Math.round(percentOfBest)}% of peak</div>
+      <div class="vo2-main-grid">
+        <!-- Left Column: Gauge + Quick Stats -->
+        <div class="vo2-left-column">
+          <!-- Performance Gauge -->
+          <div class="vo2-gauge-widget">
+            <div class="vo2-widget-header">
+              <h3>Current VO₂ Max</h3>
+              <span class="vo2-widget-badge ${category.badgeClass}">${category.label}</span>
             </div>
+            <div class="vo2-gauge-wrapper">
+              <canvas id="vo2-gauge-chart"></canvas>
+              <div class="vo2-gauge-center">
+                <div class="vo2-gauge-value">${this.formatNumber(latestEntry.vo2max, 1)}</div>
+                <div class="vo2-gauge-label">ml/kg/min</div>
+                <div class="vo2-gauge-sublabel">${Math.round(percentOfBest)}% of peak</div>
+              </div>
+            </div>
+            <p class="vo2-gauge-desc">${category.description}</p>
           </div>
 
-          <div class="vo2-ring-info">
-            <h3>Performance Status</h3>
-            <div class="vo2-ring-category">
-              <span class="vo2-pill ${category.badgeClass}">${category.label}</span>
-              <p>${category.description}</p>
+          <!-- Quick Stats Grid -->
+          <div class="vo2-quick-grid">
+            <div class="vo2-stat-mini">
+              <div class="vo2-stat-mini-label">Current VO₂</div>
+              <div class="vo2-stat-mini-value">${this.formatNumber(latestEntry.vo2max, 1)}</div>
+              <div class="vo2-stat-mini-unit">ml/kg/min</div>
             </div>
 
-            <div class="vo2-ring-metrics">
-              <div class="vo2-ring-metric">
-                <i data-feather="clock"></i>
-                <div>
-                  <span class="vo2-ring-metric-value">${this.formatNumber(averageWeeklyHours, 1)}h</span>
-                  <span class="vo2-ring-metric-label">Weekly Volume</span>
-                </div>
-              </div>
+            <div class="vo2-stat-mini">
+              <div class="vo2-stat-mini-label">Season Peak</div>
+              <div class="vo2-stat-mini-value">${this.formatNumber(bestVO2, 1)}</div>
+              <div class="vo2-stat-mini-unit">ml/kg/min</div>
+            </div>
 
-              <div class="vo2-ring-metric">
-                <i data-feather="zap"></i>
-                <div>
-                  <span class="vo2-ring-metric-value">${this.formatNumber(redlineMinutes, 0)}min</span>
-                  <span class="vo2-ring-metric-label">High Intensity</span>
-                </div>
-              </div>
+            <div class="vo2-stat-mini">
+              <div class="vo2-stat-mini-label">30-Day Change</div>
+              <div class="vo2-stat-mini-value ${change30 >= 0 ? 'positive' : 'negative'}">${this.formatDelta(change30)}</div>
+              <div class="vo2-stat-mini-unit">delta</div>
+            </div>
 
-              <div class="vo2-ring-metric">
-                <i data-feather="heart"></i>
-                <div>
-                  <span class="vo2-ring-metric-value">${this.formatNumber(recoveryPercent, 1)}%</span>
-                  <span class="vo2-ring-metric-label">Recovery Share</span>
-                </div>
-              </div>
+            <div class="vo2-stat-mini">
+              <div class="vo2-stat-mini-label">Consistency</div>
+              <div class="vo2-stat-mini-value">${Math.round(consistencyScore)}</div>
+              <div class="vo2-stat-mini-unit">/ 100</div>
+            </div>
 
-              <div class="vo2-ring-metric">
-                <i data-feather="trending-up"></i>
-                <div>
-                  <span class="vo2-ring-metric-value">${this.formatNumber(rollingAverage, 1)}</span>
-                  <span class="vo2-ring-metric-label">7-Day Average</span>
-                </div>
-              </div>
+            <div class="vo2-stat-mini">
+              <div class="vo2-stat-mini-label">Weekly Volume</div>
+              <div class="vo2-stat-mini-value">${this.formatNumber(averageWeeklyHours, 1)}</div>
+              <div class="vo2-stat-mini-unit">hours</div>
+            </div>
+
+            <div class="vo2-stat-mini">
+              <div class="vo2-stat-mini-label">VO₂ Zone Time</div>
+              <div class="vo2-stat-mini-value">${this.formatNumber(redlineMinutes, 0)}</div>
+              <div class="vo2-stat-mini-unit">min/week</div>
             </div>
           </div>
         </div>
-      </section>
+
+        <!-- Right Column: Main Chart (EMPHASIZED) -->
+        <div class="vo2-right-column">
+          <div class="vo2-chart-main">
+            <div class="vo2-chart-header">
+              <h3>VO₂ Max Progression</h3>
+              <div class="vo2-chart-meta">
+                <span>Current: ${this.formatNumber(latestEntry.vo2max, 1)}</span>
+                <span>Peak: ${this.formatNumber(bestVO2, 1)}</span>
+              </div>
+            </div>
+            <div class="vo2-chart-body">
+              <canvas id="vo2maxChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -347,9 +319,9 @@ class VO2MaxPage {
 
     return `
       <section class="vo2-section">
-        <header class="vo2-section__header">
-          <h2 class="vo2-section__title">Training Analysis</h2>
-          <p class="vo2-section__subtitle">Visualize how your training composition influences VO₂ Max development.</p>
+        <header class="vo2-section-header">
+          <h2 class="vo2-section-title">Training Analysis</h2>
+          <p class="vo2-section-subtitle">Visualize how your training composition influences VO₂ Max development.</p>
         </header>
         <div class="vo2-visual-grid">
           ${cards.join('')}
@@ -431,13 +403,13 @@ class VO2MaxPage {
 
     return `
       <section class="vo2-section">
-        <header class="vo2-section__header">
-          <h2 class="vo2-section__title">Key Metrics Snapshot</h2>
-          <p class="vo2-section__subtitle">Critical deltas and training load distribution for informed decision-making.</p>
+        <header class="vo2-section-header">
+          <h2 class="vo2-section-title">Key Metrics Snapshot</h2>
+          <p class="vo2-section-subtitle">Critical deltas and training load distribution for informed decision-making.</p>
         </header>
         <div class="vo2-highlight-grid">
           ${cards.map(card => `
-            <article class="vo2-highlight-card ${card.accent}" data-tooltip="${this.escapeHtml(card.tooltip)}">
+            <article class="vo2-highlight-card" data-tooltip="${this.escapeHtml(card.tooltip)}">
               <span class="vo2-highlight-label">${card.label}</span>
               <span class="vo2-highlight-value">${card.value}</span>
               <span class="vo2-highlight-meta">${card.meta}</span>
@@ -456,14 +428,14 @@ class VO2MaxPage {
 
     return `
       <section class="vo2-section">
-        <header class="vo2-section__header">
-          <h2 class="vo2-section__title">Coaching Insights</h2>
-          <p class="vo2-section__subtitle">Actionable takeaways based on your intensity distribution and VO₂ classification.</p>
+        <header class="vo2-section-header">
+          <h2 class="vo2-section-title">Coaching Insights</h2>
+          <p class="vo2-section-subtitle">Actionable takeaways based on your intensity distribution and VO₂ classification.</p>
         </header>
         <div class="vo2-focus-grid">
           <article class="vo2-focus-card">
             <header>
-              <span class="vo2-pill ${category.badgeClass}">${category.label}</span>
+              <span class="vo2-badge ${category.badgeClass}">${category.label}</span>
               <button class="vo2-info-icon" data-tooltip="${this.escapeHtml(category.description)}"><i data-feather="info"></i></button>
             </header>
             <p>${category.description}</p>
@@ -472,7 +444,7 @@ class VO2MaxPage {
 
           <article class="vo2-focus-card">
             <header>
-              <span class="vo2-pill vo2-pill--primary">Training Balance</span>
+              <span class="vo2-badge vo2-badge-primary">Training Balance</span>
               <button class="vo2-info-icon" data-tooltip="Evaluates low vs high intensity ratio"><i data-feather="info"></i></button>
             </header>
             <p>${polarisationDescriptor}</p>
@@ -481,7 +453,7 @@ class VO2MaxPage {
 
           <article class="vo2-focus-card">
             <header>
-              <span class="vo2-pill vo2-pill--success">Session Guidance</span>
+              <span class="vo2-badge vo2-badge-positive">Session Guidance</span>
               <button class="vo2-info-icon" data-tooltip="Recommendations based on recent trends"><i data-feather="info"></i></button>
             </header>
             <p>${intensityDescriptor}</p>
@@ -498,15 +470,15 @@ class VO2MaxPage {
 
     return `
       <section class="vo2-section">
-        <header class="vo2-section__header">
-          <h2 class="vo2-section__title">Detailed Analysis</h2>
-          <p class="vo2-section__subtitle">Contextual recommendations tailored to your specific training patterns.</p>
+        <header class="vo2-section-header">
+          <h2 class="vo2-section-title">Detailed Analysis</h2>
+          <p class="vo2-section-subtitle">Contextual recommendations tailored to your specific training patterns.</p>
         </header>
         <div class="vo2-insight-grid">
           ${insights.map(insight => `
             <article class="vo2-insight-card">
               <header>
-                <span class="vo2-pill ${insight.badgeClass}">${this.escapeHtml(insight.badge)}</span>
+                <span class="vo2-badge ${insight.badgeClass}">${this.escapeHtml(insight.badge)}</span>
                 <h3>${this.escapeHtml(insight.title)}</h3>
               </header>
               <p>${this.escapeHtml(insight.body)}</p>
@@ -521,9 +493,9 @@ class VO2MaxPage {
   renderMethodologySection() {
     return `
       <section class="vo2-section">
-        <header class="vo2-section__header">
-          <h2 class="vo2-section__title">Model Methodology</h2>
-          <p class="vo2-section__subtitle">Understand how VO₂ Max is calculated and how to improve data quality.</p>
+        <header class="vo2-section-header">
+          <h2 class="vo2-section-title">Model Methodology</h2>
+          <p class="vo2-section-subtitle">Understand how VO₂ Max is calculated and how to improve data quality.</p>
         </header>
         <div class="vo2-methodology-grid">
           <article class="vo2-method-card">
@@ -558,7 +530,7 @@ class VO2MaxPage {
   }
 
   setupEventListeners() {
-    document.querySelectorAll('.vo2-range-btn').forEach(btn => {
+    document.querySelectorAll('.vo2-range-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         const range = Number(btn.dataset.range);
         this.handleRangeChange(range);
@@ -625,12 +597,16 @@ class VO2MaxPage {
       this.gaugeChart = null;
     }
 
+    // Set canvas size explicitly
+    canvas.width = 220;
+    canvas.height = 220;
+
     this.gaugeChart = new Chart(canvas, {
       type: 'doughnut',
       data: {
         datasets: [{
           data: [percentOfBest, 100 - percentOfBest],
-          backgroundColor: [category.gradient, 'rgba(226, 232, 240, 0.3)'],
+          backgroundColor: [category.color, 'rgba(226, 232, 240, 0.3)'],
           borderWidth: 0,
           circumference: 270,
           rotation: 225
@@ -638,8 +614,8 @@ class VO2MaxPage {
       },
       options: {
         cutout: '75%',
-        responsive: false,
-        maintainAspectRatio: false,
+        responsive: true,
+        maintainAspectRatio: true,
         plugins: {
           legend: { display: false },
           tooltip: { enabled: false }
@@ -650,7 +626,7 @@ class VO2MaxPage {
 
   renderTrendCharts() {
     const chartCanvas = document.getElementById('vo2maxChart');
-    if (!this.metrics?.hasData || typeof Chart === 'undefined') return;
+    if (!chartCanvas || !this.metrics?.hasData || typeof Chart === 'undefined') return;
 
     const chartData = Services.chart.prepareVO2MaxChart(this.data.estimates);
     const rollingSeriesValues = (this.metrics?.rollingSeries || []).map(point => point.value);
@@ -708,13 +684,11 @@ class VO2MaxPage {
       this.trendChart = null;
     }
 
-    if (chartCanvas) {
-      this.trendChart = new Chart(chartCanvas, {
-        type: 'line',
-        data: chartData,
-        options
-      });
-    }
+    this.trendChart = new Chart(chartCanvas, {
+      type: 'line',
+      data: chartData,
+      options
+    });
   }
 
   renderAdditionalCharts() {
@@ -752,13 +726,15 @@ class VO2MaxPage {
           }]
         },
         options: {
+          responsive: true,
+          maintainAspectRatio: false,
           plugins: {
             legend: {
               display: true,
               position: 'bottom',
               labels: {
                 usePointStyle: true,
-                padding: 16,
+                padding: 12,
                 font: { size: 13, weight: '600' },
                 color: '#334155'
               }
@@ -805,6 +781,7 @@ class VO2MaxPage {
           ]
         },
         options: {
+          responsive: true,
           maintainAspectRatio: false,
           scales: {
             y: {
@@ -834,7 +811,7 @@ class VO2MaxPage {
             },
             x: {
               grid: { display: false },
-              ticks: { font: { size: 12, weight: '600' } }
+              ticks: { font: { size: 11, weight: '600' } }
             }
           },
           plugins: {
@@ -844,7 +821,8 @@ class VO2MaxPage {
               labels: {
                 usePointStyle: true,
                 font: { size: 12, weight: '600' },
-                color: '#334155'
+                color: '#334155',
+                padding: 10
               }
             },
             tooltip: {

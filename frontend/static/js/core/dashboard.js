@@ -14,10 +14,12 @@ import Services from '/static/js/services/index.js';
 
 // CRITICAL: Use the same TOKEN_STORAGE_KEY as config.js
 const TOKEN_STORAGE_KEY = CONFIG.TOKEN_STORAGE_KEY || 'training_dashboard_token';
+const DISPLAY_NAME_STORAGE_KEY = CONFIG.DISPLAY_NAME_STORAGE_KEY || 'training_dashboard_display_name';
 
 const PAGE_DEFINITIONS = {
   overview: { module: overviewPage },
   activities: { path: '/static/js/pages/activities/index.js' },
+  activity: { path: '/static/js/pages/activity/index.js' },
   settings: { path: '/static/js/pages/settings/index.js' },
   upload: { path: '/static/js/pages/upload/index.js' },
   'training-load': { path: '/static/js/pages/training-load/index.js' },
@@ -78,6 +80,7 @@ class Dashboard {
       this.currentUser = await AuthAPI.me();
       console.log('[Dashboard] User authenticated:', this.currentUser.username);
       console.log('[Dashboard] User data:', this.currentUser);
+      this.persistDisplayName(this.currentUser?.name);
       
       this.updateUserDisplay();
     } catch (error) {
@@ -94,7 +97,7 @@ class Dashboard {
     const userEmailEl = document.getElementById('userEmail');
     if (userEmailEl && this.currentUser) {
       // Display name field first, then username, then email prefix
-      const displayName = this.currentUser.name || this.currentUser.username || this.currentUser.email?.split('@')[0] || 'User';
+      const displayName = this.getUserDisplayName();
       userEmailEl.textContent = displayName;
       console.log('[Dashboard] Set display name to:', displayName);
       console.log('[Dashboard] Name from API:', this.currentUser.name);
@@ -107,14 +110,14 @@ class Dashboard {
     // Also support old ID for backwards compatibility
     const currentUserEl = document.getElementById('current-user');
     if (currentUserEl && this.currentUser) {
-      const displayName = this.currentUser.name || this.currentUser.username || this.currentUser.email?.split('@')[0] || 'User';
+      const displayName = this.getUserDisplayName();
       currentUserEl.textContent = displayName;
     }
 
     // Update avatar with first letter of name/username
     const avatarElement = document.getElementById('user-avatar');
     if (avatarElement && this.currentUser) {
-      const displayName = this.currentUser.name || this.currentUser.username || this.currentUser.email?.split('@')[0] || 'User';
+      const displayName = this.getUserDisplayName();
       // Clear existing content and set text
       avatarElement.innerHTML = '';
       avatarElement.textContent = displayName.charAt(0).toUpperCase();
@@ -672,6 +675,7 @@ class Dashboard {
     // Clear user data
     localStorage.removeItem('user');
     localStorage.removeItem('currentUser');
+    this.persistDisplayName(null);
     sessionStorage.clear();
     
     console.log('[Dashboard] ✓ Auth data cleared');
@@ -692,6 +696,43 @@ class Dashboard {
 
   getHeaderStats() {
     return this.headerStatsCache;
+  }
+
+  getUserDisplayName() {
+    if (!this.currentUser) return 'User';
+    const name = this.currentUser.name?.trim();
+    if (name) return name;
+    const stored = this.getStoredDisplayName();
+    if (stored) return stored;
+    if (this.currentUser.username) return this.currentUser.username;
+    if (this.currentUser.email) {
+      const [local] = this.currentUser.email.split('@');
+      if (local) return local;
+    }
+    return 'User';
+  }
+
+  getStoredDisplayName() {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem(DISPLAY_NAME_STORAGE_KEY);
+    return stored && stored.trim() ? stored.trim() : null;
+  }
+
+  persistDisplayName(name) {
+    if (typeof window === 'undefined') return;
+    if (name && name.trim()) {
+      localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, name.trim());
+    } else {
+      localStorage.removeItem(DISPLAY_NAME_STORAGE_KEY);
+    }
+  }
+
+  updateDisplayName(name) {
+    if (this.currentUser) {
+      this.currentUser.name = name?.trim() || null;
+    }
+    this.persistDisplayName(name);
+    this.updateUserDisplay();
   }
 
   async testAPI() {

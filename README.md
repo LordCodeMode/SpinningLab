@@ -75,10 +75,15 @@ A comprehensive training analytics dashboard for cyclists and endurance athletes
 
 4. **Start the backend server**
    ```bash
-   python -m uvicorn app.main:app --reload
+   # Stable mode (no auto-reload, recommended during normal use)
+   python app/main.py
    ```
 
    The API will be available at `http://localhost:8000`
+
+   > Need auto-reload while editing backend code? Set `DEBUG=true` in `backend/.env`
+   > (or run `python -m uvicorn app.main:app --reload --reload-dir app --reload-exclude data cache`)
+   > so the reloader ignores constantly changing SQLite/cache files.
 
 5. **Open the frontend**
 

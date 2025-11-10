@@ -21,7 +21,10 @@
    .act-table thead th { text-align: left; padding: 16px 20px; font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); }
    .act-table tbody td { padding: 16px 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); color: var(--text-primary); font-size: 14px; }
    .act-table tbody tr { transition: all 0.2s; }
-   .act-table tbody tr:hover { background: rgba(59, 130, 246, 0.04); box-shadow: inset 3px 0 0 #3b82f6; }
+   .act-table tbody tr.act-row--clickable { cursor: pointer; }
+   .act-table tbody tr.act-row--clickable:hover { background: rgba(59, 130, 246, 0.04); box-shadow: inset 3px 0 0 #3b82f6; }
+   .act-table tbody tr.act-row--disabled { cursor: not-allowed; opacity: 0.6; }
+   .act-table tbody tr.act-row--disabled:hover { background: inherit; box-shadow: none; }
    .act-table tbody tr:last-child td { border-bottom: none; }
    
    .act-activity-name { font-weight: 600; color: var(--text-primary); cursor: pointer; }

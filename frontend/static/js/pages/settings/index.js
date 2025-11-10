@@ -8,6 +8,8 @@ import CONFIG from './config.js';
 import { LoadingSkeleton, ErrorState } from '../../components/ui/States.js';
 import { notify, setLoading } from '../../core/utils.js';
 
+const DISPLAY_NAME_STORAGE_KEY = CONFIG.DISPLAY_NAME_STORAGE_KEY || 'training_dashboard_display_name';
+
 class SettingsPage {
   constructor() {
     this.config = CONFIG;
@@ -44,6 +46,8 @@ class SettingsPage {
     const hrMax = this.settings.hr_max || '';
     const hrRest = this.settings.hr_rest || '';
     const lthr = this.settings.lthr || '';
+    const displayName = this.getDisplayNameValue();
+    const accountEmail = this.settings.email || '';
     
     container.innerHTML = `
       <div class="settings-section">
@@ -68,6 +72,72 @@ class SettingsPage {
         </div>
 
         <form id="settingsForm" class="settings-cards-grid">
+          <!-- Profile Card -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div class="settings-card-icon profile">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M5.121 17.804A7 7 0 0112 15h0a7 7 0 016.879 2.804M15 11a3 3 0 10-6 0 3 3 0 006 0z"/>
+                </svg>
+              </div>
+              <div class="settings-card-title-group">
+                <h3 class="settings-card-title">Profile</h3>
+                <p class="settings-card-subtitle">Control how your name appears across the dashboard</p>
+              </div>
+            </div>
+
+            <div class="settings-form-grid">
+              <div class="settings-field">
+                <label class="settings-field-label" for="display_name">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M5.121 17.804A7 7 0 0112 15h0a7 7 0 016.879 2.804M15 11a3 3 0 10-6 0 3 3 0 006 0z"/>
+                  </svg>
+                  Display Name
+                </label>
+                <input 
+                  type="text"
+                  id="display_name"
+                  name="display_name"
+                  value="${this.escapeHtml(displayName)}"
+                  class="settings-field-input"
+                  maxlength="100"
+                  placeholder="Max Hartwig"
+                  autocomplete="name"
+                >
+                <div class="settings-field-help">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  Shown in the sidebar footer and Overview welcome banner.
+                </div>
+              </div>
+
+              <div class="settings-field">
+                <label class="settings-field-label" for="account_email">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m0 8v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h14a2 2 0 002-2z"/>
+                  </svg>
+                  Account Email
+                </label>
+                <input
+                  type="text"
+                  id="account_email"
+                  class="settings-field-input"
+                  value="${this.escapeHtml(accountEmail)}"
+                  readonly
+                >
+                <div class="settings-field-help">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  Used for login and account recovery.
+                </div>
+              </div>
+            </div>
+          </div>
           <!-- Power Settings Card -->
           <div class="settings-card">
             <div class="settings-card-header">
@@ -469,6 +539,9 @@ class SettingsPage {
       hr_rest: formData.get('hr_rest') ? parseInt(formData.get('hr_rest')) : null,
       lthr: formData.get('lthr') ? parseInt(formData.get('lthr')) : null
     };
+    const displayNameInput = formData.get('display_name');
+    const displayName = displayNameInput ? displayNameInput.trim() : '';
+    settings.name = displayName || null;
     
     // Validate
     if (!settings.ftp || settings.ftp < 50 || settings.ftp > 600) {
@@ -491,7 +564,13 @@ class SettingsPage {
         Saving...
       `;
       
-      await Services.data.updateSettings(settings);
+      const updatedSettings = await Services.data.updateSettings(settings);
+      this.settings = { ...this.settings, ...updatedSettings };
+      const resolvedName = updatedSettings?.name ?? settings.name ?? null;
+      this.persistDisplayName(resolvedName);
+      if (window.dashboard?.updateDisplayName) {
+        window.dashboard.updateDisplayName(resolvedName);
+      }
       
       notify('Settings saved successfully!', 'success');
       Services.analytics.trackEvent('settings_saved', { fields: Object.keys(settings) });
@@ -526,6 +605,35 @@ class SettingsPage {
         Save Settings
       `;
     }
+  }
+
+  getDisplayNameValue() {
+    if (this.settings?.name) {
+      return this.settings.name;
+    }
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(DISPLAY_NAME_STORAGE_KEY);
+      if (stored && stored.trim()) {
+        return stored.trim();
+      }
+    }
+    return '';
+  }
+
+  persistDisplayName(name) {
+    if (typeof window === 'undefined') return;
+    if (name && name.trim()) {
+      localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, name.trim());
+    } else {
+      localStorage.removeItem(DISPLAY_NAME_STORAGE_KEY);
+    }
+  }
+
+  escapeHtml(text) {
+    if (text == null) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   renderLoading() {

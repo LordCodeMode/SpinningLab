@@ -10,7 +10,17 @@
       "Bash(find:*)",
       "mcp__ide__getDiagnostics",
       "Bash(curl:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(lsof:*)",
+      "Bash(python3:*)",
+      "Bash(xargs kill:*)",
+      "Bash(cat:*)",
+      "Bash(source venv/bin/activate:*)",
+      "Bash(pip install:*)",
+      "Bash(python3.11:*)",
+      "Bash(python3.12:*)",
+      "Bash(python3.10 --version:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

@@ -650,7 +650,7 @@ class DataService {
    */
   async getActivities({ limit = 20, skip = 0, startDate = null, endDate = null, forceRefresh = false } = {}) {
     const cacheKey = `activities_${limit}_${skip}_${startDate || 'all'}_${endDate || 'all'}`;
-    
+
     if (!forceRefresh) {
       const cached = this.cache.get(cacheKey);
       if (cached) {
@@ -658,17 +658,20 @@ class DataService {
         return cached;
       }
     }
-    
+
     try {
       console.log(`[DataService] Fetching activities (limit: ${limit}, skip: ${skip})...`);
       const params = { limit, skip };
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
-      const data = await API.getActivities(params);
-      
-      // Cache the result
+      const response = await API.getActivities(params);
+
+      // Extract activities array from response object
+      const data = response.activities || [];
+
+      // Cache the activities array
       this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
-      
+
       return data;
     } catch (error) {
       console.error('[DataService] Error fetching activities:', error);

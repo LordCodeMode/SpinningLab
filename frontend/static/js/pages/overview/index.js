@@ -7,6 +7,8 @@ import Services from '../../services/index.js';
 import { InsightCard, LoadingSkeleton } from '../../components/ui/index.js';
 import CONFIG from './config.js';
 
+const DISPLAY_NAME_STORAGE_KEY = CONFIG.DISPLAY_NAME_STORAGE_KEY || 'training_dashboard_display_name';
+
 class OverviewPage {
   constructor() {
     this.config = CONFIG;
@@ -103,8 +105,7 @@ class OverviewPage {
     if (!container) return;
 
     const { trainingLoad, activities, settings, insights, fitnessState } = this.data;
-    // Display name priority: name → username → email prefix → 'Athlete'
-    const userName = this.currentUser?.name || this.currentUser?.username || this.currentUser?.email?.split('@')[0] || 'Athlete';
+    const userName = this.getUserDisplayName();
     const timeOfDay = this.getTimeOfDay();
 
     // UNIQUE DASHBOARD LAYOUT - Different from Training Load
@@ -443,10 +444,12 @@ class OverviewPage {
       const normalizedPower = Math.round(Number(activity.normalized_power) || 0);
       const intensityFactor = Number(activity.intensity_factor) || 0;
       const ifDisplay = intensityFactor > 0 ? intensityFactor.toFixed(2) : '-';
-      const activityId = activity.id || activity._id;
+      const activityId = this.getActivityId(activity);
+      const route = activityId ? `activity/${activityId}` : 'activities';
 
       return `
-        <div class="ov-activity-card" onclick="window.router.navigateTo('activities')" style="cursor: pointer;">
+        <div class="ov-activity-card" data-activity-id="${activityId ?? ''}"
+             onclick="window.router ? window.router.navigateTo('${route}') : (window.location.hash='#/${route}')">
           <div class="ov-activity-header">
             <div class="ov-activity-type">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -514,6 +517,17 @@ class OverviewPage {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  getActivityId(activity) {
+    if (!activity) return null;
+    return (
+      activity.id ??
+      activity.activity_id ??
+      activity.activityId ??
+      activity._id ??
+      null
+    );
   }
 
   getDateBounds(days) {
@@ -1108,6 +1122,25 @@ class OverviewPage {
 
   toISODate(date) {
     return date.toISOString().split('T')[0];
+  }
+
+  getUserDisplayName() {
+    const apiName = this.currentUser?.name?.trim();
+    if (apiName) return apiName;
+
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(DISPLAY_NAME_STORAGE_KEY);
+      if (stored && stored.trim()) {
+        return stored.trim();
+      }
+    }
+
+    if (this.currentUser?.username) {
+      return this.currentUser.username;
+    }
+
+    const emailLocal = this.currentUser?.email?.split('@')[0];
+    return emailLocal || 'Athlete';
   }
 
   escapeHtml(text) {

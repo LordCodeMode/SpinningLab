@@ -62,10 +62,9 @@ class ZonesPage {
     }
 
     container.innerHTML = `
-      <div class="pz-shell">
-        ${this.renderHero()}
-        ${this.renderDistributionSection()}
-        ${this.renderBreakdownSection()}
+      <div class="pz-dashboard">
+        ${this.renderTopBar()}
+        ${this.renderMainGrid()}
         ${this.renderHighlightsSection()}
         ${this.renderInsightsSection()}
       </div>
@@ -74,76 +73,183 @@ class ZonesPage {
     if (typeof feather !== 'undefined') feather.replace();
   }
 
-  renderHero() {
-    const { averageWeeklyHours, endurancePercent, highIntensityPercent, totalHours, topZone, ftp, totalSeconds } = this.metrics;
+  renderTopBar() {
+    const { ftp, topZone, totalHours } = this.metrics;
+    const currentDaysLabel = `Last ${this.currentDays} days`;
+
+    return `
+      <div class="pz-topbar">
+        <div class="pz-topbar-left">
+          <h1 class="pz-page-title">Power Zones Analysis</h1>
+          <div class="pz-breadcrumb">
+            <span class="pz-badge pz-badge-primary">FTP ${ftp}W</span>
+            <span class="pz-badge pz-badge-info">Primary: ${this.escapeHtml(topZone.displayName)}</span>
+            <span class="pz-badge pz-badge-muted">${currentDaysLabel}</span>
+          </div>
+        </div>
+        <div class="pz-topbar-controls">
+          ${[30, 60, 90, 180].map(days => `
+            <button class="pz-range-pill ${this.currentDays === days ? 'active' : ''}" data-range="${days}">
+              ${days}d
+            </button>
+          `).join('')}
+          <button class="pz-range-pill ${this.currentDays === 365 ? 'active' : ''}" data-range="365">1y</button>
+        </div>
+      </div>
+    `;
+  }
+
+  renderMainGrid() {
+    return `
+      <div class="pz-main-grid">
+        ${this.renderLeftColumn()}
+        ${this.renderRightColumn()}
+      </div>
+    `;
+  }
+
+  renderLeftColumn() {
+    return `
+      <div class="pz-left-column">
+        ${this.renderDistributionChart()}
+        ${this.renderQuickStats()}
+      </div>
+    `;
+  }
+
+  renderDistributionChart() {
+    return `
+      <div class="pz-chart-widget">
+        <div class="pz-widget-header">
+          <h3>Zone Distribution</h3>
+        </div>
+        <div class="pz-chart-wrapper">
+          <canvas id="pz-distribution-chart" aria-label="Power zones doughnut chart"></canvas>
+        </div>
+        <ul class="pz-chart-legend">
+          ${this.metrics.zoneDetails.map(zone => `
+            <li>
+              <span class="pz-legend-dot" style="background:${zone.color}"></span>
+              <span>${this.escapeHtml(zone.displayName)} · ${this.formatNumber(zone.percent, 1)}%</span>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  renderQuickStats() {
+    const { averageWeeklyHours, endurancePercent, highIntensityPercent, totalHours, totalSeconds } = this.metrics;
     const avgDailyMinutes = this.formatNumber((totalSeconds / 60) / this.currentDays, 1);
 
     return `
-      <section class="pz-hero">
-        <div class="pz-hero__content">
-          <div class="pz-hero__meta">
-            <span class="pz-pill"><i data-feather="activity"></i>Power Zones</span>
-            <span class="pz-pill pz-pill--muted"><i data-feather="calendar"></i>Last ${this.currentDays} days</span>
-            <span class="pz-pill"><i data-feather="target"></i>FTP ${ftp} W</span>
-          </div>
-
-          <h1>Intensity Mix Overview</h1>
-          <p class="pz-hero__description">Visualise how your training time is distributed across power zones. Keep endurance volume high to drive aerobic development while sprinkling in purposeful high-intensity work.</p>
-
-          <div class="pz-hero__stats">
-            <div class="pz-stat-card">
-              <span class="pz-stat-label">Total Riding</span>
-              <span class="pz-stat-value">${this.formatNumber(totalHours, 1)} h</span>
-              <span class="pz-stat-meta">${avgDailyMinutes} min per day</span>
-            </div>
-            <div class="pz-stat-card">
-              <span class="pz-stat-label">Endurance Share</span>
-              <span class="pz-stat-value">${this.formatNumber(endurancePercent, 1)}%</span>
-              <span class="pz-stat-meta">Z1–Z2 aerobic foundation</span>
-            </div>
-            <div class="pz-stat-card">
-              <span class="pz-stat-label">High Intensity</span>
-              <span class="pz-stat-value">${this.formatNumber(highIntensityPercent, 1)}%</span>
-              <span class="pz-stat-meta">Z5+ anaerobic & VO₂ conditioning</span>
-            </div>
-          </div>
-
-          <div class="pz-hero__quick-stats">
-            <div class="pz-quick-stat">
-              <span class="pz-quick-stat__label">Primary Zone</span>
-              <span class="pz-quick-stat__value">${this.escapeHtml(topZone.displayName)}</span>
-              <span class="pz-quick-stat__meta">${this.formatNumber(topZone.percent, 1)}% of training</span>
-            </div>
-            <div class="pz-quick-stat">
-              <span class="pz-quick-stat__label">Weekly Volume</span>
-              <span class="pz-quick-stat__value">${this.formatNumber(averageWeeklyHours, 1)} h</span>
-              <span class="pz-quick-stat__meta">Projected across ${this.currentDays} day window</span>
-            </div>
-          </div>
-
-          <div class="pz-hero__controls">
-            ${[30, 60, 90, 180].map(days => `
-              <button class="pz-range-btn ${this.currentDays === days ? 'active' : ''}" data-range="${days}">${days}d</button>
-            `).join('')}
-            <button class="pz-range-btn ${this.currentDays === 365 ? 'active' : ''}" data-range="365">1y</button>
-          </div>
+      <div class="pz-quick-grid">
+        <div class="pz-stat-mini">
+          <div class="pz-stat-mini-label">Total Riding</div>
+          <div class="pz-stat-mini-value">${this.formatNumber(totalHours, 1)}</div>
+          <div class="pz-stat-mini-unit">hours</div>
         </div>
 
-        <div class="pz-hero__chart">
-          <div class="pz-hero__chart-wrapper">
-            <canvas id="pz-distribution-chart" aria-label="Power zones doughnut chart"></canvas>
-          </div>
-          <ul class="pz-hero__legend">
-            ${this.metrics.zoneDetails.map(zone => `
-              <li>
-                <span class="pz-legend-dot" style="background:${zone.color}"></span>
-                <span>${this.escapeHtml(zone.displayName)} · ${this.formatNumber(zone.percent, 1)}%</span>
-              </li>
-            `).join('')}
-          </ul>
+        <div class="pz-stat-mini">
+          <div class="pz-stat-mini-label">Weekly Volume</div>
+          <div class="pz-stat-mini-value">${this.formatNumber(averageWeeklyHours, 1)}</div>
+          <div class="pz-stat-mini-unit">hrs/week</div>
         </div>
-      </section>
+
+        <div class="pz-stat-mini">
+          <div class="pz-stat-mini-label">Endurance %</div>
+          <div class="pz-stat-mini-value">${this.formatNumber(endurancePercent, 1)}</div>
+          <div class="pz-stat-mini-unit">Z1-Z2</div>
+        </div>
+
+        <div class="pz-stat-mini">
+          <div class="pz-stat-mini-label">High Intensity</div>
+          <div class="pz-stat-mini-value">${this.formatNumber(highIntensityPercent, 1)}</div>
+          <div class="pz-stat-mini-unit">Z5+ %</div>
+        </div>
+      </div>
     `;
+  }
+
+  renderRightColumn() {
+    return `
+      <div class="pz-right-column">
+        ${this.renderZoneBreakdown()}
+      </div>
+    `;
+  }
+
+  renderZoneBreakdown() {
+    const { totalHours } = this.metrics;
+
+    return `
+      <div class="pz-breakdown-widget">
+        <div class="pz-breakdown-header">
+          <h3>Zone-by-Zone Breakdown</h3>
+          <div class="pz-breakdown-meta">
+            <span>Total: ${this.formatNumber(totalHours, 1)}h</span>
+          </div>
+        </div>
+        <div class="pz-zone-cards">
+          ${this.metrics.zoneDetails.map(zone => this.renderZoneCard(zone)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  renderZoneCard(zone) {
+    const ftp = this.metrics.ftp;
+    const wattRange = this.calculateWattRange(zone.range, ftp);
+    const maxPercent = Math.max(...this.metrics.zoneDetails.map(z => z.percent));
+    const barWidth = maxPercent > 0 ? (zone.percent / maxPercent) * 100 : 0;
+
+    return `
+      <article class="pz-zone-card" style="--zone-color: ${zone.color}">
+        <div class="pz-zone-card-header">
+          <span class="pz-zone-num">Zone ${zone.num}</span>
+          <span class="pz-zone-percent">${this.formatNumber(zone.percent, 1)}%</span>
+        </div>
+        <div class="pz-zone-name">${this.escapeHtml(zone.name)}</div>
+        <div class="pz-zone-range">${this.escapeHtml(zone.range)}</div>
+        <div class="pz-zone-watts">${wattRange}</div>
+        <div class="pz-zone-bar">
+          <div class="pz-zone-bar-fill" style="width: ${barWidth}%; background: ${zone.color}"></div>
+        </div>
+        <div class="pz-zone-time">${zone.formattedTime}</div>
+      </article>
+    `;
+  }
+
+  calculateWattRange(rangeStr, ftp) {
+    if (!ftp || !rangeStr) return '—';
+
+    // Parse range like "55–75% FTP" or ">150% FTP" or "<55% FTP"
+    if (rangeStr.includes('>')) {
+      const match = rangeStr.match(/>([\d]+)%/);
+      if (match) {
+        const minPercent = parseInt(match[1]);
+        const minWatts = Math.round(ftp * (minPercent / 100));
+        return `${minWatts}W+`;
+      }
+    } else if (rangeStr.includes('<')) {
+      const match = rangeStr.match(/<([\d]+)%/);
+      if (match) {
+        const maxPercent = parseInt(match[1]);
+        const maxWatts = Math.round(ftp * (maxPercent / 100));
+        return `<${maxWatts}W`;
+      }
+    } else {
+      const match = rangeStr.match(/([\d]+)–([\d]+)%/);
+      if (match) {
+        const minPercent = parseInt(match[1]);
+        const maxPercent = parseInt(match[2]);
+        const minWatts = Math.round(ftp * (minPercent / 100));
+        const maxWatts = Math.round(ftp * (maxPercent / 100));
+        return `${minWatts}–${maxWatts}W`;
+      }
+    }
+
+    return '—';
   }
 
   renderDistributionSection() {
@@ -242,47 +348,35 @@ class ZonesPage {
 
     return `
       <section class="pz-section">
-        <header class="pz-section__header">
-          <h2 class="pz-section__title">Focus Highlights</h2>
-          <p class="pz-section__subtitle">Quick-read metrics to gauge how closely your distribution mirrors the team template.</p>
+        <header class="pz-section-header">
+          <h2 class="pz-section-title">Focus Highlights</h2>
+          <p class="pz-section-subtitle">Quick-read metrics to gauge how your intensity distribution supports performance goals.</p>
         </header>
         <div class="pz-highlight-grid">
           <article class="pz-highlight-card">
-            <div class="pz-highlight-top">
-              <span class="pz-highlight-label">Polarisation Score</span>
-              <span class="pz-highlight-value">${this.formatNumber(polarizationScore, 0)}</span>
-            </div>
-            <div class="pz-highlight-bar">
-              <div class="pz-highlight-fill" style="width:${Math.max(0, Math.min(100, polarizationScore))}%;"></div>
-              <span class="pz-highlight-marker" style="left:70%;"></span>
-              <span class="pz-highlight-marker" style="left:85%;"></span>
-            </div>
-            <p>${this.escapeHtml(polarizationDescriptor)}</p>
-            <footer class="pz-highlight-footer">Ratio (low + high) ÷ tempo: ${this.formatNumber(polarizationRatio, 2)}</footer>
+            <span class="pz-highlight-label">Polarisation Score</span>
+            <span class="pz-highlight-value">${this.formatNumber(polarizationScore, 0)}</span>
+            <span class="pz-highlight-meta">${this.escapeHtml(polarizationDescriptor)}</span>
           </article>
           <article class="pz-highlight-card">
-            <div class="pz-highlight-top">
-              <span class="pz-highlight-label">Tempo Load</span>
-              <span class="pz-highlight-value">${this.formatNumber(tempoPercent, 1)}%</span>
-            </div>
-            <div class="pz-highlight-bar">
-              <div class="pz-highlight-fill pz-highlight-fill--accent" style="width:${Math.max(0, Math.min(100, tempoPercent))}%;"></div>
-              <span class="pz-highlight-marker" style="left:20%;"></span>
-              <span class="pz-highlight-marker" style="left:35%;"></span>
-            </div>
-            <p>${this.escapeHtml(tempoDescriptor)}</p>
+            <span class="pz-highlight-label">Tempo Load</span>
+            <span class="pz-highlight-value">${this.formatNumber(tempoPercent, 1)}%</span>
+            <span class="pz-highlight-meta">${this.escapeHtml(tempoDescriptor)}</span>
           </article>
           <article class="pz-highlight-card">
-            <div class="pz-highlight-top">
-              <span class="pz-highlight-label">Recovery Share</span>
-              <span class="pz-highlight-value">${this.formatNumber(recoveryPercent, 1)}%</span>
-            </div>
-            <div class="pz-highlight-bar">
-              <div class="pz-highlight-fill pz-highlight-fill--muted" style="width:${Math.max(0, Math.min(100, recoveryPercent))}%;"></div>
-              <span class="pz-highlight-marker" style="left:30%;"></span>
-            </div>
-            <p>${this.escapeHtml(recoveryDescriptor)}</p>
-            <footer class="pz-highlight-footer">Sprint minutes in Z6–Z7: ${this.formatNumber(sprintMinutes, 0)} min</footer>
+            <span class="pz-highlight-label">Recovery Share</span>
+            <span class="pz-highlight-value">${this.formatNumber(recoveryPercent, 1)}%</span>
+            <span class="pz-highlight-meta">${this.escapeHtml(recoveryDescriptor)}</span>
+          </article>
+          <article class="pz-highlight-card">
+            <span class="pz-highlight-label">Polarization Ratio</span>
+            <span class="pz-highlight-value">${this.formatNumber(polarizationRatio, 2)}</span>
+            <span class="pz-highlight-meta">(low + high) ÷ tempo</span>
+          </article>
+          <article class="pz-highlight-card">
+            <span class="pz-highlight-label">Sprint Volume</span>
+            <span class="pz-highlight-value">${this.formatNumber(sprintMinutes, 0)}</span>
+            <span class="pz-highlight-meta">min in Z6–Z7</span>
           </article>
         </div>
       </section>
@@ -293,15 +387,15 @@ class ZonesPage {
     const insights = this.buildInsights();
     return `
       <section class="pz-section">
-        <header class="pz-section__header">
-          <h2 class="pz-section__title">Coaching Insights</h2>
-          <p class="pz-section__subtitle">Actionable observations extracted from your power-zone distribution.</p>
+        <header class="pz-section-header">
+          <h2 class="pz-section-title">Coaching Insights</h2>
+          <p class="pz-section-subtitle">Actionable observations extracted from your power-zone distribution.</p>
         </header>
         <div class="pz-insight-grid">
           ${insights.map(insight => `
             <article class="pz-insight-card">
               <header>
-                <span class="pz-pill ${insight.badgeClass}">${this.escapeHtml(insight.badge)}</span>
+                <span class="pz-badge ${insight.badgeClass}">${this.escapeHtml(insight.badge)}</span>
                 <h3>${this.escapeHtml(insight.title)}</h3>
               </header>
               <p>${this.escapeHtml(insight.body)}</p>
@@ -365,9 +459,13 @@ class ZonesPage {
       ]
     };
 
+    // Set canvas size explicitly
+    canvas.width = 260;
+    canvas.height = 260;
+
     const options = {
       responsive: true,
-      maintainAspectRatio: false,
+      maintainAspectRatio: true,
       cutout: '60%',
       plugins: {
         legend: { display: false },
@@ -391,7 +489,7 @@ class ZonesPage {
   }
 
   setupEventListeners() {
-    document.querySelectorAll('.pz-range-btn').forEach(btn => {
+    document.querySelectorAll('.pz-range-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         const range = Number(btn.dataset.range);
         this.handleRangeChange(range);

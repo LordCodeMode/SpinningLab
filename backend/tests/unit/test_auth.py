@@ -199,6 +199,19 @@ class TestUserAuthentication:
         assert authenticated_user.id == test_user.id
         assert authenticated_user.username == test_user.username
 
+    def test_authenticate_with_email(self, test_db, test_user, test_user_data):
+        """Users should be able to login using their email address."""
+        auth_service = AuthService(test_db)
+
+        authenticated_user = auth_service.authenticate_user(
+            test_user_data["email"],
+            test_user_data["password"]
+        )
+
+        assert authenticated_user is not None
+        assert authenticated_user.id == test_user.id
+        assert authenticated_user.email == test_user.email
+
     def test_authenticate_invalid_username(self, test_db, test_user_data):
         """Test authentication with non-existent username."""
         auth_service = AuthService(test_db)
@@ -230,3 +243,13 @@ class TestUserAuthentication:
         assert user is not None
         assert user.id == test_user.id
         assert user.email == test_user.email
+
+    def test_get_user_by_email(self, test_db, test_user):
+        """Test retrieving user by email (case insensitive)."""
+        auth_service = AuthService(test_db)
+
+        user = auth_service.get_user_by_email(test_user.email.upper())
+
+        assert user is not None
+        assert user.id == test_user.id
+        assert user.username == test_user.username

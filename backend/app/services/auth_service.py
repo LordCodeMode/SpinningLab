@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ..database.models import User
 from ..core.security import verify_password, get_password_hash
@@ -39,10 +40,33 @@ class AuthService:
         return True, ""
 
     def get_user_by_username(self, username: str) -> Optional[User]:
+        if not username:
+            return None
         return self.db.query(User).filter(User.username == username).first()
 
-    def authenticate_user(self, username: str, password: str) -> Optional[User]:
-        user = self.get_user_by_username(username)
+    def get_user_by_email(self, email: str) -> Optional[User]:
+        """Return the first user that matches the given email (case-insensitive)."""
+        if not email:
+            return None
+        normalized_email = email.strip().lower()
+        return (
+            self.db.query(User)
+            .filter(func.lower(User.email) == normalized_email)
+            .first()
+        )
+
+    def authenticate_user(self, identifier: str, password: str) -> Optional[User]:
+        """Authenticate by username or email so the UI can accept either input."""
+        if not identifier:
+            return None
+
+        trimmed_identifier = identifier.strip()
+        user = self.get_user_by_username(trimmed_identifier)
+
+        # If no user found and the identifier looks like an email, check email column
+        if not user:
+            user = self.get_user_by_email(trimmed_identifier)
+
         if not user:
             return None
         if not verify_password(password, user.hashed_password):

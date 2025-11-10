@@ -1,5 +1,5 @@
 // ============================================================
-// HEART RATE ZONES PAGE – COHESIVE DASHBOARD EXPERIENCE
+// HEART RATE ZONES PAGE – MODERN DASHBOARD DESIGN
 // ============================================================
 
 import Services from '../../services/index.js';
@@ -30,7 +30,7 @@ class HRZonesPage {
       this.renderLoading();
       await this.fetchData(this.currentDays);
       this.render();
-      this.renderChart();
+      this.renderCharts();
       this.setupEventListeners();
     } catch (error) {
       this.renderError(error);
@@ -56,10 +56,9 @@ class HRZonesPage {
     }
 
     container.innerHTML = `
-      <div class="hrz-shell">
-        ${this.renderHero()}
-        ${this.renderDistributionSection()}
-        ${this.renderSummarySection()}
+      <div class="hrz-dashboard">
+        ${this.renderTopBar()}
+        ${this.renderMainGrid()}
         ${this.renderHighlightsSection()}
         ${this.renderInsightsSection()}
       </div>
@@ -68,172 +67,194 @@ class HRZonesPage {
     if (typeof feather !== 'undefined') feather.replace();
   }
 
-  renderHero() {
-    const {
-      averageWeeklyHours,
-      totalHours,
-      aerobicPercent,
-      cardioLoadPercent,
-      topZone,
-      recoveryPercent,
-      redlineMinutes,
-      avgZoneLabel,
-      currentDaysLabel,
-      polarizationScore
-    } = this.metrics;
+  renderTopBar() {
+    const { maxHR, topZone, averageHR } = this.metrics;
+    const currentDaysLabel = `Last ${this.currentDays} days`;
 
     return `
-      <section class="hrz-hero">
-        <div class="hrz-hero__content">
-          <div class="hrz-hero__meta">
-            <span class="hrz-pill"><i data-feather="heart"></i>Heart Rate Zones</span>
-            <span class="hrz-pill hrz-pill--muted"><i data-feather="calendar"></i>${currentDaysLabel}</span>
-            <span class="hrz-pill"><i data-feather="activity"></i>Polarisation ${this.formatNumber(polarizationScore, 0)}</span>
-          </div>
-
-          <h1>Cardio Intensity Profile</h1>
-          <p class="hrz-hero__description">Review how training time spreads across heart-rate zones. Maintain generous low-intensity volume while layering threshold and redline efforts that support race demands.</p>
-
-          <div class="hrz-hero__stats">
-            <div class="hrz-stat-card">
-              <span class="hrz-stat-label">Total Training</span>
-              <span class="hrz-stat-value">${this.formatNumber(totalHours, 1)} h</span>
-              <span class="hrz-stat-meta">${this.formatNumber(averageWeeklyHours, 1)} h per week</span>
-            </div>
-            <div class="hrz-stat-card">
-              <span class="hrz-stat-label">Aerobic Share</span>
-              <span class="hrz-stat-value">${this.formatNumber(aerobicPercent, 1)}%</span>
-              <span class="hrz-stat-meta">Zone 2–3 endurance work</span>
-            </div>
-            <div class="hrz-stat-card">
-              <span class="hrz-stat-label">Cardio Load</span>
-              <span class="hrz-stat-value">${this.formatNumber(cardioLoadPercent, 1)}%</span>
-              <span class="hrz-stat-meta">Zone 4–5 intensity</span>
-            </div>
-          </div>
-
-          <div class="hrz-hero__quick-stats">
-            <div class="hrz-quick-stat">
-              <span class="hrz-quick-stat__label">Primary Zone</span>
-              <span class="hrz-quick-stat__value">${this.escapeHtml(topZone.displayName)}</span>
-              <span class="hrz-quick-stat__meta">${this.formatNumber(topZone.percent, 1)}% of time</span>
-            </div>
-            <div class="hrz-quick-stat">
-              <span class="hrz-quick-stat__label">Average Intensity</span>
-              <span class="hrz-quick-stat__value">${this.escapeHtml(avgZoneLabel)}</span>
-              <span class="hrz-quick-stat__meta">Recovery share ${this.formatNumber(recoveryPercent, 1)}%</span>
-            </div>
-            <div class="hrz-quick-stat">
-              <span class="hrz-quick-stat__label">Redline Minutes</span>
-              <span class="hrz-quick-stat__value">${this.formatNumber(redlineMinutes, 0)} min</span>
-              <span class="hrz-quick-stat__meta">Accumulated in Z5</span>
-            </div>
-          </div>
-
-          <div class="hrz-hero__controls">
-            ${[30, 60, 90, 180].map(days => `
-              <button class="hrz-range-btn ${this.currentDays === days ? 'active' : ''}" data-range="${days}">${days}d</button>
-            `).join('')}
-            <button class="hrz-range-btn ${this.currentDays === 365 ? 'active' : ''}" data-range="365">1y</button>
+      <div class="hrz-topbar">
+        <div class="hrz-topbar-left">
+          <h1 class="hrz-page-title">Heart Rate Zones Analysis</h1>
+          <div class="hrz-breadcrumb">
+            <span class="hrz-badge hrz-badge-primary">Max HR ${maxHR} bpm</span>
+            <span class="hrz-badge hrz-badge-info">Primary: ${this.escapeHtml(topZone.displayName)}</span>
+            <span class="hrz-badge hrz-badge-muted">${currentDaysLabel}</span>
           </div>
         </div>
-
-        <div class="hrz-hero__chart">
-          <div class="hrz-hero__chart-wrapper">
-            <canvas id="hrz-distribution-chart" aria-label="Heart rate zone doughnut chart"></canvas>
-          </div>
-          <ul class="hrz-hero__legend">
-            ${this.metrics.zoneDetails.map(zone => `
-              <li>
-                <span class="hrz-legend-dot" style="background:${zone.color}"></span>
-                <span>${this.escapeHtml(zone.displayName)} · ${this.formatNumber(zone.percent, 1)}%</span>
-              </li>
-            `).join('')}
-          </ul>
+        <div class="hrz-topbar-controls">
+          ${[30, 60, 90, 180].map(days => `
+            <button class="hrz-range-pill ${this.currentDays === days ? 'active' : ''}" data-range="${days}">
+              ${days}d
+            </button>
+          `).join('')}
+          <button class="hrz-range-pill ${this.currentDays === 365 ? 'active' : ''}" data-range="365">1y</button>
         </div>
-      </section>
+      </div>
     `;
   }
 
-  renderDistributionSection() {
+  renderMainGrid() {
     return `
-      <section class="hrz-section">
-        <header class="hrz-section__header">
-          <h2 class="hrz-section__title">Zone Breakdown</h2>
-          <p class="hrz-section__subtitle">Detailed view of time spent across each heart rate zone.</p>
-        </header>
-        <div class="hrz-zone-list">
-          ${this.metrics.zoneDetails.map(zone => this.renderZoneRow(zone)).join('')}
-        </div>
-      </section>
+      <div class="hrz-main-grid">
+        ${this.renderLeftColumn()}
+        ${this.renderRightColumn()}
+      </div>
     `;
   }
 
-  renderZoneRow(zone) {
+  renderLeftColumn() {
     return `
-      <article class="hrz-zone-row">
-        <div class="hrz-zone-row__header">
-          <div>
-            <span class="hrz-zone-row__title">${this.escapeHtml(zone.displayName)}</span>
-            <span class="hrz-zone-row__range">${this.escapeHtml(zone.range)}</span>
-          </div>
-          <div class="hrz-zone-row__stats">
-            <span class="hrz-zone-row__time">${zone.formattedTime}</span>
-            <span class="hrz-zone-row__percent">${this.formatNumber(zone.percent, 1)}%</span>
+      <div class="hrz-left-column">
+        ${this.renderDistributionChart()}
+        ${this.renderQuickStats()}
+      </div>
+    `;
+  }
+
+  renderDistributionChart() {
+    return `
+      <div class="hrz-chart-widget">
+        <div class="hrz-widget-header">
+          <h3>Zone Distribution</h3>
+        </div>
+        <div class="hrz-chart-wrapper">
+          <canvas id="hrz-distribution-chart" aria-label="Heart rate zones doughnut chart"></canvas>
+        </div>
+        <ul class="hrz-chart-legend">
+          ${this.metrics.zoneDetails.map(zone => `
+            <li>
+              <span class="hrz-legend-dot" style="background:${zone.color}"></span>
+              <span>${this.escapeHtml(zone.displayName)} · ${this.formatNumber(zone.percent, 1)}%</span>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  renderQuickStats() {
+    const { averageWeeklyHours, aerobicPercent, cardioLoadPercent, totalHours, totalSeconds } = this.metrics;
+    const avgDailyMinutes = this.formatNumber((totalSeconds / 60) / this.currentDays, 1);
+
+    return `
+      <div class="hrz-quick-grid">
+        <div class="hrz-stat-mini">
+          <div class="hrz-stat-mini-label">Total Riding</div>
+          <div class="hrz-stat-mini-value">${this.formatNumber(totalHours, 1)}</div>
+          <div class="hrz-stat-mini-unit">hours</div>
+        </div>
+
+        <div class="hrz-stat-mini">
+          <div class="hrz-stat-mini-label">Weekly Volume</div>
+          <div class="hrz-stat-mini-value">${this.formatNumber(averageWeeklyHours, 1)}</div>
+          <div class="hrz-stat-mini-unit">hrs/week</div>
+        </div>
+
+        <div class="hrz-stat-mini">
+          <div class="hrz-stat-mini-label">Aerobic %</div>
+          <div class="hrz-stat-mini-value">${this.formatNumber(aerobicPercent, 1)}</div>
+          <div class="hrz-stat-mini-unit">Z2-Z3</div>
+        </div>
+
+        <div class="hrz-stat-mini">
+          <div class="hrz-stat-mini-label">High Intensity</div>
+          <div class="hrz-stat-mini-value">${this.formatNumber(cardioLoadPercent, 1)}</div>
+          <div class="hrz-stat-mini-unit">Z4-Z5 %</div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderRightColumn() {
+    return `
+      <div class="hrz-right-column">
+        ${this.renderZoneBreakdown()}
+      </div>
+    `;
+  }
+
+  renderZoneBreakdown() {
+    const { totalHours, averageHR } = this.metrics;
+
+    return `
+      <div class="hrz-breakdown-widget">
+        <div class="hrz-breakdown-header">
+          <h3>Zone-by-Zone Breakdown</h3>
+          <div class="hrz-breakdown-meta">
+            <span>Total: ${this.formatNumber(totalHours, 1)}h</span>
+            ${averageHR ? `<span>Avg HR: ${this.formatNumber(averageHR, 0)} bpm</span>` : ''}
           </div>
         </div>
-        <div class="hrz-zone-row__bar">
-          <div class="hrz-zone-row__fill" style="width:${Math.max(0, Math.min(100, zone.percent))}%; background:${zone.color}"></div>
+        <div class="hrz-zone-cards">
+          ${this.metrics.zoneDetails.map(zone => this.renderZoneCard(zone)).join('')}
         </div>
-        <p class="hrz-zone-row__description">${this.escapeHtml(zone.description)}</p>
+      </div>
+    `;
+  }
+
+  renderZoneCard(zone) {
+    const maxHR = this.metrics.maxHR;
+    const bpmRange = this.calculateBPMRange(zone.range, maxHR);
+    const maxPercent = Math.max(...this.metrics.zoneDetails.map(z => z.percent));
+    const barWidth = maxPercent > 0 ? (zone.percent / maxPercent) * 100 : 0;
+
+    return `
+      <article class="hrz-zone-card" style="--zone-color: ${zone.color}">
+        <div class="hrz-zone-card-header">
+          <span class="hrz-zone-num">Zone ${zone.num}</span>
+          <span class="hrz-zone-percent">${this.formatNumber(zone.percent, 1)}%</span>
+        </div>
+        <div class="hrz-zone-name">${this.escapeHtml(zone.name)}</div>
+        <div class="hrz-zone-range">${this.escapeHtml(zone.range)}</div>
+        <div class="hrz-zone-bpm">${bpmRange}</div>
+        <div class="hrz-zone-bar">
+          <div class="hrz-zone-bar-fill" style="width: ${barWidth}%; background: ${zone.color}"></div>
+        </div>
+        <div class="hrz-zone-time">${zone.formattedTime}</div>
       </article>
     `;
   }
 
-  renderSummarySection() {
-    const { recoveryPercent, aerobicPercent, tempoPercent, cardioLoadPercent, redlinePercent } = this.metrics;
-    return `
-      <section class="hrz-section">
-        <header class="hrz-section__header">
-          <h2 class="hrz-section__title">Intensity Mix Summary</h2>
-          <p class="hrz-section__subtitle">Understand how recovery, aerobic volume, and high-intensity efforts balance across the training block.</p>
-        </header>
-        <div class="hrz-mix-grid">
-          <div class="hrz-mix-card">
-            <span class="hrz-mix-label">Recovery & Foundation</span>
-            <span class="hrz-mix-value">${this.formatNumber(recoveryPercent, 1)}%</span>
-            <p>Low-tension minutes in Zone 1 keep freshness high and maintain readiness for key workouts.</p>
-          </div>
-          <div class="hrz-mix-card">
-            <span class="hrz-mix-label">Aerobic Engine</span>
-            <span class="hrz-mix-value">${this.formatNumber(aerobicPercent, 1)}%</span>
-            <p>Time in Zones 2–3 that drives oxidative adaptations and sustainable race pace.</p>
-          </div>
-          <div class="hrz-mix-card">
-            <span class="hrz-mix-label">Tempo Load</span>
-            <span class="hrz-mix-value">${this.formatNumber(tempoPercent, 1)}%</span>
-            <p>Middle-intensity work in Zone 3 adds muscular endurance—watch the ratio so recovery stays on track.</p>
-          </div>
-          <div class="hrz-mix-card">
-            <span class="hrz-mix-label">Redline Work</span>
-            <span class="hrz-mix-value">${this.formatNumber(cardioLoadPercent, 1)}%</span>
-            <p>Threshold and max-effort sessions (Zones 4–5) sharpen finishing power; balance with recovery.</p>
-          </div>
-          <div class="hrz-mix-card">
-            <span class="hrz-mix-label">Z5 Exposure</span>
-            <span class="hrz-mix-value">${this.formatNumber(redlinePercent, 1)}%</span>
-            <p>All-out efforts in Zone 5 reinforce anaerobic capacity and neuromuscular snap.</p>
-          </div>
-        </div>
-      </section>
-    `;
+  calculateBPMRange(rangeStr, maxHR) {
+    if (!maxHR || !rangeStr) return '—';
+
+    // Handle "<60% HRmax" format
+    if (rangeStr.includes('<')) {
+      const match = rangeStr.match(/<(\d+)%/);
+      if (match) {
+        const maxPercent = parseInt(match[1]);
+        const maxBPM = Math.round(maxHR * (maxPercent / 100));
+        return `<${maxBPM} bpm`;
+      }
+    }
+
+    // Handle ">90% HRmax" format
+    if (rangeStr.includes('>')) {
+      const match = rangeStr.match(/>(\d+)%/);
+      if (match) {
+        const minPercent = parseInt(match[1]);
+        const minBPM = Math.round(maxHR * (minPercent / 100));
+        return `${minBPM}+ bpm`;
+      }
+    }
+
+    // Handle "60–70% HRmax" format
+    const rangeMatch = rangeStr.match(/(\d+)–(\d+)%/);
+    if (rangeMatch) {
+      const minPercent = parseInt(rangeMatch[1]);
+      const maxPercent = parseInt(rangeMatch[2]);
+      const minBPM = Math.round(maxHR * (minPercent / 100));
+      const maxBPM = Math.round(maxHR * (maxPercent / 100));
+      return `${minBPM}–${maxBPM} bpm`;
+    }
+
+    return '—';
   }
 
   renderHighlightsSection() {
     const {
       polarizationScore,
       aerobicPercent,
-      tempoPercent,
       recoveryPercent,
       redlineMinutes,
       polarizationRatio
@@ -258,12 +279,11 @@ class HRZonesPage {
         : 'Recovery dosage keeps strain manageable—continue pairing easy days with quality sessions.';
 
     return `
-      <section class="hrz-section">
-        <header class="hrz-section__header">
-          <h2 class="hrz-section__title">Focus Highlights</h2>
-          <p class="hrz-section__subtitle">Quick-read metrics to benchmark how closely your HR distribution follows the team blueprint.</p>
+      <section class="hrz-highlights">
+        <header class="hrz-highlights-header">
+          <h3>Focus Highlights</h3>
         </header>
-        <div class="hrz-highlight-grid">
+        <div class="hrz-highlights-grid">
           <article class="hrz-highlight-card">
             <div class="hrz-highlight-top">
               <span class="hrz-highlight-label">Polarisation Score</span>
@@ -274,7 +294,7 @@ class HRZonesPage {
               <span class="hrz-highlight-marker" style="left:70%;"></span>
               <span class="hrz-highlight-marker" style="left:85%;"></span>
             </div>
-            <p>${this.escapeHtml(polarisationDescriptor)}</p>
+            <p class="hrz-highlight-footer">${this.escapeHtml(polarisationDescriptor)}</p>
             <footer class="hrz-highlight-footer">(Low + High) ÷ Tempo ratio: ${this.formatNumber(polarizationRatio, 2)}</footer>
           </article>
           <article class="hrz-highlight-card">
@@ -283,11 +303,11 @@ class HRZonesPage {
               <span class="hrz-highlight-value">${this.formatNumber(aerobicPercent, 1)}%</span>
             </div>
             <div class="hrz-highlight-bar">
-              <div class="hrz-highlight-fill hrz-highlight-fill--accent" style="width:${Math.max(0, Math.min(100, aerobicPercent))}%;"></div>
+              <div class="hrz-highlight-fill" style="width:${Math.max(0, Math.min(100, aerobicPercent))}%;"></div>
               <span class="hrz-highlight-marker" style="left:45%;"></span>
               <span class="hrz-highlight-marker" style="left:60%;"></span>
             </div>
-            <p>${this.escapeHtml(aerobicDescriptor)}</p>
+            <p class="hrz-highlight-footer">${this.escapeHtml(aerobicDescriptor)}</p>
           </article>
           <article class="hrz-highlight-card">
             <div class="hrz-highlight-top">
@@ -295,10 +315,10 @@ class HRZonesPage {
               <span class="hrz-highlight-value">${this.formatNumber(recoveryPercent, 1)}%</span>
             </div>
             <div class="hrz-highlight-bar">
-              <div class="hrz-highlight-fill hrz-highlight-fill--muted" style="width:${Math.max(0, Math.min(100, recoveryPercent))}%;"></div>
+              <div class="hrz-highlight-fill" style="width:${Math.max(0, Math.min(100, recoveryPercent))}%;"></div>
               <span class="hrz-highlight-marker" style="left:20%;"></span>
             </div>
-            <p>${this.escapeHtml(recoveryDescriptor)}</p>
+            <p class="hrz-highlight-footer">${this.escapeHtml(recoveryDescriptor)}</p>
             <footer class="hrz-highlight-footer">Redline minutes this block: ${this.formatNumber(redlineMinutes, 0)} min</footer>
           </article>
         </div>
@@ -311,20 +331,21 @@ class HRZonesPage {
     if (!insights.length) return '';
 
     return `
-      <section class="hrz-section">
-        <header class="hrz-section__header">
-          <h2 class="hrz-section__title">Coaching Insights</h2>
-          <p class="hrz-section__subtitle">Actionable guidance extracted from your heart rate distribution.</p>
+      <section class="hrz-insights">
+        <header class="hrz-insights-header">
+          <h3>Coaching Insights</h3>
         </header>
-        <div class="hrz-insight-grid">
+        <div class="hrz-insights-grid">
           ${insights.map(insight => `
             <article class="hrz-insight-card">
-              <header>
+              <header class="hrz-insight-header">
                 <span class="hrz-pill ${insight.badgeClass}">${this.escapeHtml(insight.badge)}</span>
-                <h3>${this.escapeHtml(insight.title)}</h3>
               </header>
-              <p>${this.escapeHtml(insight.body)}</p>
-              ${insight.footer ? `<footer>${this.escapeHtml(insight.footer)}</footer>` : ''}
+              <div class="hrz-insight-body">
+                <h4>${this.escapeHtml(insight.title)}</h4>
+                <p>${this.escapeHtml(insight.body)}</p>
+              </div>
+              ${insight.footer ? `<footer class="hrz-insight-footer">${this.escapeHtml(insight.footer)}</footer>` : ''}
             </article>
           `).join('')}
         </div>
@@ -358,9 +379,10 @@ class HRZonesPage {
         <p>${this.escapeHtml(error?.message || 'Failed to load heart rate zone data')}</p>
       </div>
     `;
+    if (typeof feather !== 'undefined') feather.replace();
   }
 
-  renderChart() {
+  renderCharts() {
     if (!this.metrics || !this.metrics.zoneDetails.length) return;
 
     const canvas = document.getElementById('hrz-distribution-chart');
@@ -369,6 +391,10 @@ class HRZonesPage {
     if (this.distributionChart) {
       this.distributionChart.destroy();
     }
+
+    // Set explicit canvas dimensions for smaller chart
+    canvas.width = 240;
+    canvas.height = 240;
 
     const data = {
       labels: this.metrics.zoneDetails.map(zone => zone.displayName),
@@ -379,19 +405,19 @@ class HRZonesPage {
           borderWidth: 3,
           borderColor: '#ffffff',
           hoverBorderWidth: 4,
-          hoverBorderColor: '#b91c1c'
+          hoverBorderColor: '#dc2626'
         }
       ]
     };
 
     const options = {
       responsive: true,
-      maintainAspectRatio: false,
-      cutout: '60%',
+      maintainAspectRatio: true,
+      cutout: '65%',
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(136, 19, 55, 0.92)',
+          backgroundColor: 'rgba(185, 28, 28, 0.95)',
           padding: 12,
           cornerRadius: 8,
           titleFont: { size: 13, weight: '600' },
@@ -399,7 +425,7 @@ class HRZonesPage {
           callbacks: {
             label: context => {
               const zone = this.metrics.zoneDetails[context.dataIndex];
-              return `${zone.displayName}: ${zone.formattedTime} (${this.formatNumber(zone.percent, 1)}%)`;
+              return `${zone.formattedTime} (${this.formatNumber(zone.percent, 1)}%)`;
             }
           }
         }
@@ -410,7 +436,7 @@ class HRZonesPage {
   }
 
   setupEventListeners() {
-    document.querySelectorAll('.hrz-range-btn').forEach(btn => {
+    document.querySelectorAll('.hrz-range-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         const range = Number(btn.dataset.range);
         this.handleRangeChange(range);
@@ -424,7 +450,7 @@ class HRZonesPage {
       this.renderLoading();
       await this.fetchData(days, { forceRefresh: true });
       this.render();
-      this.renderChart();
+      this.renderCharts();
       this.setupEventListeners();
     } catch (error) {
       this.renderError(error);
@@ -482,12 +508,20 @@ class HRZonesPage {
     const totalHours = totalSeconds / 3600;
     const averageWeeklyHours = totalHours / (this.currentDays / 7);
 
+    // Get max HR from raw data if available, otherwise use a default of 180
+    const maxHR = this.raw?.max_hr || 180;
+
+    // Calculate average HR if available
+    const averageHR = this.raw?.avg_hr || null;
+
     return {
       totalSeconds,
       totalHours,
       averageWeeklyHours,
       zoneDetails,
       topZone,
+      maxHR,
+      averageHR,
       recoveryPercent: (recoverySeconds / safeTotal) * 100,
       aerobicPercent: (aerobicSeconds / safeTotal) * 100,
       tempoPercent: (tempoSeconds / safeTotal) * 100,
@@ -510,7 +544,6 @@ class HRZonesPage {
       topZone,
       recoveryPercent,
       aerobicPercent,
-      tempoPercent,
       cardioLoadPercent,
       redlineMinutes,
       averageWeeklyHours,

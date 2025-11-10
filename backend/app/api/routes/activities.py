@@ -85,7 +85,7 @@ async def get_activities_summary(
 ):
     """Get activity summary for the specified period."""
     start_date = datetime.utcnow() - timedelta(days=days)
-    
+
     result = db.query(
         func.count(Activity.id).label('count'),
         func.sum(Activity.duration).label('total_duration'),
@@ -97,7 +97,7 @@ async def get_activities_summary(
         Activity.user_id == current_user.id,
         Activity.start_time >= start_date
     ).first()
-    
+
     return {
         "count": result.count or 0,
         "total_duration": result.total_duration or 0,
@@ -106,4 +106,76 @@ async def get_activities_summary(
         "avg_power": result.avg_power or 0,
         "max_20min_power": result.max_20min_power or 0,
         "period_days": days
+    }
+
+@router.get("/{activity_id}")
+async def get_activity_detail(
+    activity_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get detailed information for a single activity including zones.
+
+    Returns:
+        Detailed activity data with power zones and HR zones distribution
+    """
+    # Fetch activity with zones
+    activity = db.query(Activity).filter(
+        Activity.id == activity_id,
+        Activity.user_id == current_user.id
+    ).first()
+
+    if not activity:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    # Format power zones
+    power_zones_data = []
+    for pz in activity.power_zones:
+        power_zones_data.append({
+            "zone_label": pz.zone_label,
+            "seconds_in_zone": pz.seconds_in_zone
+        })
+
+    # Format HR zones
+    hr_zones_data = []
+    for hrz in activity.hr_zones:
+        hr_zones_data.append({
+            "zone_label": hrz.zone_label,
+            "seconds_in_zone": hrz.seconds_in_zone
+        })
+
+    return {
+        "id": activity.id,
+        "start_time": activity.start_time.isoformat() if activity.start_time else None,
+        "file_name": activity.file_name,
+        "duration": activity.duration,
+        "distance": activity.distance,
+
+        # Power metrics
+        "avg_power": activity.avg_power,
+        "normalized_power": activity.normalized_power,
+        "max_5sec_power": activity.max_5sec_power,
+        "max_1min_power": activity.max_1min_power,
+        "max_3min_power": activity.max_3min_power,
+        "max_5min_power": activity.max_5min_power,
+        "max_10min_power": activity.max_10min_power,
+        "max_20min_power": activity.max_20min_power,
+        "max_30min_power": activity.max_30min_power,
+        "max_60min_power": activity.max_60min_power,
+
+        # Heart rate
+        "avg_heart_rate": activity.avg_heart_rate,
+        "max_heart_rate": activity.max_heart_rate,
+
+        # Training metrics
+        "tss": activity.tss,
+        "intensity_factor": activity.intensity_factor,
+        "efficiency_factor": activity.efficiency_factor,
+        "critical_power": activity.critical_power,
+
+        # Zone distributions
+        "power_zones": power_zones_data,
+        "hr_zones": hr_zones_data
     }

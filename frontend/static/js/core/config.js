@@ -7,6 +7,7 @@ const CONFIG = {
   // API Configuration
   API_BASE_URL: window.APP_CONFIG?.API_BASE_URL || 'http://localhost:8000',
   TOKEN_STORAGE_KEY: window.APP_CONFIG?.TOKEN_STORAGE_KEY || 'training_dashboard_token',
+  DISPLAY_NAME_STORAGE_KEY: 'training_dashboard_display_name',
   
   // Upload Configuration
   UPLOAD_MAX_SIZE: 50 * 1024 * 1024, // 50MB
@@ -121,6 +122,7 @@ export default CONFIG;
 export const { 
   API_BASE_URL, 
   TOKEN_STORAGE_KEY,
+  DISPLAY_NAME_STORAGE_KEY,
   CHART_COLORS,
   POWER_ZONES,
   HR_ZONES,

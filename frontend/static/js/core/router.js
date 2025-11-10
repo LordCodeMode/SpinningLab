@@ -26,10 +26,13 @@ export class Router {
         }
 
         console.log(`[Router] Navigating to: ${page}`);
-        
-        if (!this.pages.has(page)) {
-            console.error(`[Router] Page not found: ${page}`);
-            this.showError(`Page "${page}" not found`);
+
+        // Parse page and parameters (e.g., "activity/123" -> page: "activity", params: {id: "123"})
+        const { pageName, params } = this.parsePage(page);
+
+        if (!this.pages.has(pageName)) {
+            console.error(`[Router] Page not found: ${pageName}`);
+            this.showError(`Page "${pageName}" not found`);
             return;
         }
 
@@ -39,69 +42,88 @@ export class Router {
             // Emit page unload event for current page
             if (this.currentPage) {
                 eventBus.emit(EVENTS.PAGE_UNLOAD, this.currentPage);
-                
-                // Call onHide lifecycle method if exists
-                const currentPageModule = this.pages.get(this.currentPage);
-                if (currentPageModule && typeof currentPageModule.onHide === 'function') {
+
+                // Call onUnload lifecycle method if exists
+                const currentPageModule = this.pages.get(this.getCurrentPageName());
+                if (currentPageModule && typeof currentPageModule.onUnload === 'function') {
                     try {
-                        await currentPageModule.onHide();
+                        await currentPageModule.onUnload();
                     } catch (error) {
-                        console.warn(`[Router] Error in onHide for ${this.currentPage}:`, error);
+                        console.warn(`[Router] Error in onUnload for ${this.currentPage}:`, error);
                     }
                 }
             }
-            
+
             // Update URL if needed
-            if (updateHistory && location.hash !== `#${page}`) {
-                history.pushState({ page }, '', `#${page}`);
+            if (updateHistory && location.hash !== `#/${page}`) {
+                history.pushState({ page }, '', `#/${page}`);
             }
-            
+
             // Update navigation UI
-            this.updateNavigation(page);
-            
+            this.updateNavigation(pageName);
+
             // Update state
             state.setCurrentPage(page);
-            
-            // Load the page
-            await this.loadPage(page);
-            
+
+            // Load the page with parameters
+            await this.loadPage(pageName, params);
+
             this.currentPage = page;
-            
+
             // Emit page load event
             eventBus.emit(EVENTS.PAGE_LOAD, page);
-            
+
             console.log(`[Router] Successfully navigated to: ${page}`);
-            
+
         } catch (error) {
             console.error(`[Router] Navigation failed:`, error);
             this.showError(`Failed to load ${page}: ${error.message}`);
-            
+
             // Emit error event
-            eventBus.emit(EVENTS.DATA_ERROR, { 
-                context: 'navigation', 
-                page, 
-                error: error.message 
+            eventBus.emit(EVENTS.DATA_ERROR, {
+                context: 'navigation',
+                page,
+                error: error.message
             });
         } finally {
             this.isNavigating = false;
         }
     }
 
-    async loadPage(page) {
+    parsePage(page) {
+        // Handle dynamic routes like "activity/123"
+        const parts = page.split('/');
+        const pageName = parts[0];
+        const params = {};
+
+        // For now, simple parameter extraction
+        if (parts.length > 1) {
+            params.id = parts[1];
+        }
+
+        return { pageName, params };
+    }
+
+    getCurrentPageName() {
+        if (!this.currentPage) return null;
+        return this.parsePage(this.currentPage).pageName;
+    }
+
+    async loadPage(page, params = {}) {
         const pageModule = this.pages.get(page);
-        
+
         if (!pageModule) {
             throw new Error(`Page module not found: ${page}`);
         }
 
         try {
-            console.log(`[Router] Loading page module: ${page}`);
-            
+            console.log(`[Router] Loading page module: ${page}`, params);
+
             // Check if module has a load method
             if (typeof pageModule.load !== 'function') {
                 throw new Error(`Page module ${page} does not have a load() method`);
             }
-            
+
             // Call onShow lifecycle method if exists (before load)
             if (typeof pageModule.onShow === 'function') {
                 try {
@@ -110,10 +132,10 @@ export class Router {
                     console.warn(`[Router] Error in onShow for ${page}:`, error);
                 }
             }
-            
-            // Load page content
-            await pageModule.load();
-            
+
+            // Load page content with parameters
+            await pageModule.load(params);
+
         } catch (error) {
             console.error(`[Router] Error loading page ${page}:`, error);
             throw error;
@@ -212,28 +234,38 @@ export class Router {
 
     async init() {
         console.log('[Router] Initializing...');
-        
+
         // Handle browser back/forward buttons
         window.addEventListener('popstate', (e) => {
             if (e.state && e.state.page) {
                 this.navigateTo(e.state.page, false);
             } else {
-                const hash = window.location.hash.slice(1);
-                if (hash && this.pages.has(hash)) {
-                    this.navigateTo(hash, false);
+                const hash = window.location.hash.slice(1).replace(/^\//, ''); // Remove leading slash
+                if (hash) {
+                    const { pageName } = this.parsePage(hash);
+                    if (this.pages.has(pageName)) {
+                        this.navigateTo(hash, false);
+                    }
                 }
             }
         });
-        
+
         // Get initial page from URL hash or default to overview
-        const hash = window.location.hash.slice(1);
-        const initialPage = hash && this.pages.has(hash) ? hash : 'overview';
-        
+        let hash = window.location.hash.slice(1).replace(/^\//, ''); // Remove leading slash
+        let initialPage = 'overview';
+
+        if (hash) {
+            const { pageName } = this.parsePage(hash);
+            if (this.pages.has(pageName)) {
+                initialPage = hash;
+            }
+        }
+
         console.log(`[Router] Initial page: ${initialPage}`);
         await this.navigateTo(initialPage, false);
-        
+
         console.log('[Router] Initialization complete');
-        
+
         // Emit router ready event
         eventBus.emit('router:ready');
     }

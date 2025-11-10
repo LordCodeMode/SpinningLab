@@ -9,6 +9,7 @@ ENV_FILE = BACKEND_DIR / ".env"
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Training Dashboard Pro"
     VERSION: str = "1.0.0"
+    DEBUG: bool = False
 
     # Security
     SECRET_KEY: str
