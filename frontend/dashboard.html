@@ -21,6 +21,23 @@
   
   <!-- Feather Icons -->
   <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+
+  <!-- Strava OAuth code handler: move ?code into hash so SPA can process it -->
+  <script>
+    (function() {
+      try {
+        const search = window.location.search;
+        if (search && search.includes('code=')) {
+          const query = search.startsWith('?') ? search.slice(1) : search;
+          const targetHash = window.location.hash.split('?')[0] || '#/settings';
+          const newUrl = `${window.location.pathname}${targetHash}?${query}`;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      } catch (e) {
+        console.warn('Strava code handler failed:', e);
+      }
+    })();
+  </script>
   
   <style>
     /* CRITICAL: Ensure Feather icons are always visible */
@@ -75,6 +92,7 @@
       pointer-events: all !important;
     }
   </style>
+
 </head>
 <body>
   <!-- Loading Overlay -->

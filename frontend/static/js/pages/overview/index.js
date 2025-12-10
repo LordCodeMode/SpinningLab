@@ -534,7 +534,7 @@ class OverviewPage {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - Math.max(0, days - 1));
-    const toISO = (date) => date.toISOString().split('T')[0];
+    const toISO = (date) => this.toISODate(date);
     return {
       start: toISO(start),
       end: toISO(end)
@@ -546,7 +546,8 @@ class OverviewPage {
 
     activities.forEach(activity => {
       if (!activity?.start_time) return;
-      const dateKey = activity.start_time.split('T')[0];
+      const dateKey = this.toISODate(activity.start_time);
+      if (!dateKey) return;
       if (!map.has(dateKey)) {
         map.set(dateKey, {
           distance: 0,
@@ -602,7 +603,8 @@ class OverviewPage {
   }
 
   buildTrainingChartSeries(range) {
-    const daily = this.getDailyForRange(range).filter(item => item.date instanceof Date && !Number.isNaN(item.date.getTime()))
+    const daily = this.getDailyForRange(range)
+      .filter(item => item.date instanceof Date && !Number.isNaN(item.date.getTime()))
       .map(item => ({
         ...item,
         date: new Date(item.date.getTime())
@@ -611,7 +613,8 @@ class OverviewPage {
     const mode = range > 120 ? 'weekly' : 'daily';
 
     if (mode === 'daily') {
-      const points = daily.map(entry => ({
+      const reduced = this.downsampleDailySeries(daily, range);
+      const points = reduced.map(entry => ({
         date: entry.date,
         endDate: entry.date,
         label: this.formatDateShort(entry.date),
@@ -931,6 +934,29 @@ class OverviewPage {
     this.charts[key] = null;
   }
 
+  downsampleDailySeries(series, range) {
+    if (!Array.isArray(series) || series.length <= 1) {
+      return series || [];
+    }
+
+    const maxPoints = range <= 30 ? 30 : range <= 90 ? 45 : 60;
+    if (series.length <= maxPoints) {
+      return series;
+    }
+
+    const step = Math.ceil(series.length / maxPoints);
+    const downsampled = [];
+    for (let i = 0; i < series.length; i += step) {
+      downsampled.push(series[i]);
+    }
+
+    if (downsampled[downsampled.length - 1] !== series[series.length - 1]) {
+      downsampled.push(series[series.length - 1]);
+    }
+
+    return downsampled;
+  }
+
   hasTrainingLoadData(daily) {
     if (!Array.isArray(daily) || daily.length === 0) {
       return false;
@@ -1121,7 +1147,14 @@ class OverviewPage {
   }
 
   toISODate(date) {
-    return date.toISOString().split('T')[0];
+    if (!(date instanceof Date)) {
+      date = new Date(date);
+    }
+    if (Number.isNaN(date.getTime())) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   getUserDisplayName() {

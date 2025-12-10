@@ -250,6 +250,44 @@ export class Router {
             }
         });
 
+        // Check for Strava OAuth callback (code and scope in query params)
+        const urlParams = new URLSearchParams(window.location.search);
+        const stravaCode = urlParams.get('code');
+        const stravaScope = urlParams.get('scope');
+
+        if (stravaCode && stravaScope) {
+            console.log('[Router] Detected Strava OAuth callback - handling...');
+
+            // Import API dynamically
+            const { API } = await import('../core/api.js');
+            const { notify } = await import('../core/utils.js');
+
+            try {
+                notify('Connecting to Strava...', 'info');
+                console.log('[Router] Calling Strava callback API with code:', stravaCode);
+
+                const response = await API.stravaCallback(stravaCode);
+                console.log('[Router] Strava callback response:', response);
+
+                if (response.success) {
+                    notify(`Connected to Strava as ${response.athlete.firstname} ${response.athlete.lastname}!`, 'success');
+                }
+            } catch (error) {
+                console.error('[Router] Strava callback error:', error);
+                notify('Failed to connect to Strava: ' + error.message, 'error');
+            }
+
+            // Clean URL and navigate to settings
+            window.history.replaceState({}, document.title, window.location.pathname + '#/settings');
+            await this.navigateTo('settings', false);
+
+            // Emit event to tell settings page to refresh Strava status
+            eventBus.emit('strava:callback:complete');
+            console.log('[Router] Strava callback complete - navigated to settings');
+            eventBus.emit('router:ready');
+            return; // Don't continue with normal initialization
+        }
+
         // Get initial page from URL hash or default to overview
         let hash = window.location.hash.slice(1).replace(/^\//, ''); // Remove leading slash
         let initialPage = 'overview';

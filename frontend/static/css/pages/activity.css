@@ -420,6 +420,43 @@
   box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
 }
 
+/* ================== TIMELINE CHARTS =================== */
+
+.activity-timeline-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.activity-chart-card {
+  background: linear-gradient(135deg, #ffffff 0%, #fbfcff 100%);
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.activity-chart-card-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.activity-chart-card-header p {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.activity-chart-wrapper {
+  min-height: 260px;
+  position: relative;
+}
+
 .activity-pr-badge {
   position: absolute;
   top: 8px;

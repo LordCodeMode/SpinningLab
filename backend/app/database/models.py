@@ -1,3 +1,4 @@
+import os
 from sqlalchemy import Column, Integer, Float, String, DateTime, Text, ForeignKey, Boolean, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -19,7 +20,13 @@ class User(Base):
     weight = Column(Float, default=70)
     hr_max = Column(Integer, default=190)
     hr_rest = Column(Integer, default=60)
-    
+
+    # Strava OAuth
+    strava_athlete_id = Column(Integer, nullable=True, unique=True)
+    strava_access_token = Column(String, nullable=True)
+    strava_refresh_token = Column(String, nullable=True)
+    strava_token_expires_at = Column(Integer, nullable=True)  # Unix timestamp
+
     # Relationships
     activities = relationship("Activity", back_populates="user", cascade="all, delete-orphan")
     training_loads = relationship("TrainingLoad", back_populates="user", cascade="all, delete-orphan")
@@ -40,6 +47,7 @@ class Activity(Base):
     file_size = Column(Integer)
     duration = Column(Float)  # seconds
     distance = Column(Float)  # km
+    strava_activity_id = Column(Integer, nullable=True, index=True)  # For Strava-imported activities
     
     # Power metrics
     avg_power = Column(Float)
@@ -69,6 +77,12 @@ class Activity(Base):
     user = relationship("User", back_populates="activities")
     power_zones = relationship("PowerZone", back_populates="activity", cascade="all, delete-orphan")
     hr_zones = relationship("HrZone", back_populates="activity", cascade="all, delete-orphan")
+
+    def get_fit_path(self):
+        from ..core.config import settings  # Local import to avoid circular dependency
+        if not self.file_hash:
+            return None
+        return os.path.join(settings.FIT_FILES_DIR, str(self.user_id), f"{self.file_hash}.fit")
 
 class PowerZone(Base):
     __tablename__ = "power_zones"

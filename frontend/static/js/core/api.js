@@ -132,6 +132,10 @@ export const API = {
     return apiClient.get(`/api/activities/${id}`);
   },
 
+  getActivityStreams(id) {
+    return apiClient.get(`/api/activities/${id}/streams`);
+  },
+
   // File Upload
   uploadFitFiles(files) {
     const form = new FormData();
@@ -159,6 +163,43 @@ export const API = {
    */
   getCacheStatus() {
     return apiClient.get('/api/import/cache-status');
+  },
+
+  // ========== STRAVA INTEGRATION (NEW) ==========
+
+  /**
+   * Get Strava authorization URL
+   */
+  getStravaConnectUrl() {
+    return apiClient.get('/api/strava/connect');
+  },
+
+  /**
+   * Get Strava connection status
+   */
+  getStravaStatus() {
+    return apiClient.get('/api/strava/status');
+  },
+
+  /**
+   * Handle Strava OAuth callback
+   */
+  stravaCallback(code) {
+    return apiClient.post(`/api/strava/callback?code=${code}`, {});
+  },
+
+  /**
+   * Sync activities from Strava
+   */
+  syncStravaActivities(params = {}) {
+    return apiClient.post('/api/strava/sync', params);
+  },
+
+  /**
+   * Disconnect Strava account
+   */
+  disconnectStrava() {
+    return apiClient.post('/api/strava/disconnect', {});
   }
 };
 

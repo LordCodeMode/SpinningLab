@@ -711,6 +711,35 @@ class DataService {
     }
   }
 
+  /**
+   * Get per-activity streams (power/heart rate timelines)
+   * @param {number} id - Activity ID
+   * @param {Object} options
+   * @param {boolean} options.forceRefresh
+   * @returns {Promise<Object>} Stream data
+   */
+  async getActivityStreams(id, { forceRefresh = false } = {}) {
+    const cacheKey = `activity_stream_${id}`;
+
+    if (!forceRefresh) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) {
+        console.log('[DataService] Using cached activity streams');
+        return cached;
+      }
+    }
+
+    try {
+      console.log(`[DataService] Fetching activity streams for ${id}...`);
+      const data = await API.getActivityStreams(id);
+      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
+      return data;
+    } catch (error) {
+      console.error('[DataService] Error fetching activity streams:', error);
+      throw error;
+    }
+  }
+
   // ========== SETTINGS ==========
   
   /**

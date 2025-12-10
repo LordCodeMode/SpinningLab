@@ -308,8 +308,9 @@ class CacheBuilder:
             
             fitness_state = fitness_service.analyze_fitness_state(user)
             if fitness_state:
-                self.cache_manager.set("fitness_state", user.id, fitness_state)
-                logger.debug(f"Cached fitness state: {fitness_state.get('status')}")
+                payload = fitness_state._asdict() if hasattr(fitness_state, "_asdict") else fitness_state
+                self.cache_manager.set("fitness_state", user.id, payload)
+                logger.debug(f"Cached fitness state: {payload.get('status')}")
             
             return True
         except Exception as e:

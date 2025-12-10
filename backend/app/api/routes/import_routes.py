@@ -10,6 +10,7 @@ import os
 import hashlib
 import tempfile
 import logging
+import shutil
 
 from ...database.connection import get_db
 from ...database.models import User, Activity
@@ -123,6 +124,15 @@ async def import_fit_files(
                 
                 if result.success:
                     successful_imports += 1
+                    destination_path = os.path.join(user_fit_dir, f"{file_hash}.fit")
+                    os.makedirs(user_fit_dir, exist_ok=True)
+                    if not os.path.exists(destination_path):
+                        shutil.move(temp_path, destination_path)
+                    else:
+                        os.unlink(temp_path)
+                else:
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
                 
                 results.append({
                     "filename": file.filename,
@@ -132,8 +142,8 @@ async def import_fit_files(
                 })
                 
             finally:
-                # Clean up temp file
-                os.unlink(temp_path)
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
                 
         except Exception as e:
             logger.error(f"Error processing {file.filename}: {e}")

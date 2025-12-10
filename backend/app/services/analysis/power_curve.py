@@ -3,10 +3,10 @@ import pandas as pd
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from ...database.models import User, Activity
-from ...services.fit_processing.power_metrics import rolling_best_powers
 from fitparse import FitFile
 import os
 from ...core.config import settings
+import json
 
 class PowerCurveService:
     def __init__(self, db: Session):
@@ -83,13 +83,7 @@ class PowerCurveService:
         skipped_too_short = 0
 
         for activity in activities:
-            if not activity.file_name:
-                skipped_no_filename += 1
-                continue
-
-            # For now, create a synthetic power curve from best power values
-            # In a real implementation, you'd read the actual FIT files
-            power_values = self.create_synthetic_power_curve(activity)
+            power_values = self.get_power_series(activity)
 
             if not power_values:
                 skipped_no_power_values += 1
@@ -121,8 +115,52 @@ class PowerCurveService:
         
         return np.nanmax(padded_curves, axis=0).tolist()
     
+    def get_power_series(self, activity: Activity) -> List[float]:
+        """Return per-second power samples from FIT file/Strava streams, fallback to synthetic."""
+        fit_path = getattr(activity, 'get_fit_path', lambda: None)()
+        if fit_path and os.path.exists(fit_path):
+            series = self.extract_power_series_from_file(fit_path)
+            if series:
+                return series
+        stream_series = self._extract_power_from_stream_json(activity)
+        if stream_series:
+            return stream_series
+        return self.create_synthetic_power_series(activity)
+
+    def _extract_power_from_stream_json(self, activity: Activity) -> List[float]:
+        """Extract power series from stored Strava stream JSON (resampled to 1 Hz)."""
+        stream_path = os.path.join(settings.FIT_FILES_DIR, "streams", f"{activity.strava_activity_id or activity.id}.json")
+        if not os.path.exists(stream_path):
+            return []
+        try:
+            with open(stream_path, "r") as f:
+                raw = json.load(f)
+        except Exception:
+            return []
+
+        def get_stream(name):
+            stream = raw.get(name, {})
+            data = stream.get("data") if isinstance(stream, dict) else None
+            return data if isinstance(data, list) else []
+
+        time_stream = get_stream("time")
+        power_stream = get_stream("watts") or get_stream("power")
+        if not power_stream:
+            return []
+
+        # Resample to 1 Hz using time axis when available
+        try:
+            if time_stream:
+                base = float(time_stream[0])
+                elapsed = [float(t) - base for t in time_stream]
+                series = pd.Series(power_stream, index=pd.to_timedelta(elapsed, unit="s"))
+                resampled = series.resample("1S").mean().interpolate(limit_direction="both")
+                return resampled.dropna().tolist()
+            return [float(p) for p in power_stream if p is not None]
+        except Exception:
+            return []
     
-    def create_synthetic_power_curve(self, activity: Activity) -> List[float]:
+    def create_synthetic_power_series(self, activity: Activity) -> List[float]:
         """Create synthetic power curve from activity best power values."""
         # Check if activity has any power data at all
         if not activity.avg_power or activity.avg_power <= 0:

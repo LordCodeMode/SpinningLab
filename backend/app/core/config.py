@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     FIT_FILES_DIR: str = "fit_files"
     CACHE_DIR: str = "cache"
 
+    # Strava API
+    STRAVA_CLIENT_ID: str = ""
+    STRAVA_CLIENT_SECRET: str = ""
+    STRAVA_REDIRECT_URI: str = "http://localhost:8080/#/settings"
+
     @field_validator('SECRET_KEY')
     @classmethod
     def validate_secret_key(cls, v: str) -> str:

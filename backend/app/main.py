@@ -203,12 +203,14 @@ from .api.routes.activities import router as activities_router
 from .api.routes.analysis import router as analysis_router
 from .api.routes.import_routes import router as import_router
 from .api.routes.settings import router as settings_router
+from .api.routes.strava import router as strava_router
 
 app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
 app.include_router(activities_router, prefix="/api/activities", tags=["activities"])
 app.include_router(analysis_router, prefix="/api/analysis", tags=["analysis"])
 app.include_router(import_router, prefix="/api/import", tags=["import"])
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
+app.include_router(strava_router, prefix="/api", tags=["strava"])
 
 @app.get("/")
 async def root():

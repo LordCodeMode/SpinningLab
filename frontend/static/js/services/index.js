@@ -20,6 +20,7 @@ import chartService from './ChartService.js';
 import insightService from './InsightService.js';
 import analyticsService from './AnalyticsService.js';
 import uploadService from './UploadService.js';  // ← NEW
+import API from '../core/api.js';  // ← NEW: Import API
 
 // ========== NAMED EXPORTS (Classes) ==========
 export {
@@ -48,7 +49,8 @@ export const Services = {
   chart: chartService,
   insight: insightService,
   analytics: analyticsService,
-  upload: uploadService  // ← NEW
+  upload: uploadService,  // ← NEW
+  api: API  // ← NEW: Add API to Services
 };
 
 // ========== MAKE SERVICES AVAILABLE GLOBALLY ==========

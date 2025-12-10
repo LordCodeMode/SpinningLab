@@ -5,16 +5,22 @@
 import Services from '../../services/index.js';
 import { LoadingSkeleton } from '../../components/ui/index.js';
 import CONFIG from './config.js';
+import AppConfig from '../../core/config.js';
 
 class ActivityDetailPage {
   constructor() {
     this.config = CONFIG;
+    this.appConfig = AppConfig;
     this.activity = null;
     this.settings = null;
     this.activityId = null;
     this.bestPowers = null;
     this.powerZoneChart = null;
     this.hrZoneChart = null;
+    this.streams = null;
+    this.powerTimelineChart = null;
+    this.hrTimelineChart = null;
+    this.activityPowerCurveChart = null;
   }
 
   async load(params) {
@@ -28,18 +34,26 @@ class ActivityDetailPage {
       Services.analytics.trackPageView('activity-detail', { activityId: this.activityId });
       this.renderLoading();
 
-      const [activity, settings, bestPowers] = await Promise.all([
-        Services.data.getActivity(this.activityId),
+      const [activity, settings, bestPowers, streams] = await Promise.all([
+        Services.data.getActivity(this.activityId, { forceRefresh: true }),
         Services.data.getSettings(),
-        Services.data.getBestPowerValues()
+        Services.data.getBestPowerValues(),
+        Services.data.getActivityStreams(this.activityId).catch(error => {
+          console.warn('[ActivityDetailPage] Failed to load streams', error);
+          return null;
+        })
       ]);
 
       this.activity = this.normalizeActivity(activity);
       this.settings = settings;
       this.bestPowers = bestPowers;
+      this.streams = streams;
+      this.normalizeStreams();
+      this.deriveMetricsFromStreams();
 
       this.render();
       this.renderCharts();
+      this.renderTimelineCharts();
     } catch (error) {
       console.error('[ActivityDetailPage] load failed:', error);
       Services.analytics.trackError('activity_detail_load', error.message);
@@ -60,6 +74,7 @@ class ActivityDetailPage {
         ${this.renderBreadcrumb()}
         ${this.renderHeader()}
         ${this.renderMainContent()}
+        ${this.renderTimelineSection()}
         ${this.renderZonesSection()}
         ${this.renderBestEffortsSection()}
       </div>
@@ -210,6 +225,85 @@ class ActivityDetailPage {
       </div>
     `;
   }
+ 
+  renderTimelineSection() {
+    if (!this.streams) {
+      return `
+        <div class="activity-section">
+          <h2 class="activity-section-title">Effort Timeline</h2>
+          <div class="activity-empty-state">
+            <i data-feather="alert-triangle"></i>
+            <p>Timeline data isn’t available for this activity.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    const hasPowerStream = this.hasStreamData(this.streams?.power);
+    const hasHRStream = this.hasStreamData(this.streams?.heart_rate);
+    const hasPowerCurve = Array.isArray(this.streams?.power_curve?.durations) && this.streams.power_curve.durations.length > 0;
+    const hasTimelineData = hasPowerStream || hasHRStream;
+
+    const timelineContent = hasTimelineData
+      ? `
+        <div class="activity-timeline-grid">
+          ${hasPowerStream ? this.renderTimelineCard({
+            title: 'Power Timeline',
+            subtitle: 'Complete wattage trace across the ride',
+            canvasId: 'activity-power-timeline'
+          }) : ''}
+          ${hasHRStream ? this.renderTimelineCard({
+            title: 'Heart Rate Timeline',
+            subtitle: 'Cardiac response throughout the session',
+            canvasId: 'activity-hr-timeline'
+          }) : ''}
+        </div>
+      `
+      : `
+        <div class="activity-empty-state">
+          <i data-feather="activity"></i>
+          <p>No timeline data found for this activity.</p>
+        </div>
+      `;
+
+    return `
+      <div class="activity-section">
+        <h2 class="activity-section-title">Effort Timeline</h2>
+        ${timelineContent}
+      </div>
+      ${this.renderActivityPowerCurveSection(hasPowerCurve)}
+    `;
+  }
+
+  renderTimelineCard({ title, subtitle, canvasId }) {
+    return `
+      <div class="activity-chart-card">
+        <div class="activity-chart-card-header">
+          <h3>${title}</h3>
+          <p>${subtitle}</p>
+        </div>
+        <div class="activity-chart-wrapper">
+          <canvas id="${canvasId}"></canvas>
+        </div>
+      </div>
+    `;
+  }
+
+  renderActivityPowerCurveSection(hasPowerCurve) {
+    if (!hasPowerCurve) return '';
+
+    return `
+      <div class="activity-section">
+        <h2 class="activity-section-title">Power Curve (This Activity)</h2>
+        <p class="activity-section-subtitle">Peak interval outputs calculated exclusively from this ride</p>
+        <div class="activity-chart-card">
+          <div class="activity-chart-wrapper">
+            <canvas id="activity-power-curve"></canvas>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
   renderZonesSection() {
     const hasPowerZones = this.activity.power_zones && this.activity.power_zones.length > 0;
@@ -321,7 +415,7 @@ class ActivityDetailPage {
       .map(effort => {
         const activityPower = this.activity[effort.key];
         const bestPower = this.bestPowers?.[effort.key] || 0;
-        const isPR = activityPower >= bestPower && bestPower > 0;
+        const isPR = bestPower > 0 && activityPower > bestPower;
 
         return {
           ...effort,
@@ -369,6 +463,16 @@ class ActivityDetailPage {
     if (this.activity.hr_zones && this.activity.hr_zones.length > 0) {
       this.renderHRZoneChart();
     }
+  }
+
+  renderTimelineCharts() {
+    if (!this.streams) {
+      this.destroyTimelineCharts();
+      return;
+    }
+    this.renderPowerTimelineChart();
+    this.renderHeartRateTimelineChart();
+    this.renderActivityPowerCurveChart();
   }
 
   renderPowerZoneChart() {
@@ -467,6 +571,230 @@ class ActivityDetailPage {
     });
   }
 
+  renderPowerTimelineChart() {
+    const canvas = document.getElementById('activity-power-timeline');
+    if (!canvas || !Array.isArray(this.streams?.time) || !Array.isArray(this.streams?.power)) {
+      if (this.powerTimelineChart) {
+        this.powerTimelineChart.destroy();
+        this.powerTimelineChart = null;
+      }
+      return;
+    }
+
+    if (this.powerTimelineChart) {
+      this.powerTimelineChart.destroy();
+    }
+
+    this.powerTimelineChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: this.streams.time,
+        datasets: [{
+          label: 'Power (W)',
+          data: this.streams.power.map((value, index) => ({ x: this.streams.time[index], y: value })),
+          borderColor: this.config.COLORS.primary,
+          backgroundColor: 'rgba(59, 130, 246, 0.15)',
+          fill: true,
+          tension: 0.25,
+          spanGaps: true,
+          pointRadius: 0
+        }]
+      },
+      options: this.getTimelineChartOptions({ unit: 'W' })
+    });
+  }
+
+  renderHeartRateTimelineChart() {
+    const canvas = document.getElementById('activity-hr-timeline');
+    if (!canvas || !Array.isArray(this.streams?.time) || !Array.isArray(this.streams?.heart_rate)) {
+      if (this.hrTimelineChart) {
+        this.hrTimelineChart.destroy();
+        this.hrTimelineChart = null;
+      }
+      return;
+    }
+
+    if (this.hrTimelineChart) {
+      this.hrTimelineChart.destroy();
+    }
+
+    this.hrTimelineChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: this.streams.time,
+        datasets: [{
+          label: 'Heart Rate (bpm)',
+          data: this.streams.heart_rate.map((value, index) => ({ x: this.streams.time[index], y: value })),
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.12)',
+          fill: true,
+          tension: 0.25,
+          spanGaps: true,
+          pointRadius: 0
+        }]
+      },
+      options: this.getTimelineChartOptions({ unit: 'bpm' })
+    });
+  }
+
+  renderActivityPowerCurveChart() {
+    const canvas = document.getElementById('activity-power-curve');
+    const powerCurve = this.streams?.power_curve;
+    if (!canvas || !powerCurve || !powerCurve.durations?.length) {
+      if (this.activityPowerCurveChart) {
+        this.activityPowerCurveChart.destroy();
+        this.activityPowerCurveChart = null;
+      }
+      return;
+    }
+
+    if (this.activityPowerCurveChart) {
+      this.activityPowerCurveChart.destroy();
+    }
+
+    this.activityPowerCurveChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: powerCurve.durations,
+        datasets: [{
+          label: 'Best Power',
+          data: powerCurve.durations.map((duration, index) => ({
+            x: duration,
+            y: powerCurve.powers[index]
+          })),
+          borderColor: '#8b5cf6',
+          backgroundColor: 'rgba(139, 92, 246, 0.12)',
+          fill: true,
+          tension: 0.25,
+          pointRadius: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        scales: {
+          x: {
+            type: 'logarithmic',
+            ticks: {
+              callback: value => this.formatDurationShort(value),
+              color: '#94a3b8'
+            },
+            title: {
+              display: true,
+              text: 'Duration',
+              color: '#475569',
+              font: { weight: '600' }
+            },
+            grid: { color: 'rgba(148, 163, 184, 0.2)' }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Power (W)',
+              color: '#475569',
+              font: { weight: '600' }
+            },
+            ticks: { color: '#94a3b8' },
+            grid: { color: 'rgba(148, 163, 184, 0.15)' }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: context => {
+                if (!context.length) return '';
+                const seconds = context[0].parsed.x;
+                return `Duration: ${this.formatDurationShort(seconds)}`;
+              },
+              label: context => `Power: ${Math.round(context.parsed.y)} W`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  getTimelineChartOptions({ unit = '' } = {}) {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      elements: { point: { radius: 0 } },
+      scales: {
+        x: {
+          type: 'linear',
+          ticks: {
+            callback: value => this.formatTimelineTick(value),
+            color: '#94a3b8'
+          },
+          title: {
+            display: true,
+            text: 'Time',
+            color: '#475569',
+            font: { weight: '600' }
+          },
+          grid: { color: 'rgba(148, 163, 184, 0.2)' }
+        },
+        y: {
+          title: {
+            display: !!unit,
+            text: unit,
+            color: '#475569',
+            font: { weight: '600' }
+          },
+          ticks: { color: '#94a3b8' },
+          grid: { color: 'rgba(148, 163, 184, 0.15)' }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          intersect: false,
+          callbacks: {
+            title: context => {
+              if (!context.length) return '';
+              const seconds = context[0].parsed.x ?? context[0].label;
+              return `Time: ${this.formatTimelineTick(seconds)}`;
+            },
+            label: context => {
+              const value = context.parsed.y;
+              if (value == null) return 'No data';
+              return `${Math.round(value)} ${unit}`.trim();
+            }
+          }
+        }
+      }
+    };
+  }
+
+  formatTimelineTick(seconds) {
+    if (seconds == null || Number.isNaN(seconds)) return '';
+    const totalSeconds = Math.max(0, Math.round(seconds));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+
+    if (hours > 0) return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+    if (minutes > 0) return `${minutes}m ${secs.toString().padStart(2, '0')}s`;
+    return `${secs}s`;
+  }
+
+  formatDurationShort(seconds) {
+    if (seconds == null) return '';
+    const total = Math.max(0, Math.round(seconds));
+    if (total < 60) return `${total}s`;
+    if (total < 3600) {
+      const minutes = Math.floor(total / 60);
+      const secs = total % 60;
+      return secs === 0 ? `${minutes}m` : `${minutes}m ${secs}s`;
+    }
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
+  }
+
   formatDate(dateString) {
     if (!dateString) return '—';
     const date = new Date(dateString);
@@ -508,6 +836,148 @@ class ActivityDetailPage {
     return div.innerHTML;
   }
 
+  normalizeStreams() {
+    if (!this.streams) return;
+    this.streams.time = this.normalizeNumericArray(this.streams.time, { clampMin: 0 });
+    this.streams.power = this.normalizeNumericArray(this.streams.power);
+    this.streams.heart_rate = this.normalizeNumericArray(this.streams.heart_rate);
+  }
+
+  normalizeNumericArray(values, { clampMin = null } = {}) {
+    if (!Array.isArray(values)) return null;
+    return values.map(value => {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return null;
+      if (clampMin !== null && numeric < clampMin) return clampMin;
+      return numeric;
+    });
+  }
+
+  deriveMetricsFromStreams() {
+    if (!this.streams) return;
+
+    const powerValues = (this.streams.power || []).filter(Number.isFinite);
+    const heartValues = (this.streams.heart_rate || []).filter(Number.isFinite);
+    const timeSeries = Array.isArray(this.streams.time) ? this.streams.time : [];
+
+    if (heartValues.length) {
+      if (!this.activity.avg_heart_rate) {
+        this.activity.avg_heart_rate = Math.round(this.calculateAverage(heartValues));
+      }
+      if (!this.activity.max_heart_rate) {
+        this.activity.max_heart_rate = Math.round(Math.max(...heartValues));
+      }
+    }
+
+    if (powerValues.length && !this.activity.avg_power) {
+      this.activity.avg_power = Math.round(this.calculateAverage(powerValues));
+    }
+
+    if (!this.activity.efficiency_factor && powerValues.length && heartValues.length) {
+      const avgPower = this.activity.avg_power || this.calculateAverage(powerValues);
+      const avgHr = this.activity.avg_heart_rate || this.calculateAverage(heartValues);
+      if (avgHr > 0) {
+        this.activity.efficiency_factor = Number((avgPower / avgHr).toFixed(3));
+      }
+    }
+
+    if ((!this.activity.hr_zones || !this.activity.hr_zones.length) && heartValues.length) {
+      const hrZones = this.computeHeartRateZonesFromStream(heartValues, timeSeries);
+      if (hrZones.length) {
+        this.activity.hr_zones = hrZones;
+      }
+    }
+
+    if ((!this.activity.power_zones || !this.activity.power_zones.length) && powerValues.length) {
+      const powerZones = this.computePowerZonesFromStream(powerValues, timeSeries);
+      if (powerZones.length) {
+        this.activity.power_zones = powerZones;
+      }
+    }
+  }
+
+  calculateAverage(values) {
+    if (!values.length) return 0;
+    const sum = values.reduce((acc, value) => acc + value, 0);
+    return sum / values.length;
+  }
+
+  computeHeartRateZonesFromStream(values, timeSeries) {
+    const hrMax = this.settings?.hr_max || 190;
+    const zoneDefs = this.appConfig?.HR_ZONES || [];
+    const zones = zoneDefs.map((zone, index) => ({
+      zone_label: `Z${index + 1}`,
+      seconds_in_zone: 0
+    }));
+
+    values.forEach((value, index) => {
+      if (!Number.isFinite(value)) return;
+      const seconds = this.getSampleDuration(timeSeries, index);
+      zoneDefs.forEach((zone, zoneIndex) => {
+        const lower = zone.min * hrMax;
+        const upper = zone.max * hrMax;
+        if (value >= lower && value < upper) {
+          zones[zoneIndex].seconds_in_zone += seconds;
+        }
+      });
+    });
+
+    return zones.filter(zone => zone.seconds_in_zone > 0).map(zone => ({
+      ...zone,
+      seconds_in_zone: Math.round(zone.seconds_in_zone)
+    }));
+  }
+
+  computePowerZonesFromStream(values, timeSeries) {
+    const ftp = this.settings?.ftp || 250;
+    const zoneDefs = this.appConfig?.POWER_ZONES || [];
+    const zones = zoneDefs.map((zone, index) => ({
+      zone_label: zone.name.split(' ')[0],
+      seconds_in_zone: 0,
+      min: zone.min * ftp,
+      max: (typeof zone.max === 'number' && Number.isFinite(zone.max) ? zone.max * ftp : Number.POSITIVE_INFINITY)
+    }));
+
+    values.forEach((value, index) => {
+      if (!Number.isFinite(value)) return;
+      const seconds = this.getSampleDuration(timeSeries, index);
+      zones.forEach(zone => {
+        const upper = zone.max === Infinity ? Number.POSITIVE_INFINITY : zone.max;
+        if (value >= zone.min && value < upper) {
+          zone.seconds_in_zone += seconds;
+        }
+      });
+    });
+
+    return zones.filter(zone => zone.seconds_in_zone > 0).map(({ min, max, ...rest }) => ({
+      ...rest,
+      seconds_in_zone: Math.round(rest.seconds_in_zone)
+    }));
+  }
+
+  getSampleDuration(timeSeries, index) {
+    if (!Array.isArray(timeSeries) || timeSeries.length === 0) {
+      return 1;
+    }
+
+    const current = timeSeries[index];
+    const next = timeSeries[index + 1];
+    if (Number.isFinite(current) && Number.isFinite(next) && next > current) {
+      return next - current;
+    }
+
+    const prev = timeSeries[index - 1];
+    if (Number.isFinite(current) && Number.isFinite(prev) && current > prev) {
+      return current - prev;
+    }
+
+    return 1;
+  }
+
+  hasStreamData(stream) {
+    return Array.isArray(stream) && stream.some(value => Number.isFinite(value));
+  }
+
   normalizeActivity(activity) {
     if (!activity) return null;
     return {
@@ -542,6 +1012,21 @@ class ActivityDetailPage {
     `;
   }
 
+  destroyTimelineCharts() {
+    if (this.powerTimelineChart) {
+      this.powerTimelineChart.destroy();
+      this.powerTimelineChart = null;
+    }
+    if (this.hrTimelineChart) {
+      this.hrTimelineChart.destroy();
+      this.hrTimelineChart = null;
+    }
+    if (this.activityPowerCurveChart) {
+      this.activityPowerCurveChart.destroy();
+      this.activityPowerCurveChart = null;
+    }
+  }
+
   onUnload() {
     if (this.powerZoneChart) {
       this.powerZoneChart.destroy();
@@ -551,9 +1036,11 @@ class ActivityDetailPage {
       this.hrZoneChart.destroy();
       this.hrZoneChart = null;
     }
+    this.destroyTimelineCharts();
     this.activity = null;
     this.settings = null;
     this.activityId = null;
+    this.streams = null;
   }
 }
 

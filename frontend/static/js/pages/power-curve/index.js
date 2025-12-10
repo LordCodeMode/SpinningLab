@@ -6,6 +6,7 @@
 import Services from '../../services/index.js';
 import { MetricCard, LoadingSkeleton } from '../../components/ui/index.js';
 import CONFIG from './config.js';
+import { eventBus, EVENTS } from '../../core/eventBus.js';
 
 class PowerCurvePage {
   constructor() {
@@ -22,6 +23,8 @@ class PowerCurvePage {
     this.chart = null;
     this.powerCurvePoints = [];
     this.bestEfforts = [];
+    this.dataImportedListener = null;
+    this.handleDataImported = this.handleDataImported.bind(this);
   }
 
   async load() {
@@ -32,6 +35,7 @@ class PowerCurvePage {
       await this.hydrateWeight();
       this.applyDefaultRange();
       this.setupEventListeners();
+      this.registerDataImportedListener();
       await this.loadData();
 
     } catch (error) {
@@ -425,6 +429,27 @@ class PowerCurvePage {
       const e = this.el('pc-end').value;
       if (e && s && e < s) this.el('pc-start').value = e;
     });
+  }
+
+  registerDataImportedListener() {
+    if (this.dataImportedListener) return;
+    this.dataImportedListener = eventBus.on(EVENTS.DATA_IMPORTED, this.handleDataImported);
+  }
+
+  unregisterDataImportedListener() {
+    if (this.dataImportedListener) {
+      this.dataImportedListener();
+      this.dataImportedListener = null;
+    }
+  }
+
+  async handleDataImported() {
+    try {
+      console.log('[PowerCurvePage] Data import detected – refreshing power curve');
+      await this.loadData();
+    } catch (error) {
+      console.error('[PowerCurvePage] Failed to refresh after import:', error);
+    }
   }
 
   // ========== DATA LOADING ==========
@@ -1277,6 +1302,7 @@ class PowerCurvePage {
       this.chart.destroy();
       this.chart = null;
     }
+    this.unregisterDataImportedListener();
     console.log('[PowerCurvePage] Page unloaded');
   }
 }

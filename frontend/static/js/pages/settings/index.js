@@ -7,6 +7,7 @@ import Services from '../../services/index.js';
 import CONFIG from './config.js';
 import { LoadingSkeleton, ErrorState } from '../../components/ui/States.js';
 import { notify, setLoading } from '../../core/utils.js';
+import { eventBus } from '../../core/eventBus.js';
 
 const DISPLAY_NAME_STORAGE_KEY = CONFIG.DISPLAY_NAME_STORAGE_KEY || 'training_dashboard_display_name';
 
@@ -14,23 +15,271 @@ class SettingsPage {
   constructor() {
     this.config = CONFIG;
     this.settings = null;
+    this.stravaCallbackListener = null;
   }
 
   async load() {
     try {
       Services.analytics.trackPageView('settings');
-      
+
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       this.renderLoading();
-      
+
       this.settings = await Services.data.getSettings();
       this.render();
       this.setupEventListeners();
+
+      // Load Strava status after initial render
+      await this.loadStravaStatus();
+
+      // Listen for Strava callback completion from router
+      this.stravaCallbackListener = async () => {
+        console.log('[Settings] Received strava:callback:complete event');
+        await this.loadStravaStatus();
+      };
+      eventBus.on('strava:callback:complete', this.stravaCallbackListener);
     } catch (error) {
       console.error('[Settings] Load error:', error);
       await new Promise(resolve => setTimeout(resolve, 100));
       this.renderError(error);
+    }
+  }
+
+  async handleStravaCallback() {
+    console.log('[Settings] handleStravaCallback - Full URL:', window.location.href);
+    console.log('[Settings] handleStravaCallback - Hash:', window.location.hash);
+    console.log('[Settings] handleStravaCallback - Search:', window.location.search);
+
+    const urlParams = this.extractStravaParams();
+    const code = urlParams.get('code');
+    const scope = urlParams.get('scope');
+
+    console.log('[Settings] handleStravaCallback called', { code, scope, hasCode: !!code, hasScope: !!scope });
+
+    if (code && scope) {
+      try {
+        console.log('[Settings] Calling Strava callback API with code:', code);
+        notify('Connecting to Strava...', 'info');
+
+        const response = await Services.api.stravaCallback(code);
+        console.log('[Settings] Strava callback response:', response);
+
+        if (response.success) {
+          notify(`Connected to Strava as ${response.athlete.firstname} ${response.athlete.lastname}!`, 'success');
+
+          // Clean up URL
+          const [hashPath] = window.location.hash.split('?');
+          window.history.replaceState({}, document.title, `${window.location.pathname}${hashPath || ''}`);
+
+          // Reload Strava status to show connected state
+          console.log('[Settings] Reloading Strava status...');
+          await this.loadStravaStatus();
+        }
+      } catch (error) {
+        console.error('[Settings] Strava callback error:', error);
+        notify('Failed to connect to Strava: ' + error.message, 'error');
+      }
+    } else {
+      console.log('[Settings] No Strava callback parameters found');
+    }
+  }
+
+  extractStravaParams() {
+    // Check regular query string first
+    if (window.location.search && window.location.search.length > 1) {
+      return new URLSearchParams(window.location.search);
+    }
+
+    // Hash router case (#/settings?code=...)
+    if (window.location.hash && window.location.hash.includes('?')) {
+      const [, query] = window.location.hash.split('?');
+      return new URLSearchParams(query);
+    }
+
+    return new URLSearchParams();
+  }
+
+  async loadStravaStatus() {
+    try {
+      const response = await Services.api.getStravaStatus();
+      this.renderStravaSection(response);
+    } catch (error) {
+      console.error('[Settings] Failed to load Strava status:', error);
+      this.renderStravaSection({ connected: false });
+    }
+  }
+
+  renderStravaSection(status) {
+    const container = document.getElementById('stravaSection');
+    if (!container) return;
+
+    if (status.connected) {
+      container.innerHTML = `
+        <div class="settings-field">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--success-bg, #10b98114); border-radius: 8px; border: 1px solid var(--success-color, #10b981);">
+            <svg style="flex-shrink: 0; width: 24px; height: 24px; color: var(--success-color, #10b981);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div style="flex: 1;">
+              <div style="font-weight: 600; color: var(--success-color, #10b981); margin-bottom: 4px;">Connected to Strava</div>
+              <div style="font-size: 0.875rem; color: var(--text-secondary);">Athlete ID: ${status.athlete_id}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-form-row" style="margin-top: 16px;">
+          <button type="button" id="syncStravaBtn" class="settings-save-button" style="flex: 1;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Sync Activities from Strava
+          </button>
+          <button type="button" id="disconnectStravaBtn" class="btn btn-secondary" style="flex: 1; padding: 12px 24px; background: var(--error-bg, #ef444414); color: var(--error-color, #ef4444); border: 1px solid var(--error-color, #ef4444);">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 20px; height: 20px;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            Disconnect
+          </button>
+        </div>
+
+        <div class="settings-field-help" style="margin-top: 12px;">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Sync automatically imports all your Strava activities with power, HR, and zone data.
+        </div>
+      `;
+
+      // Add event listeners
+      document.getElementById('syncStravaBtn')?.addEventListener('click', () => this.handleStravaSync());
+      document.getElementById('disconnectStravaBtn')?.addEventListener('click', () => this.handleStravaDisconnect());
+    } else {
+      container.innerHTML = `
+        <div class="settings-field">
+          <div style="padding: 20px; text-align: center;">
+            <svg style="width: 48px; height: 48px; color: var(--text-secondary); margin: 0 auto 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+            <h4 style="margin-bottom: 8px; font-weight: 600;">Not Connected</h4>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Connect your Strava account to automatically import activities</p>
+            <button type="button" id="connectStravaBtn" class="settings-save-button">
+              <svg fill="currentColor" viewBox="0 0 24 24" style="width: 20px; height: 20px;">
+                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
+              </svg>
+              Connect with Strava
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-zones-preview" style="margin-top: 16px;">
+          <div class="settings-zones-title">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Benefits of Strava Integration
+          </div>
+          <div class="settings-zone-item">
+            <span class="settings-zone-name">🔄 Auto-Import</span>
+            <span class="settings-zone-range">No manual FIT uploads</span>
+          </div>
+          <div class="settings-zone-item">
+            <span class="settings-zone-name">⚡ Full Data</span>
+            <span class="settings-zone-range">Power, HR, cadence streams</span>
+          </div>
+          <div class="settings-zone-item">
+            <span class="settings-zone-name">📊 Instant Analysis</span>
+            <span class="settings-zone-range">Power curves & zones</span>
+          </div>
+        </div>
+      `;
+
+      // Add connect button listener
+      document.getElementById('connectStravaBtn')?.addEventListener('click', () => this.handleStravaConnect());
+    }
+  }
+
+  async handleStravaConnect() {
+    try {
+      const response = await Services.api.getStravaConnectUrl();
+      if (response.authorization_url) {
+        // Save current URL to return to settings after OAuth
+        localStorage.setItem('strava_return_url', window.location.href);
+        // Redirect to Strava OAuth
+        window.location.href = response.authorization_url;
+      }
+    } catch (error) {
+      console.error('[Settings] Strava connect error:', error);
+      notify('Failed to connect to Strava: ' + error.message, 'error');
+    }
+  }
+
+  async handleStravaDisconnect() {
+    if (!confirm('Are you sure you want to disconnect from Strava? Your imported activities will not be deleted.')) {
+      return;
+    }
+
+    try {
+      await Services.api.disconnectStrava();
+      notify('Disconnected from Strava', 'success');
+      await this.loadStravaStatus();
+    } catch (error) {
+      console.error('[Settings] Strava disconnect error:', error);
+      notify('Failed to disconnect from Strava: ' + error.message, 'error');
+    }
+  }
+
+  async handleStravaSync() {
+    const syncBtn = document.getElementById('syncStravaBtn');
+    if (!syncBtn) return;
+
+    try {
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = `
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="animation: spin 1s linear infinite;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Syncing...
+      `;
+
+      const result = await Services.api.syncStravaActivities();
+
+      notify(`${result.message}`, 'success');
+
+      // Refresh data
+      Services.data.clearCache();
+      if (window.dashboard) {
+        await window.dashboard.forceUpdateHeaderStats();
+      }
+
+      syncBtn.disabled = false;
+      syncBtn.innerHTML = `
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        Sync Complete!
+      `;
+
+      setTimeout(() => {
+        syncBtn.innerHTML = `
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Sync Activities from Strava
+        `;
+      }, 3000);
+
+    } catch (error) {
+      console.error('[Settings] Strava sync error:', error);
+      notify('Sync failed: ' + error.message, 'error');
+
+      syncBtn.disabled = false;
+      syncBtn.innerHTML = `
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Sync Activities from Strava
+      `;
     }
   }
 
@@ -138,6 +387,30 @@ class SettingsPage {
               </div>
             </div>
           </div>
+
+          <!-- Strava Integration Card -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div class="settings-card-icon" style="background: linear-gradient(135deg, #fc4c02 0%, #ff6b35 100%);">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+              </div>
+              <div class="settings-card-title-group">
+                <h3 class="settings-card-title">Strava Integration</h3>
+                <p class="settings-card-subtitle">Auto-import activities from Strava with full power and HR data</p>
+              </div>
+            </div>
+
+            <div class="settings-form-grid" id="stravaSection">
+              <div style="text-align: center; padding: 20px;">
+                <div class="loading-spinner" style="margin: 0 auto;"></div>
+                <p style="margin-top: 10px; color: var(--text-secondary);">Checking Strava connection...</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Power Settings Card -->
           <div class="settings-card">
             <div class="settings-card-header">
@@ -676,6 +949,11 @@ class SettingsPage {
 
   onUnload() {
     this.settings = null;
+    // Clean up event listener
+    if (this.stravaCallbackListener) {
+      eventBus.off('strava:callback:complete', this.stravaCallbackListener);
+      this.stravaCallbackListener = null;
+    }
   }
 }
 

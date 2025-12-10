@@ -6,6 +6,7 @@
 import Services from '../../services/index.js';
 import { LoadingSkeleton, InsightCard } from '../../components/ui/index.js';
 import CONFIG from './config.js';
+import { eventBus, EVENTS } from '../../core/eventBus.js';
 
 class EfficiencyPage {
   constructor() {
@@ -14,12 +15,15 @@ class EfficiencyPage {
     this.currentDays = CONFIG.DEFAULT_DAYS?.efficiency || 120;
     this.currentFilter = 'ga1';
     this.data = null;
+    this.dataImportedListener = null;
+    this.handleDataImported = this.handleDataImported.bind(this);
   }
 
   async load() {
     try {
       Services.analytics.trackPageView('efficiency');
       this.renderLoading();
+      this.registerGlobalListeners();
       
       this.data = await Services.data.getEfficiency({ days: this.currentDays });
       this.insights = Services.insight.generateEfficiencyInsights(this.data.metrics);
@@ -141,6 +145,34 @@ class EfficiencyPage {
     }
   }
 
+  registerGlobalListeners() {
+    if (this.dataImportedListener) return;
+    this.dataImportedListener = eventBus.on(EVENTS.DATA_IMPORTED, this.handleDataImported);
+  }
+
+  unregisterGlobalListeners() {
+    if (this.dataImportedListener) {
+      this.dataImportedListener();
+      this.dataImportedListener = null;
+    }
+  }
+
+  async handleDataImported() {
+    try {
+      console.log('[EfficiencyPage] Data import detected – refreshing efficiency data');
+      this.renderLoading();
+      this.destroyChart();
+      this.data = await Services.data.getEfficiency({ days: this.currentDays, forceRefresh: true });
+      this.insights = Services.insight.generateEfficiencyInsights(this.data.metrics);
+      this.render();
+      this.initChart();
+      this.setupEventListeners();
+    } catch (error) {
+      console.error('[EfficiencyPage] Failed to refresh after import:', error);
+      this.renderError(error);
+    }
+  }
+
   renderLoading() {
     document.getElementById('pageContent').innerHTML = LoadingSkeleton({ type: 'chart', count: 1 });
   }
@@ -156,6 +188,7 @@ class EfficiencyPage {
 
   onUnload() {
     this.destroyChart();
+    this.unregisterGlobalListeners();
   }
 
   getActiveTimeseries() {

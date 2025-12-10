@@ -50,6 +50,7 @@ class Dashboard {
       console.log('[Dashboard] ========== INITIALIZING DASHBOARD ==========');
       
       await this.checkAuth();
+      await this.handleStravaOAuth();
       await this.registerPages();
       this.setupEventListeners();
       
@@ -696,6 +697,46 @@ class Dashboard {
 
   getHeaderStats() {
     return this.headerStatsCache;
+  }
+
+  async handleStravaOAuth() {
+    if (typeof window === 'undefined') return;
+
+    const params = this.extractOAuthParams();
+    if (!params.has('code')) return;
+
+    const code = params.get('code');
+    try {
+      console.log('[Dashboard] Processing Strava OAuth code...');
+      const response = await Services.api.stravaCallback(code);
+      if (response?.success) {
+        notify(`Connected to Strava as ${response.athlete.firstname || ''} ${response.athlete.lastname || ''}`.trim(), 'success');
+      } else {
+        notify('Connected to Strava', 'success');
+      }
+    } catch (error) {
+      console.error('[Dashboard] Strava OAuth exchange failed:', error);
+      notify('Failed to connect to Strava. Please try again.', 'error');
+    } finally {
+      // Clean up URL to avoid reprocessing and route to settings view
+      const cleanPath = window.location.pathname;
+      window.history.replaceState({}, document.title, `${cleanPath}#/settings`);
+    }
+  }
+
+  extractOAuthParams() {
+    // Prefer query string on the main URL
+    if (window.location.search && window.location.search.length > 1) {
+      return new URLSearchParams(window.location.search);
+    }
+
+    // Fallback: query portion inside the hash (e.g., #/settings?code=...)
+    if (window.location.hash && window.location.hash.includes('?')) {
+      const [, query] = window.location.hash.split('?');
+      return new URLSearchParams(query);
+    }
+
+    return new URLSearchParams();
   }
 
   getUserDisplayName() {
