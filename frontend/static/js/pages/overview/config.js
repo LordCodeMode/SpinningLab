@@ -52,7 +52,7 @@ const OverviewConfig = {
   // UI settings
   ui: {
     metricsCount: 4,
-    insightsLimit: 3,
+    insightsLimit: 6,
     activitiesLimit: 5
   },
   

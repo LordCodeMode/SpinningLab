@@ -91,14 +91,19 @@ export class Router {
     }
 
     parsePage(page) {
-        // Handle dynamic routes like "activity/123"
-        const parts = page.split('/');
+        // Handle dynamic routes like "activity/123" plus query strings
+        const [path, queryString] = page.split('?');
+        const parts = path.split('/');
         const pageName = parts[0];
         const params = {};
 
         // For now, simple parameter extraction
         if (parts.length > 1) {
             params.id = parts[1];
+        }
+
+        if (queryString) {
+            params.query = Object.fromEntries(new URLSearchParams(queryString));
         }
 
         return { pageName, params };
@@ -162,33 +167,37 @@ export class Router {
     updatePageTitle(page) {
         const titleElement = document.getElementById('page-title');
         if (!titleElement) return;
-        
+
         const titles = {
             // Core pages
             'overview': 'Dashboard',
             'activities': 'Activities',
             'upload': 'Upload Files',
             'settings': 'Settings',
-            
+
             // Power Analysis
             'power-curve': 'Power Curve Analysis',
             'critical-power': 'Critical Power',
             'best-powers': 'Best Power Values',
             'zones': 'Power Zones',
-            
+
             // Performance
             'training-load': 'Training Load',
+            'comparisons': 'Comparisons',
             'hr-zones': 'Heart Rate Zones',
             'vo2max': 'VO2Max Estimation',
             'efficiency': 'Efficiency Analysis',
-            
-            // Additional
-            'fitness-state': 'Fitness State'
+
+            // Workout Planning
+            'calendar': 'Training Calendar',
+            'workout-library': 'Workout Library',
+            'workout-builder': 'Workout Builder',
+            'training-plans': 'Training Plans'
         };
-        
+
         const title = titles[page] || this.formatPageName(page);
         titleElement.textContent = title;
-        
+
         // Also update document title
         document.title = `${title} - Training Analytics Pro`;
     }
@@ -247,6 +256,17 @@ export class Router {
                         this.navigateTo(hash, false);
                     }
                 }
+            }
+        });
+
+        // Handle direct hash changes (e.g., sidebar anchor clicks)
+        window.addEventListener('hashchange', () => {
+            const hash = window.location.hash.slice(1).replace(/^\//, '');
+            if (!hash) return;
+            if (this.currentPage === hash) return;
+            const { pageName } = this.parsePage(hash);
+            if (this.pages.has(pageName)) {
+                this.navigateTo(hash, false);
             }
         });
 

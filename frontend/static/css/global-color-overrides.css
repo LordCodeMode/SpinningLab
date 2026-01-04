@@ -1,0 +1,102 @@
+/**
+ * GLOBAL COLOR SYSTEM SUPPORT
+ * Lightweight global rules to support the design system
+ * Individual page CSS files now have proper colors - this is just for global elements
+ */
+
+/* ========== DATA ATTRIBUTE COLORS ========== */
+/* Provide fallback colors for data-attribute based styling */
+
+[data-color="amber"],
+[data-color="orange"],
+[data-stat="power"] {
+  --card-color: var(--metric-power, #f59e0b);
+}
+
+[data-color="red"],
+[data-stat="heart"],
+[data-stat="hr"] {
+  --card-color: var(--metric-heart, #ef4444);
+}
+
+[data-color="purple"],
+[data-stat="endurance"],
+[data-stat="vo2"] {
+  --card-color: var(--metric-endurance, #8b5cf6);
+}
+
+[data-color="blue"],
+[data-stat="load"],
+[data-stat="tss"] {
+  --card-color: var(--metric-load, #3b82f6);
+}
+
+[data-color="green"],
+[data-stat="recovery"] {
+  --card-color: var(--metric-recovery, #10b981);
+}
+
+[data-color="cyan"],
+[data-stat="speed"] {
+  --card-color: var(--metric-speed, #06b6d4);
+}
+
+[data-color="indigo"],
+[data-stat="efficiency"] {
+  --card-color: var(--metric-efficiency, #6366f1);
+}
+
+/* ========== GLOBAL BUTTON STYLES ========== */
+
+/* Primary buttons use the hero gradient */
+.btn--primary {
+  background: var(--gradient-hero, linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%));
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+}
+
+/* ========== STATE BADGE COLORS ========== */
+
+/* Fresh/Success state */
+.badge--success,
+[class*="-badge"].fresh,
+[class*="-pill--success"] {
+  background: var(--state-fresh-bg, rgba(16, 185, 129, 0.15));
+  color: var(--state-fresh, #047857);
+  border-color: var(--state-fresh-border, rgba(16, 185, 129, 0.3));
+}
+
+/* Fatigued/Danger state */
+.badge--danger,
+[class*="-badge"].fatigued,
+[class*="-pill--danger"] {
+  background: var(--state-fatigued-bg, rgba(239, 68, 68, 0.15));
+  color: var(--state-fatigued, #b91c1c);
+  border-color: var(--state-fatigued-border, rgba(239, 68, 68, 0.3));
+}
+
+/* Balanced/Primary state */
+.badge--primary,
+[class*="-badge"].balanced,
+[class*="-pill--balanced"] {
+  background: var(--state-balanced-bg, rgba(59, 130, 246, 0.15));
+  color: var(--state-balanced, #1e40af);
+  border-color: var(--state-balanced-border, rgba(59, 130, 246, 0.3));
+}
+
+/* ========== LOADING STATES ========== */
+
+.loading-spinner,
+[class*="spinner"] {
+  border-top-color: var(--color-brand, #3b82f6);
+}
+
+/* ========== CHART TOOLTIPS ========== */
+
+.chart-tooltip,
+[class*="tooltip"] {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: rgba(59, 130, 246, 0.3);
+}

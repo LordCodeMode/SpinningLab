@@ -33,7 +33,6 @@ async def get_rider_profile(
 
         return result
     except Exception as e:
-        print(f"Error getting rider profile: {e}")
         return {
             "rider_type": "Unknown",
             "confidence": 0.0,

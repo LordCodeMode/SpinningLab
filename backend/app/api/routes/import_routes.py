@@ -17,6 +17,7 @@ from ...database.models import User, Activity
 from ...api.dependencies import get_current_active_user
 from ...services.fit_processing.fit_import_service import FitImportService
 from ...services.cache.cache_builder import CacheBuilder
+from ...services.cache.cache_tasks import rebuild_user_caches_task
 from ...core.config import settings
 
 router = APIRouter()
@@ -162,7 +163,8 @@ async def import_fit_files(
         # Add cache rebuild task to background
         background_tasks.add_task(
             rebuild_user_caches_task,
-            user_id=current_user.id
+            user_id=current_user.id,
+            mode="fast"
         )
     
     return {
@@ -223,64 +225,3 @@ async def get_cache_status(
     except Exception as e:
         logger.error(f"Error getting cache status: {e}")
         raise HTTPException(status_code=500, detail=f"Error getting cache status: {str(e)}")
-
-
-# =========================================
-# BACKGROUND TASK
-# =========================================
-
-def rebuild_user_caches_task(user_id: int):
-    """
-    Background task to rebuild all caches for a user.
-    
-    This runs asynchronously after FIT file import completes.
-    It rebuilds:
-    - Training load (CTL/ATL/TSB) - CRITICAL for form tracking
-    - Power curve - includes new peak power values
-    - Critical power model
-    - Efficiency metrics
-    - VO2Max estimates
-    - Zone distributions
-    - Activity summaries
-    """
-    # Create new database session for background task
-    from ...database.connection import SessionLocal
-    db = SessionLocal()
-    
-    try:
-        logger.info(f"[Background] Starting cache rebuild for user {user_id}")
-        
-        # Get user
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            logger.error(f"[Background] User {user_id} not found")
-            return
-        
-        # Rebuild all caches
-        cache_builder = CacheBuilder(db)
-        result = cache_builder.rebuild_after_import(user)
-        
-        # Log results
-        if result["success"]:
-            logger.info(
-                f"[Background] Cache rebuild completed successfully for user {user_id} "
-                f"in {result['duration_seconds']:.2f}s"
-            )
-        else:
-            failed_ops = [
-                name for name, op in result["operations"].items() 
-                if not op.get("success", False)
-            ]
-            logger.warning(
-                f"[Background] Cache rebuild completed with {len(failed_ops)} failures "
-                f"for user {user_id}: {', '.join(failed_ops)}"
-            )
-        
-        # Commit any changes
-        db.commit()
-        
-    except Exception as e:
-        logger.error(f"[Background] Cache rebuild failed for user {user_id}: {e}", exc_info=True)
-        db.rollback()
-    finally:
-        db.close()

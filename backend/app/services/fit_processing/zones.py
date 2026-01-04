@@ -34,5 +34,4 @@ def compute_power_zones(df: pd.DataFrame, ftp: float) -> Dict[str, int]:
         return zone_seconds
 
     except Exception as e:
-        print(f"Error computing power zones: {e}")
         return {}

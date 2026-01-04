@@ -86,5 +86,4 @@ class CriticalPowerService:
             )
             
         except Exception as e:
-            print(f"Error in CP calculation: {e}")
             return None

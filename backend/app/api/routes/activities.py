@@ -7,24 +7,31 @@ from typing import List, Optional
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fitparse import FitFile
+from pydantic import BaseModel, Field
 from sqlalchemy import desc, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ...api.dependencies import get_current_active_user
 from ...core.config import settings
 from ...database.connection import get_db
-from ...database.models import Activity, User
+from ...database.models import Activity, ActivityTag, User
 from ...services.fit_processing.power_metrics import rolling_best_powers
 from ...services.fit_processing.heart_rate_metrics import compute_hr_zones
 
 router = APIRouter()
 
+@router.get("", include_in_schema=False)
 @router.get("/")
 async def get_activities(
     skip: int = Query(0, ge=0, description="Number of records to skip (for pagination)"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
     start_date: Optional[str] = Query(None, description="Filter activities after this date (ISO format)"),
     end_date: Optional[str] = Query(None, description="Filter activities before this date (ISO format)"),
+    tags: Optional[str] = Query(None, description="Comma-separated list of activity tags"),
+    tss_min: Optional[float] = Query(None, description="Minimum TSS"),
+    tss_max: Optional[float] = Query(None, description="Maximum TSS"),
+    power_min: Optional[float] = Query(None, description="Minimum average power"),
+    power_max: Optional[float] = Query(None, description="Maximum average power"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -36,7 +43,7 @@ async def get_activities(
     Returns:
         Dictionary with 'activities' array, 'total' count, and pagination info
     """
-    query = db.query(Activity).filter(Activity.user_id == current_user.id)
+    query = db.query(Activity).options(selectinload(Activity.tags)).filter(Activity.user_id == current_user.id)
 
     if start_date:
         try:
@@ -52,15 +59,33 @@ async def get_activities(
         except ValueError:
             pass
 
-    # Get total count for pagination (using optimized composite index)
+    if tags:
+        tag_list = [t.strip().lstrip('#').lower() for t in tags.split(',') if t.strip()]
+        if tag_list:
+            query = query.filter(Activity.tags.any(ActivityTag.name.in_(tag_list)))
+
+    if tss_min is not None:
+        query = query.filter(Activity.tss >= tss_min)
+
+    if tss_max is not None:
+        query = query.filter(Activity.tss <= tss_max)
+
+    if power_min is not None:
+        query = query.filter(Activity.avg_power >= power_min)
+
+    if power_max is not None:
+        query = query.filter(Activity.avg_power <= power_max)
+
+    # Get total count for pagination (avoid DISTINCT ON issues in Postgres)
     total = query.count()
 
     # Get paginated results
-    activities = query.order_by(desc(Activity.start_time)).offset(skip).limit(limit).all()
+    activities = query.order_by(desc(Activity.start_time), desc(Activity.id)).offset(skip).limit(limit).all()
 
     return {
         "activities": [{
             "id": activity.id,
+            "custom_name": activity.custom_name,
             "start_time": activity.start_time.isoformat() if activity.start_time else None,
             "file_name": activity.file_name,
             "duration": activity.duration,
@@ -78,7 +103,10 @@ async def get_activities(
             "avg_heart_rate": activity.avg_heart_rate,
             "tss": activity.tss,
             "intensity_factor": activity.intensity_factor,
-            "efficiency_factor": activity.efficiency_factor
+            "efficiency_factor": activity.efficiency_factor,
+            "notes": activity.notes,
+            "rpe": activity.rpe,
+            "tags": [tag.name for tag in activity.tags]
         } for activity in activities],
         "total": total,
         "skip": skip,
@@ -159,6 +187,7 @@ async def get_activity_detail(
 
     return {
         "id": activity.id,
+        "custom_name": activity.custom_name,
         "start_time": activity.start_time.isoformat() if activity.start_time else None,
         "file_name": activity.file_name,
         "duration": activity.duration,
@@ -185,6 +214,9 @@ async def get_activity_detail(
         "intensity_factor": activity.intensity_factor,
         "efficiency_factor": activity.efficiency_factor,
         "critical_power": activity.critical_power,
+        "notes": activity.notes,
+        "rpe": activity.rpe,
+        "tags": [tag.name for tag in activity.tags],
 
         # Zone distributions
         "power_zones": power_zones_data,
@@ -402,6 +434,115 @@ def _get_stream_path(activity: Activity) -> Optional[str]:
     base_dir = os.path.join(settings.FIT_FILES_DIR, "streams")
     candidate = os.path.join(base_dir, f"{activity.strava_activity_id or activity.id}.json")
     return candidate
+
+
+@router.delete("/{activity_id}")
+async def delete_activity(
+    activity_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete an activity and associated zones/streams."""
+    activity = db.query(Activity).filter(
+        Activity.id == activity_id,
+        Activity.user_id == current_user.id
+    ).first()
+
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    stream_path = _get_stream_path(activity)
+    try:
+        db.delete(activity)
+        db.commit()
+    except Exception as exc:  # pragma: no cover - safety net
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete activity: {exc}")
+
+    # Clean up stored stream file if present
+    if stream_path and os.path.exists(stream_path):
+        try:
+            os.remove(stream_path)
+        except OSError:
+            pass
+
+    return {"success": True, "message": "Activity deleted"}
+
+
+class ActivityUpdate(BaseModel):
+    name: Optional[str] = None
+    notes: Optional[str] = None
+    rpe: Optional[int] = Field(None, ge=1, le=10)
+    tags: Optional[List[str]] = None
+
+
+@router.patch("/{activity_id}")
+async def update_activity(
+    activity_id: int,
+    payload: ActivityUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update activity metadata (name, notes, RPE, tags)."""
+    if payload.name is not None and not str(payload.name).strip():
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+
+    activity = db.query(Activity).filter(
+        Activity.id == activity_id,
+        Activity.user_id == current_user.id
+    ).first()
+
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    if payload.name is not None:
+        activity.custom_name = str(payload.name).strip()[:255]
+
+    if payload.notes is not None:
+        cleaned_notes = str(payload.notes).strip()
+        activity.notes = cleaned_notes if cleaned_notes else None
+
+    if payload.rpe is not None:
+        activity.rpe = payload.rpe
+
+    if payload.tags is not None:
+        tag_names = []
+        for tag in payload.tags:
+            cleaned = str(tag).strip().lstrip('#').lower()
+            if cleaned:
+                tag_names.append(cleaned[:50])
+        tag_names = sorted(set(tag_names))
+
+        tag_models = []
+        if tag_names:
+            existing = db.query(ActivityTag).filter(
+                ActivityTag.user_id == current_user.id,
+                ActivityTag.name.in_(tag_names)
+            ).all()
+            existing_map = {tag.name: tag for tag in existing}
+
+            for tag_name in tag_names:
+                if tag_name in existing_map:
+                    tag_models.append(existing_map[tag_name])
+                else:
+                    new_tag = ActivityTag(user_id=current_user.id, name=tag_name)
+                    db.add(new_tag)
+                    tag_models.append(new_tag)
+
+        activity.tags = tag_models
+
+    db.commit()
+
+    return {
+        "success": True,
+        "activity": {
+            "id": activity.id,
+            "name": activity.custom_name,
+            "notes": activity.notes,
+            "rpe": activity.rpe,
+            "tags": [tag.name for tag in activity.tags]
+        }
+    }
 
 
 def _get_duration_key(seconds: int) -> str:

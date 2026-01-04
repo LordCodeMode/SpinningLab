@@ -30,7 +30,6 @@ async def get_training_load(
         cached_data = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
 
         if cached_data:
-            print(f"[Cache HIT] Training load for {days} days from cache")
             # Cache contains TrainingLoadResponse objects, convert to dicts
             return [
                 {
@@ -43,10 +42,10 @@ async def get_training_load(
                 for item in cached_data
             ]
 
-        # Cache miss - calculate and return (don't cache here, cache builder handles it)
-        print(f"[Cache MISS] Calculating training load for {days} days")
+        # Cache miss - calculate and return
         service = TrainingLoadService(db)
         training_load = service.calculate_training_load(current_user, days=days)
+        cache_manager.set(cache_key, current_user.id, training_load)
 
         return [
             {
@@ -59,7 +58,6 @@ async def get_training_load(
             for item in training_load
         ]
     except Exception as e:
-        print(f"Error getting training load: {e}")
         import traceback
         traceback.print_exc()
         return []

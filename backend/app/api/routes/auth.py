@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
@@ -14,9 +14,12 @@ from ...services.auth_service import AuthService
 from ...core.security import create_access_token
 from ...core.config import settings
 from ...api.dependencies import get_current_active_user
+from ...services.cache.cache_warmup import schedule_cache_warmup
 
-# Initialize limiter
+# Initialize limiter (disabled during tests)
 limiter = Limiter(key_func=get_remote_address)
+if settings.TESTING:
+    limiter.enabled = False
 
 # Pydantic models
 class UserCreate(BaseModel):
@@ -106,8 +109,12 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
+async def read_users_me(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user)
+):
     """Get current user information."""
+    schedule_cache_warmup(background_tasks, current_user.id)
     response = UserResponse(
         id=current_user.id,
         username=current_user.username,
@@ -120,5 +127,4 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         hr_max=current_user.hr_max or 190,
         hr_rest=current_user.hr_rest or 60
     )
-    print(f"[/me endpoint] Returning: {response.model_dump()}")
     return response

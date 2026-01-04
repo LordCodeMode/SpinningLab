@@ -1,11 +1,12 @@
 /* ============================================================
-   ACTIVITY DETAIL PAGE – COMPREHENSIVE VIEW
+   ACTIVITY DETAIL PAGE - COMPREHENSIVE VIEW
    Modern design matching the dashboard aesthetic
    ============================================================ */
 
 .activity-detail {
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: none;
+  width: 100%;
+  margin: 0;
   padding: 0 24px 40px;
   display: flex;
   flex-direction: column;
@@ -56,6 +57,22 @@
   transition: all 0.3s;
 }
 
+.activity-header--enhanced {
+  position: relative;
+  overflow: hidden;
+}
+
+.activity-header--enhanced::after {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(59, 130, 246, 0) 70%);
+  pointer-events: none;
+}
+
 .activity-header:hover {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
@@ -64,6 +81,36 @@
   margin-bottom: 28px;
   padding-bottom: 24px;
   border-bottom: 2px solid #f1f5f9;
+  display: grid;
+  gap: 16px;
+}
+
+.activity-header-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.activity-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.activity-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.activity-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .activity-title {
@@ -96,6 +143,37 @@
 .activity-meta-item svg {
   width: 16px;
   height: 16px;
+}
+
+.activity-header-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.activity-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid #e2e8f0;
+  min-width: 90px;
+}
+
+.activity-chip span {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #64748b;
+}
+
+.activity-chip strong {
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
 }
 
 .activity-stats-grid {
@@ -198,6 +276,7 @@
 
 .activity-main-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 24px;
 }
 
@@ -214,6 +293,88 @@
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   border-color: #3b82f6;
+}
+
+.activity-annotations-panel {
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.activity-annotations-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activity-annotations-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.activity-annotation-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activity-annotation-field label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.activity-annotation-input,
+.activity-annotation-textarea {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: #111827;
+  background: #f8fafc;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.activity-annotation-textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.activity-annotation-input:focus,
+.activity-annotation-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  background: #ffffff;
+}
+
+.activity-tag-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.activity-tag-preview__empty {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.activity-tag-pill {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .activity-section-title {
@@ -288,6 +449,57 @@
 
 .activity-section:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.activity-advanced-section {
+  margin-top: 24px;
+}
+
+.activity-section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.activity-advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.activity-advanced-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.activity-advanced-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+}
+
+.activity-advanced-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111827;
+  margin-top: 6px;
+}
+
+.activity-advanced-sub {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 8px;
+}
+
+.activity-advanced-meta {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 6px;
 }
 
 .activity-zones-grid {

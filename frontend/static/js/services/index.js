@@ -20,6 +20,7 @@ import chartService from './ChartService.js';
 import insightService from './InsightService.js';
 import analyticsService from './AnalyticsService.js';
 import uploadService from './UploadService.js';  // ← NEW
+import preferencesService from './preferences-service.js';
 import API from '../core/api.js';  // ← NEW: Import API
 
 // ========== NAMED EXPORTS (Classes) ==========
@@ -39,7 +40,8 @@ export {
   chartService,
   insightService,
   analyticsService,
-  uploadService  // ← NEW
+  uploadService,  // ← NEW
+  preferencesService
 };
 
 // ========== NAMESPACE EXPORT ==========
@@ -50,6 +52,7 @@ export const Services = {
   insight: insightService,
   analytics: analyticsService,
   upload: uploadService,  // ← NEW
+  preferences: preferencesService,
   api: API  // ← NEW: Add API to Services
 };
 

@@ -231,6 +231,7 @@ class StravaService:
             "strava_activity_id": activity_data["id"],
             "start_time": datetime.fromisoformat(activity_data["start_date"].replace("Z", "+00:00")),
             "file_name": f"strava_{activity_data['id']}",
+            "custom_name": activity_data.get("name"),
             # Prefer Strava moving time if present, fall back to elapsed
             "duration": activity_data.get("moving_time") or activity_data.get("elapsed_time"),
             "distance": activity_data.get("distance", 0) / 1000 if activity_data.get("distance") else None,  # Convert m to km
@@ -297,6 +298,9 @@ class StravaService:
                 ).first()
 
                 if existing:
+                    if not existing.custom_name and activity_data.get("name"):
+                        existing.custom_name = activity_data["name"]
+                        db.commit()
                     logger.debug(f"Activity {activity_data['id']} already exists, skipping")
                     skipped_count += 1
                     continue
@@ -376,6 +380,7 @@ class StravaService:
             "strava_activity_id",
             "start_time",
             "file_name",
+            "custom_name",
             "file_hash",
             "file_size",
             "file_hash",

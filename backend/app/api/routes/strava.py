@@ -1,17 +1,17 @@
 """
 Strava OAuth and Activity Sync API Routes
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import logging
 
 from ...database.connection import get_db
-from ...database.models import User
+from ...database.models import User, Activity
 from ...services.strava_service import strava_service
 from ..dependencies import get_current_user
-from ...services.cache.cache_builder import CacheBuilder
+from ...services.cache.cache_tasks import rebuild_user_caches_task
 
 logger = logging.getLogger(__name__)
 
@@ -95,12 +95,14 @@ async def get_strava_connection_status(
     if not current_user.strava_athlete_id:
         return {
             "connected": False,
-            "athlete_id": None
+            "athlete_id": None,
+            "last_sync": None
         }
 
     return {
         "connected": True,
-        "athlete_id": current_user.strava_athlete_id
+        "athlete_id": current_user.strava_athlete_id,
+        "last_sync": current_user.strava_last_sync.isoformat() if current_user.strava_last_sync else None
     }
 
 
@@ -125,6 +127,7 @@ async def disconnect_strava(
         current_user.strava_access_token = None
         current_user.strava_refresh_token = None
         current_user.strava_token_expires_at = None
+        current_user.strava_last_sync = None
 
         db.commit()
 
@@ -143,6 +146,7 @@ async def disconnect_strava(
 
 @router.post("/sync")
 async def sync_strava_activities(
+    background_tasks: BackgroundTasks,
     limit: Optional[int] = Query(None, description="Maximum number of activities to import"),
     after: Optional[str] = Query(None, description="Only import activities after this date (ISO format)"),
     db: Session = Depends(get_db),
@@ -160,7 +164,7 @@ async def sync_strava_activities(
         )
 
     try:
-        # Parse after date if provided
+        # Parse after date if provided, otherwise use last sync for incremental imports
         after_date = None
         if after:
             try:
@@ -170,6 +174,16 @@ async def sync_strava_activities(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid date format. Use ISO format (YYYY-MM-DD)"
                 )
+        elif current_user.strava_last_sync:
+            after_date = current_user.strava_last_sync
+
+        if after_date is None:
+            latest = db.query(Activity.start_time).filter(
+                Activity.user_id == current_user.id,
+                Activity.strava_activity_id.isnot(None)
+            ).order_by(Activity.start_time.desc()).first()
+            if latest and latest[0]:
+                after_date = latest[0] - timedelta(seconds=1)
 
         # Import activities
         logger.info(f"Starting Strava sync for user {current_user.id}")
@@ -180,16 +194,19 @@ async def sync_strava_activities(
             limit=limit
         )
 
+        current_user.strava_last_sync = datetime.now(timezone.utc)
+        db.commit()
+
         # Rebuild caches if activities were imported
         if result["imported"] > 0:
-            logger.info(f"Rebuilding caches after importing {result['imported']} activities")
-            cache_builder = CacheBuilder(db)
-            cache_builder.rebuild_after_import(current_user)
+            logger.info("Triggering cache rebuild after importing %s activities", result["imported"])
+            background_tasks.add_task(rebuild_user_caches_task, current_user.id, "fast")
 
         return {
             "success": True,
             "message": f"Imported {result['imported']} activities from Strava",
-            "stats": result
+            "stats": result,
+            "cache_rebuild_triggered": result["imported"] > 0
         }
 
     except ValueError as e:

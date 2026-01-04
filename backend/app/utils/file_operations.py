@@ -8,7 +8,6 @@ def compute_file_hash(file_path: str) -> Optional[str]:
         with open(file_path, "rb") as f:
             return hashlib.md5(f.read()).hexdigest()
     except Exception as e:
-        print(f"Error computing hash for {file_path}: {e}")
         return None
 
 def ensure_directory_exists(directory: str) -> None:

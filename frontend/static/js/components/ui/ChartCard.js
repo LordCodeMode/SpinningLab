@@ -216,7 +216,7 @@ export function ChartZoomControls({
   onZoomOut = 'handleZoomOut',
   onReset = 'handleZoomReset',
   customClass = ''
-}) {
+} = {}) {
   return `
     <div class="chart-zoom ${customClass}">
       <button class="chart-zoom__btn" onclick="${onZoomIn}()" title="Zoom In">

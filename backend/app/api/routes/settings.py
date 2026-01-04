@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ...database.connection import get_db
@@ -9,6 +9,7 @@ router = APIRouter()
 
 ALLOWED_SETTING_FIELDS = {"ftp", "weight", "hr_max", "hr_rest", "lthr", "name"}
 MAX_NAME_LENGTH = 100
+NUMERIC_POSITIVE_FIELDS = {"ftp", "weight", "hr_max", "hr_rest", "lthr"}
 
 
 def serialize_user_settings(user: User) -> dict:
@@ -40,6 +41,16 @@ def sanitize_name(value):
     return sanitized
 
 
+def validate_positive_numeric(field: str, value):
+    if value is None:
+        return value
+    if not isinstance(value, (int, float)):
+        raise HTTPException(status_code=400, detail=f"{field} must be a number")
+    if value <= 0:
+        raise HTTPException(status_code=400, detail=f"{field} must be greater than 0")
+    return value
+
+
 @router.get("/")
 async def get_user_settings(
     current_user: User = Depends(get_current_active_user)
@@ -50,10 +61,12 @@ async def get_user_settings(
 @router.put("/")
 async def update_user_settings(
     settings: dict,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Update user settings."""
+    needs_rebuild = False
     for key, value in settings.items():
         if key not in ALLOWED_SETTING_FIELDS:
             continue
@@ -62,10 +75,24 @@ async def update_user_settings(
             setattr(current_user, "name", sanitize_name(value))
             continue
 
+        if key in NUMERIC_POSITIVE_FIELDS:
+            value = validate_positive_numeric(key, value)
+
         if hasattr(current_user, key) and value is not None:
+            current_value = getattr(current_user, key)
+            if key in {"ftp", "weight", "hr_max", "hr_rest", "lthr"} and current_value != value:
+                needs_rebuild = True
             setattr(current_user, key, value)
 
     db.commit()
     db.refresh(current_user)
+
+    if needs_rebuild:
+        try:
+            from ...services.cache.cache_tasks import rebuild_user_caches_task
+            if background_tasks is not None:
+                background_tasks.add_task(rebuild_user_caches_task, current_user.id)
+        except Exception:
+            pass
 
     return serialize_user_settings(current_user)

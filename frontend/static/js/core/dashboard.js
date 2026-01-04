@@ -7,7 +7,6 @@ import CONFIG from '/static/js/core/config.js';
 import { AuthAPI, API, AnalysisAPI } from '/static/js/core/api.js';
 import { notify, setLoading } from '/static/js/core/utils.js';
 import { router } from '/static/js/core/router.js';
-import overviewPage from '../pages/overview/index.js';
 
 // ⭐ ADD THIS CRITICAL IMPORT - Loads all services and makes them global
 import Services from '/static/js/services/index.js';
@@ -17,20 +16,24 @@ const TOKEN_STORAGE_KEY = CONFIG.TOKEN_STORAGE_KEY || 'training_dashboard_token'
 const DISPLAY_NAME_STORAGE_KEY = CONFIG.DISPLAY_NAME_STORAGE_KEY || 'training_dashboard_display_name';
 
 const PAGE_DEFINITIONS = {
-  overview: { module: overviewPage },
-  activities: { path: '/static/js/pages/activities/index.js' },
-  activity: { path: '/static/js/pages/activity/index.js' },
-  settings: { path: '/static/js/pages/settings/index.js' },
-  upload: { path: '/static/js/pages/upload/index.js' },
-  'training-load': { path: '/static/js/pages/training-load/index.js' },
-  'power-curve': { path: '/static/js/pages/power-curve/index.js' },
-  'critical-power': { path: '/static/js/pages/critical-power/index.js' },
-  efficiency: { path: '/static/js/pages/efficiency/index.js' },
-  'best-powers': { path: '/static/js/pages/best-powers/index.js' },
-  'fitness-state': { path: '/static/js/pages/fitness-state/index.js' },
-  zones: { path: '/static/js/pages/zones/index.js' },
-  vo2max: { path: '/static/js/pages/vo2max/index.js' },
-  'hr-zones': { path: '/static/js/pages/hr-zones/index.js' }
+  overview: { path: '/static/js/pages/overview/react.js' },
+  activities: { path: '/static/js/pages/activities/react.js' },
+  activity: { path: '/static/js/pages/activity/react.js' },
+  settings: { path: '/static/js/pages/settings/react.js' },
+  upload: { path: '/static/js/pages/upload/react.js' },
+  'training-load': { path: '/static/js/pages/training-load/react.js' },
+  comparisons: { path: '/static/js/pages/comparisons/react.js' },
+  'power-curve': { path: '/static/js/pages/power-curve/react.js' },
+  'critical-power': { path: '/static/js/pages/critical-power/react.js' },
+  efficiency: { path: '/static/js/pages/efficiency/react.js' },
+  'best-powers': { path: '/static/js/pages/best-powers/react.js' },
+  zones: { path: '/static/js/pages/zones/react.js' },
+  vo2max: { path: '/static/js/pages/vo2max/react.js' },
+  'hr-zones': { path: '/static/js/pages/hr-zones/react.js' },
+  calendar: { path: '/static/js/pages/calendar/react.js' },
+  'workout-library': { path: '/static/js/pages/workout-library/react.js' },
+  'workout-builder': { path: '/static/js/pages/workout-builder/react.js' },
+  'training-plans': { path: '/static/js/pages/training-plans/react.js' }
 };
 
 const FALLBACK_MESSAGE = 'This page is not available yet. Check back soon!';
@@ -801,19 +804,21 @@ class Dashboard {
 // Initialize dashboard when DOM is ready
 let dashboardInstance = null;
 
-document.addEventListener('DOMContentLoaded', async () => {
+export const initDashboard = async () => {
+  if (dashboardInstance) return dashboardInstance;
+
   console.log('[Dashboard] ========================================');
-  console.log('[Dashboard] DOM LOADED - STARTING INITIALIZATION');
+  console.log('[Dashboard] DOM READY - STARTING INITIALIZATION');
   console.log('[Dashboard] ========================================');
-  
+
   dashboardInstance = new Dashboard();
   await dashboardInstance.init();
-  
+
   // Make available globally for debugging and page access
   window.dashboard = dashboardInstance;
   window.API = API;
   window.AnalysisAPI = AnalysisAPI;
-  
+
   console.log('[Dashboard] ========================================');
   console.log('[Dashboard] Debug helpers available:');
   console.log('  - window.dashboard (Dashboard instance)');
@@ -826,7 +831,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('[Dashboard] Services loaded:', Services);
   console.log('[Dashboard] window.Services available:', !!window.Services);
   console.log('[Dashboard] ========================================');
-});
+
+  return dashboardInstance;
+};
+
+if (!window.__DASHBOARD_MANUAL_INIT__) {
+  document.addEventListener('DOMContentLoaded', () => {
+    initDashboard();
+  });
+}
 
 // Handle page visibility changes
 document.addEventListener('visibilitychange', () => {

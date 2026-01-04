@@ -237,10 +237,15 @@ class UploadService {
     while (Date.now() - start < timeoutMs) {
       try {
         const status = await API.getCacheStatus();
-        const builtAt = status?.cache_built_at ? Date.parse(status.cache_built_at) : null;
+        const importBuiltAt = status?.cache_built_after_import
+          ? Date.parse(status.cache_built_after_import)
+          : null;
+        const fullBuiltAt = status?.cache_built_at ? Date.parse(status.cache_built_at) : null;
+        const builtAt = importBuiltAt || fullBuiltAt;
 
         if (builtAt && builtAt >= targetTime) {
-          console.log('[Upload] Cache rebuild completed at', status.cache_built_at);
+          const label = importBuiltAt ? status.cache_built_after_import : status.cache_built_at;
+          console.log('[Upload] Cache rebuild completed at', label);
           return true;
         }
       } catch (err) {

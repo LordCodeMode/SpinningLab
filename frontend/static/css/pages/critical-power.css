@@ -8,8 +8,31 @@
     gap: 24px;
   }
   
-  .cp-header {
+.cp-header {
     margin-bottom: 12px;
+    padding-bottom: 16px;
+    position: relative;
+  }
+  
+.cp-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(124, 58, 237, 0.15) 0%, rgba(124, 58, 237, 0.12) 65%, rgba(124, 58, 237, 0.05) 100%);
+  }
+  
+  .cp-header::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 160px;
+    height: 3px;
+    background: linear-gradient(90deg, #7c3aed 0%, #a855f7 100%);
+    border-radius: 2px;
   }
   
   .cp-header h1 {
@@ -37,16 +60,21 @@
     gap: 16px;
   }
   
-  .cp-metric-card {
+.cp-metric-card {
     background: #ffffff;
     border: 2px solid #d1d5db;
     border-radius: var(--radius, 12px);
     padding: 24px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
     position: relative;
     overflow: hidden;
-    cursor: help;
+    cursor: default;
+  }
+  
+  .cp-metric-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
   }
   
   .cp-metric-card::before {
@@ -59,17 +87,6 @@
     background: radial-gradient(circle at center, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
     border-radius: 50%;
     transform: translate(40%, -40%);
-    transition: all 0.3s ease;
-  }
-  
-  .cp-metric-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 28px rgba(139, 92, 246, 0.2), 0 0 0 1px #8b5cf6;
-    border-color: #8b5cf6;
-  }
-  
-  .cp-metric-card:hover::before {
-    transform: translate(40%, -40%) scale(1.2);
   }
   
   .cp-metric-header-row {
@@ -91,7 +108,7 @@
   }
   
   .cp-metric-card:hover .cp-metric-icon {
-    transform: scale(1.1) rotate(-5deg);
+    transform: none;
   }
   
   .cp-metric-icon.purple {
@@ -125,13 +142,6 @@
     height: 20px;
     color: var(--text-secondary);
     opacity: 0.6;
-    transition: all 0.2s ease;
-    cursor: help;
-  }
-  
-  .cp-metric-card:hover .cp-metric-info-icon {
-    opacity: 1;
-    color: #8b5cf6;
   }
   
   .cp-metric-label {
@@ -166,12 +176,12 @@
     border-radius: var(--radius, 12px);
     padding: 28px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   
   .cp-chart-card:hover {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    border-color: #8b5cf6;
+    border-color: #cbd5e1;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
   }
   
   .cp-chart-header {
@@ -197,11 +207,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: all 0.3s ease;
-  }
-  
-  .cp-chart-card:hover .cp-chart-icon {
-    transform: scale(1.05);
+    transition: none;
   }
   
   .cp-chart-icon svg {
@@ -297,12 +303,12 @@
     border: 2px solid #e5e7eb;
     border-radius: 12px;
     padding: 24px;
-    transition: all 0.3s ease;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   
   .cp-info-card:hover {
-    border-color: #8b5cf6;
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+    border-color: #cbd5e1;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   }
   
   .cp-info-header {
@@ -411,13 +417,12 @@
     border: 2px solid #e5e7eb;
     border-radius: 12px;
     padding: 18px;
-    transition: all 0.3s ease;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   
   .cp-insight-card:hover {
-    border-color: #8b5cf6;
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12);
-    transform: translateY(-2px);
+    border-color: #cbd5e1;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   }
   
   .cp-insight-icon {
@@ -462,12 +467,12 @@
     display: flex;
     gap: 20px;
     align-items: flex-start;
-    transition: all 0.3s ease;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   
   .cp-reality-card:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    border-color: #cbd5e1;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   }
   
   .cp-reality-icon {

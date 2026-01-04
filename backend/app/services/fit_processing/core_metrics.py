@@ -32,5 +32,4 @@ def extract_core_metrics(filepath):
         }
 
     except Exception as e:
-        print(f"Error extracting core metrics from {filepath}: {e}")
         return None

@@ -15,6 +15,12 @@ from shared.constants.training_zones import POWER_ZONES, HEART_RATE_ZONES
 router = APIRouter()
 
 
+def _serialize_cached(value):
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    return value
+
+
 @router.get("/power")
 async def get_power_zone_distribution(
     days: Optional[int] = Query(None, ge=1, le=365, description="Number of days to analyze"),
@@ -25,6 +31,13 @@ async def get_power_zone_distribution(
     Get power zone distribution (time spent in each zone).
     """
     try:
+        from ....services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+        cache_key = "power_zones_alld" if not days else f"power_zones_{days}d"
+        cached = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
+        if cached:
+            return _serialize_cached(cached)
+
         # Query power zones
         query = db.query(
             PowerZone.zone_label,
@@ -63,13 +76,14 @@ async def get_power_zone_distribution(
                 "watt_range": watt_range
             })
 
-        return {
+        response = {
             "zone_data": zone_data,
             "total_time": int(total_time),
             "period_days": days
         }
+        cache_manager.set(cache_key, current_user.id, response)
+        return response
     except Exception as e:
-        print(f"Error getting power zones: {e}")
         return {
             "zone_data": [],
             "total_time": 0,
@@ -87,6 +101,13 @@ async def get_hr_zone_distribution(
     Get heart rate zone distribution.
     """
     try:
+        from ....services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+        cache_key = "hr_zones_alld" if not days else f"hr_zones_{days}d"
+        cached = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
+        if cached:
+            return _serialize_cached(cached)
+
         query = db.query(
             HrZone.zone_label,
             func.sum(HrZone.seconds_in_zone).label('total_seconds')
@@ -121,13 +142,14 @@ async def get_hr_zone_distribution(
                 "bpm_range": bpm_range
             })
 
-        return {
+        response = {
             "zone_data": zone_data,
             "total_time": int(total_time),
             "period_days": days
         }
+        cache_manager.set(cache_key, current_user.id, response)
+        return response
     except Exception as e:
-        print(f"Error getting HR zones: {e}")
         return {
             "zone_data": [],
             "total_time": 0,
@@ -146,11 +168,18 @@ async def get_zone_balance(
     Get zone balance analysis comparing actual vs target distribution.
     """
     try:
+        from ....services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+        cache_key = f"zone_balance_{model}_{weeks}w"
+        cached = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
+        if cached:
+            return cached
+
         service = ZoneBalanceService(db)
         zone_balance = service.analyze_zone_balance(current_user, model, weeks)
         recommendations = service.get_recommendations(zone_balance, model)
 
-        return {
+        response = {
             "model": model,
             "weeks": weeks,
             "zone_balance": [
@@ -166,8 +195,9 @@ async def get_zone_balance(
             ],
             "recommendations": recommendations
         }
+        cache_manager.set(cache_key, current_user.id, response)
+        return response
     except Exception as e:
-        print(f"Error getting zone balance: {e}")
         return {
             "model": model,
             "weeks": weeks,

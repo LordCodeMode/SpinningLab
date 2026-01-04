@@ -13,6 +13,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+# Ensure testing mode is active before app imports
+os.environ.setdefault("TESTING", "true")
+
 # Add backend directory to path
 backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
@@ -99,7 +102,7 @@ def test_user(test_db, test_user_data):
 
 
 @pytest.fixture
-def auth_headers(client, test_user_data):
+def auth_headers(client, test_user, test_user_data):
     """Get authentication headers with valid JWT token."""
     # Login to get token
     response = client.post(

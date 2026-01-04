@@ -85,7 +85,7 @@ class FitImportService:
                             )
                             self.db.add(power_zone)
                 except Exception as e:
-                    print(f"Error processing power zones: {e}")
+                    pass  # Error computing power zones, skip
 
             # Process HR zones
             # OPTIMIZED: Pass DataFrame instead of re-parsing file
@@ -102,7 +102,7 @@ class FitImportService:
                                 )
                                 self.db.add(hr_zone)
                 except Exception as e:
-                    print(f"Error processing HR zones: {e}")
+                    pass  # Error computing HR zones, skip
 
             self.db.commit()
 

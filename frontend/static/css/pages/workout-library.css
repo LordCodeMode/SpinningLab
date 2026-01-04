@@ -1,0 +1,69 @@
+/* ======================
+   WORKOUT LIBRARY PAGE
+   ====================== */
+
+.workout-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.workout-library-filters {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+  align-items: center;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.workout-library-hero {
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(255, 255, 255, 0.9) 55%);
+  box-shadow: var(--shadow-sm);
+}
+
+.workout-library-hero__underline {
+  width: 180px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb 0%, rgba(37, 99, 235, 0.25) 100%);
+  margin: var(--space-2) 0 var(--space-2);
+}
+
+.workout-library-filters .form-input {
+  min-width: 240px;
+  flex: 1;
+}
+
+.workout-library-filters .form-select {
+  min-width: 180px;
+}
+
+.workout-library-empty {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--color-text-tertiary);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-soft);
+}
+
+@media (max-width: 768px) {
+  .workout-library-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workout-library-filters {
+    padding: var(--space-3);
+  }
+}

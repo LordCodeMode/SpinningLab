@@ -4,8 +4,8 @@
 
 /* Main Dashboard Container */
 .tl-dashboard {
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: none;
+  width: 100%;
   padding: 0 24px 40px;
   display: flex;
   flex-direction: column;
@@ -18,10 +18,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 0;
-  border-bottom: 2px solid #e5e7eb;
+  padding: 20px 0 18px;
+  position: relative;
   flex-wrap: wrap;
   gap: 16px;
+}
+
+.tl-topbar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: #d4f4ff;
+}
+
+.tl-topbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 120px;
+  height: 3px;
+  background: linear-gradient(90deg, #0ea5e9 0%, #22c55e 100%);
+  border-radius: 2px;
 }
 
 .tl-topbar-left {
@@ -32,8 +53,9 @@
   font-size: 32px;
   font-weight: 800;
   margin: 0 0 8px;
-  color: #111827;
+  color: #0f172a;
   letter-spacing: -0.02em;
+  font-family: var(--font-family-display, 'Inter', sans-serif);
 }
 
 .tl-breadcrumb {
@@ -55,38 +77,38 @@
 }
 
 .tl-badge-muted {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--color-brand-light, #f3f4f6);
+  color: var(--color-brand, #2563eb);
 }
 
 .tl-pill--success {
-  background: rgba(16, 185, 129, 0.15);
-  color: #047857;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: var(--state-fresh-bg, rgba(16, 185, 129, 0.15));
+  color: var(--state-fresh, #047857);
+  border: 1px solid var(--state-fresh-border, rgba(16, 185, 129, 0.3));
 }
 
 .tl-pill--warning {
-  background: rgba(245, 158, 11, 0.15);
-  color: #92400e;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: var(--state-warning-bg, rgba(245, 158, 11, 0.15));
+  color: var(--state-warning, #92400e);
+  border: 1px solid var(--state-warning-border, rgba(245, 158, 11, 0.3));
 }
 
 .tl-pill--danger {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--state-fatigued-bg, rgba(239, 68, 68, 0.15));
+  color: var(--state-fatigued, #b91c1c);
+  border: 1px solid var(--state-fatigued-border, rgba(239, 68, 68, 0.3));
 }
 
 .tl-pill--primary {
-  background: rgba(59, 130, 246, 0.15);
-  color: #1e40af;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: var(--state-balanced-bg, rgba(59, 130, 246, 0.15));
+  color: var(--state-balanced, #1e40af);
+  border: 1px solid var(--state-balanced-border, rgba(59, 130, 246, 0.3));
 }
 
 .tl-topbar-controls {
   display: flex;
   gap: 6px;
-  background: #f9fafb;
+  background: #e0f7ff;
   padding: 4px;
   border-radius: 12px;
 }
@@ -104,14 +126,14 @@
 }
 
 .tl-range-pill:hover {
-  background: #ffffff;
-  color: #3b82f6;
+  background: #f0fdf9;
+  color: #0ea5e9;
 }
 
 .tl-range-pill.active {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #22c55e 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
 }
 
 /* ================== MAIN GRID =================== */
@@ -152,7 +174,7 @@
 }
 
 .tl-gauge-widget {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  background: var(--gradient-card, linear-gradient(135deg, #ffffff 0%, #f8fafc 100%));
   border: 2px solid #e2e8f0;
   border-radius: 16px;
   padding: 24px;
@@ -163,7 +185,7 @@
 .tl-gauge-widget:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  border-color: #3b82f6;
+  border-color: var(--color-border-hover, #3b82f6);
 }
 
 .tl-widget-header {
@@ -208,7 +230,7 @@
   font-size: 48px;
   font-weight: 900;
   line-height: 1;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  background: var(--gradient-hero, linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -247,7 +269,7 @@
 }
 
 .tl-stat-mini:hover {
-  border-color: #3b82f6;
+  border-color: var(--color-border-hover, #3b82f6);
   transform: translateY(-2px);
 }
 
@@ -284,7 +306,7 @@
 
 .tl-chart-widget:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  border-color: #3b82f6;
+  border-color: var(--color-border-hover, #3b82f6);
 }
 
 .tl-chart-legend {
@@ -357,9 +379,12 @@
   border-color: var(--tile-color);
 }
 
-.tl-metric-tile[data-color="blue"] { --tile-color: #3b82f6; }
-.tl-metric-tile[data-color="orange"] { --tile-color: #f59e0b; }
-.tl-metric-tile[data-color="green"] { --tile-color: #10b981; }
+/* Semantic color mapping for training load metrics */
+.tl-metric-tile[data-color="blue"] { --tile-color: var(--metric-load, #3b82f6); }
+.tl-metric-tile[data-color="amber"] { --tile-color: var(--metric-power, #f59e0b); }
+.tl-metric-tile[data-color="orange"] { --tile-color: var(--metric-power, #f59e0b); }
+.tl-metric-tile[data-color="purple"] { --tile-color: var(--metric-endurance, #8b5cf6); }
+.tl-metric-tile[data-color="green"] { --tile-color: var(--metric-recovery, #10b981); }
 
 .tl-metric-tile-header {
   display: flex;
@@ -433,7 +458,7 @@
 }
 
 .tl-week-card {
-  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  background: var(--gradient-card, linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%));
   border: 1.5px solid #e5e7eb;
   border-radius: 12px;
   padding: 16px;
@@ -444,7 +469,7 @@
 .tl-week-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-  border-color: #3b82f6;
+  border-color: var(--color-border-hover, #3b82f6);
 }
 
 .tl-week-label {
@@ -473,13 +498,13 @@
 }
 
 .tl-week-delta.positive {
-  background: rgba(16, 185, 129, 0.15);
-  color: #047857;
+  background: var(--state-fresh-bg, rgba(16, 185, 129, 0.15));
+  color: var(--state-fresh, #047857);
 }
 
 .tl-week-delta.negative {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
+  background: var(--state-fatigued-bg, rgba(239, 68, 68, 0.15));
+  color: var(--state-fatigued, #b91c1c);
 }
 
 /* Insights Grid */
@@ -538,6 +563,39 @@
   color: #6b7280;
   line-height: 1.5;
   margin: 0;
+}
+
+.tl-polarized-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e5e7eb;
+  margin-top: 10px;
+}
+
+.tl-polarized-bar span {
+  display: block;
+  height: 100%;
+}
+
+.tl-polarized-bar__low {
+  background: #22c55e;
+}
+
+.tl-polarized-bar__mid {
+  background: #f59e0b;
+}
+
+.tl-polarized-bar__high {
+  background: #ef4444;
+}
+
+.tl-polarized-score {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
 }
 
 /* Empty State */

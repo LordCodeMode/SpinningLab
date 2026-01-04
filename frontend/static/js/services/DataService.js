@@ -44,6 +44,12 @@ class DataService {
       'best_power*',
       'rider_profile*',
       'zone_balance*',
+      'comparisons*',
+      'ftp_prediction*',
+      'insights*',
+      'weekly_summary*',
+      'polarized_distribution*',
+      'advanced_metrics*',
       'activity_summary*',
       'activities*',
       'user_settings'
@@ -91,6 +97,28 @@ class DataService {
 
     try {
       const ranges = [30, 90, 180];
+      const powerCurveRanges = [30, 90, 180, 365];
+      const formatDateForApi = (date) => {
+        const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+        return local.toISOString().slice(0, 10);
+      };
+      const buildRangeDates = (days) => {
+        const endDate = new Date();
+        let startDate = null;
+        if (days === 365) {
+          startDate = new Date(endDate.getFullYear(), 0, 1);
+        } else {
+          startDate = new Date(endDate);
+          startDate.setDate(endDate.getDate() - (days - 1));
+        }
+        return {
+          start: formatDateForApi(startDate),
+          end: formatDateForApi(endDate)
+        };
+      };
+
+      const settings = await this.getSettings({ forceRefresh }).catch(() => null);
+      const hasWeight = settings && Number(settings.weight) > 0;
 
       const prefetchPromises = [
         ...ranges.map(days =>
@@ -99,11 +127,23 @@ class DataService {
         ...[90, 180, 365].map(days =>
           this.getEfficiency({ days, forceRefresh }).catch(e => console.warn(`Prefetch efficiency (${days}) failed:`, e))
         ),
-        this.getPowerCurve({ weighted: false, forceRefresh }).catch(e => console.warn('Prefetch power curve failed:', e)),
-        this.getPowerCurve({ weighted: true, forceRefresh }).catch(e => console.warn('Prefetch power curve (W/kg) failed:', e)),
+        ...powerCurveRanges.map(days => {
+          const { start, end } = buildRangeDates(days);
+          return this.getPowerCurve({ weighted: false, start, end, forceRefresh })
+            .catch(e => console.warn(`Prefetch power curve (${days}d) failed:`, e));
+        }),
+        ...(
+          hasWeight
+            ? powerCurveRanges.map(days => {
+              const { start, end } = buildRangeDates(days);
+              return this.getPowerCurve({ weighted: true, start, end, forceRefresh })
+                .catch(e => console.warn(`Prefetch power curve (${days}d, W/kg) failed:`, e));
+            })
+            : []
+        ),
         this.getFitnessState({ forceRefresh }).catch(e => console.warn('Prefetch fitness state failed:', e)),
         this.getActivities({ limit: 20, skip: 0, forceRefresh }).catch(e => console.warn('Prefetch activities failed:', e)),
-        this.getSettings({ forceRefresh }).catch(e => console.warn('Prefetch settings failed:', e))
+        Promise.resolve(settings)
       ];
 
       await Promise.allSettled(prefetchPromises);
@@ -157,6 +197,179 @@ class DataService {
       return data;
     } catch (error) {
       console.error('[DataService] Error fetching training load:', error);
+      throw error;
+    }
+  }
+
+  // ========== COMPARISONS ==========
+  async getComparisons({
+    startDate = null,
+    endDate = null,
+    compareMode = 'previous',
+    yearCurrent = null,
+    yearPrevious = null,
+    months = null,
+    years = null,
+    includeYearCurve = true,
+    includePrTimeline = true,
+    includeFtpProgression = true,
+    includeSeasonalVolume = true,
+    forceRefresh = false
+  } = {}) {
+    const cacheKeyParts = [
+      'comparisons_v2',
+      startDate || 'default',
+      endDate || 'default',
+      compareMode,
+      yearCurrent || 'auto',
+      yearPrevious || 'auto',
+      months || 'auto',
+      years || 'auto',
+      includeYearCurve ? 'yc1' : 'yc0',
+      includePrTimeline ? 'pr1' : 'pr0',
+      includeFtpProgression ? 'ftp1' : 'ftp0',
+      includeSeasonalVolume ? 'sv1' : 'sv0'
+    ];
+    const cacheKey = cacheKeyParts.join('_');
+
+    if (!forceRefresh) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) {
+        console.log('[DataService] Using cached comparisons data');
+        return cached;
+      }
+    }
+
+    try {
+      const params = {
+        compare_mode: compareMode
+      };
+      if (startDate && endDate) {
+        params.start_date = startDate;
+        params.end_date = endDate;
+      }
+      if (yearCurrent) params.year_current = yearCurrent;
+      if (yearPrevious) params.year_previous = yearPrevious;
+      if (months) params.months = months;
+      if (years) params.years = years;
+      params.include_year_curve = includeYearCurve;
+      params.include_pr_timeline = includePrTimeline;
+      params.include_ftp_progression = includeFtpProgression;
+      params.include_seasonal_volume = includeSeasonalVolume;
+
+      const data = await AnalysisAPI.getComparisons(params);
+      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
+      return data;
+    } catch (error) {
+      console.error('[DataService] Error fetching comparisons:', error);
+      throw error;
+    }
+  }
+
+  // ========== FTP PREDICTION ==========
+  async getFtpPrediction({ days = 90, forceRefresh = false } = {}) {
+    const cacheKey = `ftp_prediction_${days}`;
+
+    if (!forceRefresh) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) return cached;
+    }
+
+    try {
+      const data = await AnalysisAPI.predictFtp({ days });
+      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
+      return data;
+    } catch (error) {
+      console.error('[DataService] Error fetching FTP prediction:', error);
+      throw error;
+    }
+  }
+
+  // ========== INSIGHTS ==========
+  async getInsights({ days = 14, forceRefresh = false } = {}) {
+    const cacheKey = `insights_${days}`;
+
+    if (!forceRefresh) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) return cached;
+    }
+
+    try {
+      const data = await AnalysisAPI.getInsights({ days });
+      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
+      return data;
+    } catch (error) {
+      console.error('[DataService] Error fetching insights:', error);
+      throw error;
+    }
+  }
+
+  async getWeeklySummary({ days = 7, forceRefresh = false } = {}) {
+    const cacheKey = `weekly_summary_${days}`;
+
+    if (!forceRefresh) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) return cached;
+    }
+
+    try {
+      const data = await AnalysisAPI.getWeeklySummary({ days });
+      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
+      return data;
+    } catch (error) {
+      console.error('[DataService] Error fetching weekly summary:', error);
+      throw error;
+    }
+  }
+
+  // ========== ADVANCED METRICS ==========
+  async getAdvancedMetrics(activityId, { forceRefresh = false } = {}) {
+    const cacheKey = `advanced_metrics_${activityId}`;
+    if (!activityId) return null;
+
+    if (!forceRefresh) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) return cached;
+    }
+
+    try {
+      const requests = [
+        AnalysisAPI.getFatigueResistance({ activity_id: activityId }),
+        AnalysisAPI.getWPrimeBalance({ activity_id: activityId }),
+        AnalysisAPI.getVariabilityIndex({ activity_id: activityId }),
+        AnalysisAPI.getDecoupling({ activity_id: activityId })
+      ];
+
+      const [fatigue, wPrime, variability, decoupling] = await Promise.allSettled(requests);
+      const data = {
+        fatigueResistance: fatigue.status === 'fulfilled' ? fatigue.value : null,
+        wPrimeBalance: wPrime.status === 'fulfilled' ? wPrime.value : null,
+        variabilityIndex: variability.status === 'fulfilled' ? variability.value : null,
+        decoupling: decoupling.status === 'fulfilled' ? decoupling.value : null
+      };
+
+      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
+      return data;
+    } catch (error) {
+      console.error('[DataService] Error fetching advanced metrics:', error);
+      throw error;
+    }
+  }
+
+  async getPolarizedDistribution({ days = 30, forceRefresh = false } = {}) {
+    const cacheKey = `polarized_distribution_${days}`;
+
+    if (!forceRefresh) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) return cached;
+    }
+
+    try {
+      const data = await AnalysisAPI.getPolarizedDistribution({ days });
+      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
+      return data;
+    } catch (error) {
+      console.error('[DataService] Error fetching polarized distribution:', error);
       throw error;
     }
   }
@@ -252,7 +465,11 @@ class DataService {
         console.log('[DataService] Using cached power curve');
         const normalizedCache = this.normalizePowerCurveData(cached, { weighted });
         if (normalizedCache !== cached) {
-          this.cache.set(cacheKey, normalizedCache, CONFIG.CACHE_DURATION);
+          this.cache.set(
+            cacheKey,
+            normalizedCache,
+            CONFIG.POWER_CURVE_CACHE_DURATION || CONFIG.CACHE_DURATION
+          );
         }
         return normalizedCache;
       }
@@ -270,8 +487,12 @@ class DataService {
       const data = await AnalysisAPI.getPowerCurve(params);
       const normalized = this.normalizePowerCurveData(data, { weighted });
       
-      // Cache the result
-      this.cache.set(cacheKey, normalized, CONFIG.CACHE_DURATION);
+      // Cache the result (power curve is expensive; cache longer)
+      this.cache.set(
+        cacheKey,
+        normalized,
+        CONFIG.POWER_CURVE_CACHE_DURATION || CONFIG.CACHE_DURATION
+      );
       
       return normalized;
     } catch (error) {
@@ -480,7 +701,8 @@ class DataService {
    * @returns {Promise<Object>} Power zones data
    */
   async getPowerZones({ days = CONFIG.DEFAULT_DAYS.trainingLoad, forceRefresh = false } = {}) {
-    const cacheKey = `power_zones_${days}`;
+    const parsedDays = days === 'all' ? null : days;
+    const cacheKey = `power_zones_${parsedDays ?? 'all'}`;
     
     if (!forceRefresh) {
       const cached = this.cache.get(cacheKey);
@@ -491,8 +713,9 @@ class DataService {
     }
     
     try {
-      console.log(`[DataService] Fetching power zones (${days} days)...`);
-      const data = await AnalysisAPI.getPowerZones({ days });
+      console.log(`[DataService] Fetching power zones (${parsedDays ?? 'all'} days)...`);
+      const params = (parsedDays === null || parsedDays === undefined) ? {} : { days: parsedDays };
+      const data = await AnalysisAPI.getPowerZones(params);
       
       // Cache the result
       this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
@@ -514,7 +737,8 @@ class DataService {
    * @returns {Promise<Object>} HR zones data
    */
   async getHRZones({ days = CONFIG.DEFAULT_DAYS.hrZones, forceRefresh = false } = {}) {
-    const cacheKey = `hr_zones_${days}`;
+    const parsedDays = days === 'all' ? null : days;
+    const cacheKey = `hr_zones_${parsedDays ?? 'all'}`;
     
     if (!forceRefresh) {
       const cached = this.cache.get(cacheKey);
@@ -525,8 +749,9 @@ class DataService {
     }
     
     try {
-      console.log(`[DataService] Fetching HR zones (${days} days)...`);
-      const data = await AnalysisAPI.getHRZones({ days });
+      console.log(`[DataService] Fetching HR zones (${parsedDays ?? 'all'} days)...`);
+      const params = (parsedDays === null || parsedDays === undefined) ? {} : { days: parsedDays };
+      const data = await AnalysisAPI.getHRZones(params);
       
       // Cache the result
       this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
@@ -546,8 +771,9 @@ class DataService {
    * @param {boolean} options.forceRefresh - Skip cache
    * @returns {Promise<Object>} Best power values
    */
-  async getBestPowerValues({ forceRefresh = false } = {}) {
-    const cacheKey = 'best_power_values';
+  async getBestPowerValues({ forceRefresh = false, days, start, end } = {}) {
+    const rangeKey = days ? `days_${days}` : (start || end ? `custom_${start || 'none'}_${end || 'none'}` : 'all');
+    const cacheKey = `best_power_values_${rangeKey}`;
     
     if (!forceRefresh) {
       const cached = this.cache.get(cacheKey);
@@ -559,7 +785,11 @@ class DataService {
     
     try {
       console.log('[DataService] Fetching best power values...');
-      const data = await AnalysisAPI.getBestPowerValues();
+      const params = {};
+      if (days) params.days = days;
+      if (start) params.start_date = start;
+      if (end) params.end_date = end;
+      const data = await AnalysisAPI.getBestPowerValues(params);
       
       // Cache the result
       this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
@@ -567,6 +797,48 @@ class DataService {
       return data;
     } catch (error) {
       console.error('[DataService] Error fetching best power values:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the activity record for a best power duration
+   * @param {Object} options - Query options
+   * @param {number} options.duration - Duration in seconds
+   * @param {number} options.days - Days window
+   * @param {string} options.start - Start date (YYYY-MM-DD)
+   * @param {string} options.end - End date (YYYY-MM-DD)
+   * @param {boolean} options.forceRefresh - Skip cache
+   * @returns {Promise<Object>} Best power record data
+   */
+  async getBestPowerRecord({ duration, days, start, end, forceRefresh = false } = {}) {
+    if (!duration) {
+      throw new Error('Duration is required to fetch a best power record');
+    }
+
+    const rangeKey = days ? `days_${days}` : (start || end ? `custom_${start || 'none'}_${end || 'none'}` : 'all');
+    const cacheKey = `best_power_record_${duration}_${rangeKey}`;
+
+    if (!forceRefresh) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) {
+        console.log('[DataService] Using cached best power record');
+        return cached;
+      }
+    }
+
+    try {
+      const params = { duration };
+      if (days) params.days = days;
+      if (start) params.start_date = start;
+      if (end) params.end_date = end;
+
+      console.log('[DataService] Fetching best power record...');
+      const data = await AnalysisAPI.getBestPowerRecord(params);
+      this.cache.set(cacheKey, data, CONFIG.CACHE_DURATION);
+      return data;
+    } catch (error) {
+      console.error('[DataService] Error fetching best power record:', error);
       throw error;
     }
   }
@@ -736,6 +1008,32 @@ class DataService {
       return data;
     } catch (error) {
       console.error('[DataService] Error fetching activity streams:', error);
+      throw error;
+    }
+  }
+
+  async deleteActivity(id) {
+    try {
+      const res = await API.deleteActivity(id);
+      // Invalidate caches
+      this.cache.delete(`activity_${id}`);
+      this.cache.delete(`activity_stream_${id}`);
+      // Also clear activities list cache if used elsewhere
+      this.cache.clear();
+      return res;
+    } catch (error) {
+      console.error('[DataService] Error deleting activity:', error);
+      throw error;
+    }
+  }
+
+  async renameActivity(id, name) {
+    try {
+      const res = await API.renameActivity(id, name);
+      this.cache.delete(`activity_${id}`);
+      return res;
+    } catch (error) {
+      console.error('[DataService] Error renaming activity:', error);
       throw error;
     }
   }

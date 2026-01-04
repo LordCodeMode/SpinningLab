@@ -71,6 +71,7 @@
 .card__title {
   font-size: var(--font-size-lg, 18px);
   font-weight: var(--font-weight-bold, 700);
+  font-family: var(--font-family-display, 'Inter', sans-serif);
   color: var(--color-text-primary, #111827);
   margin: 0;
 }
@@ -120,29 +121,10 @@
 }
 
 /* Metric Card Variant-specific hover colors */
-.metric-card:nth-child(1):hover {
-  border-color: #3b82f6;
-  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.2), 0 0 0 1px #3b82f6;
-}
-
-.metric-card:nth-child(2):hover {
-  border-color: #8b5cf6;
-  box-shadow: 0 12px 28px rgba(139, 92, 246, 0.2), 0 0 0 1px #8b5cf6;
-}
-
-.metric-card:nth-child(3):hover {
-  border-color: #10b981;
-  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.2), 0 0 0 1px #10b981;
-}
-
-.metric-card:nth-child(4):hover {
-  border-color: #f59e0b;
-  box-shadow: 0 12px 28px rgba(245, 158, 11, 0.2), 0 0 0 1px #f59e0b;
-}
-
-.metric-card:nth-child(5):hover {
-  border-color: #ef4444;
-  box-shadow: 0 12px 28px rgba(239, 68, 68, 0.2), 0 0 0 1px #ef4444;
+/* Unified hover for metric cards to avoid color mismatch across pages */
+.metric-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.15);
 }
 
 /* Metric Card Internal Structure */
@@ -340,7 +322,7 @@
 }
 
 .chart-control.active {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--gradient-hero, linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%));
   border-color: #3b82f6;
   color: white;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);

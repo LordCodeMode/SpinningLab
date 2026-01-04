@@ -3,10 +3,17 @@
 // Centralized application configuration
 // ============================================
 
+const ENV_API_BASE_URL = typeof import.meta !== 'undefined'
+  ? import.meta.env?.VITE_API_BASE_URL
+  : undefined;
+const ENV_TOKEN_STORAGE_KEY = typeof import.meta !== 'undefined'
+  ? import.meta.env?.VITE_TOKEN_STORAGE_KEY
+  : undefined;
+
 const CONFIG = {
   // API Configuration
-  API_BASE_URL: window.APP_CONFIG?.API_BASE_URL || 'http://localhost:8000',
-  TOKEN_STORAGE_KEY: window.APP_CONFIG?.TOKEN_STORAGE_KEY || 'training_dashboard_token',
+  API_BASE_URL: window.APP_CONFIG?.API_BASE_URL || ENV_API_BASE_URL || 'http://localhost:8000',
+  TOKEN_STORAGE_KEY: window.APP_CONFIG?.TOKEN_STORAGE_KEY || ENV_TOKEN_STORAGE_KEY || 'training_dashboard_token',
   DISPLAY_NAME_STORAGE_KEY: 'training_dashboard_display_name',
   
   // Upload Configuration
@@ -78,7 +85,8 @@ const CONFIG = {
   MAX_PAGE_SIZE: 100,
   
   // Cache Settings
-  CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+  CACHE_DURATION: 5 * 60 * 1000, // 5 minutes (default)
+  POWER_CURVE_CACHE_DURATION: 60 * 60 * 1000, // 1 hour – heavy calculation, cache longer
   STATS_CACHE_DURATION: 2 * 60 * 1000, // 2 minutes
   
   // Date Ranges

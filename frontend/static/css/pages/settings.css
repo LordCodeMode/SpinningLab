@@ -11,7 +11,9 @@
   }
   
   .settings-header {
-    margin-bottom: 8px;
+    margin-bottom: 14px;
+    padding-bottom: 16px;
+    position: relative;
   }
   
   .settings-header h1 {
@@ -26,6 +28,28 @@
     color: var(--text-secondary);
     font-size: 14px;
     line-height: 1.6;
+    margin: 0;
+  }
+
+  .settings-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: #e5e7eb;
+  }
+
+  .settings-header::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 120px;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+    border-radius: 2px;
   }
   
   /* ============================================
@@ -115,9 +139,9 @@
     opacity: 0.4;
   }
   
-  .settings-card-icon.power {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%);
-  }
+.settings-card-icon.power {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%);
+}
   
   .settings-card-icon.power::after {
     background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
@@ -150,6 +174,23 @@
   .settings-card-icon.heart::after {
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   }
+
+.settings-card-icon.strava {
+  background: linear-gradient(135deg, rgba(252, 76, 2, 0.18) 0%, rgba(255, 123, 53, 0.18) 100%);
+}
+.settings-card-icon.strava::after {
+  background: linear-gradient(135deg, #fc4c02 0%, #ff7b35 100%);
+}
+.settings-card-icon.strava svg {
+  width: 56px;
+  height: 56px;
+}
+
+.settings-card-icon.strava-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+}
   
   .settings-card-icon.heart svg {
     width: 26px;
@@ -165,11 +206,25 @@
     background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
   }
   
-  .settings-card-icon.training svg {
-    width: 26px;
-    height: 26px;
-    color: #8b5cf6;
-  }
+.settings-card-icon.training svg {
+  width: 26px;
+  height: 26px;
+  color: #8b5cf6;
+}
+
+.settings-card-icon.profile {
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.16) 0%, rgba(14, 165, 233, 0.16) 100%);
+}
+
+.settings-card-icon.profile::after {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+}
+
+.settings-card-icon.profile svg {
+  width: 26px;
+  height: 26px;
+  color: #0ea5e9;
+}
   
   .settings-card-title-group {
     flex: 1;
@@ -510,10 +565,10 @@
     }
   }
   
-  @media (max-width: 480px) {
-    .settings-header h1 {
-      font-size: 28px;
-    }
+@media (max-width: 480px) {
+  .settings-header h1 {
+    font-size: 28px;
+  }
     
     .settings-card-header {
       flex-direction: column;
@@ -526,8 +581,305 @@
       align-items: stretch;
     }
     
-    .settings-field-unit {
-      width: 100%;
-      height: 40px;
-    }
+  .settings-field-unit {
+    width: 100%;
+    height: 40px;
   }
+}
+
+/* ============================================
+   SETTINGS STUDIO LAYOUT (REACT UPDATE)
+   ============================================ */
+
+.settings-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settings-hero {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 28px 32px;
+  color: #0f172a;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.settings-hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 160px;
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb 0%, #7c3aed 100%);
+  border-radius: 4px;
+}
+
+.settings-hero__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
+.settings-hero__title {
+  font-size: 36px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.settings-hero__subtitle {
+  font-size: 15px;
+  color: #64748b;
+  margin: 0 0 16px 0;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+.settings-hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.settings-hero__note {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.settings-hero__note strong {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+.settings-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 24px;
+}
+
+.settings-side-card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.settings-card {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+}
+
+.settings-card::before {
+  height: 3px;
+  opacity: 0.85;
+}
+
+.settings-card:hover {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 18px 40px rgba(59, 130, 246, 0.16);
+  transform: translateY(-2px);
+}
+
+.settings-side-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.settings-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.16);
+  color: #1d4ed8;
+}
+
+.settings-chip--muted {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.settings-chip--success {
+  background: rgba(34, 197, 94, 0.18);
+  color: #15803d;
+}
+
+.settings-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.settings-metric {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.settings-metric span {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.settings-metric strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.settings-progress__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.settings-progress__track {
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.settings-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #6366f1);
+  border-radius: 999px;
+}
+
+.settings-strava-connected,
+.settings-strava-disconnected {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-strava-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.settings-strava-title {
+  font-weight: 700;
+  color: #047857;
+}
+
+.settings-strava-meta {
+  font-size: 13px;
+  color: #475569;
+}
+
+.settings-strava-empty h4 {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.settings-strava-empty p {
+  color: #64748b;
+  margin-bottom: 12px;
+}
+
+.settings-button-secondary {
+  padding: 12px 24px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-button-secondary:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.settings-spin {
+  animation: settings-spin 1s linear infinite;
+}
+
+@keyframes settings-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.settings-error {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+}
+
+@media (max-width: 1024px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-side {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-hero__title {
+    font-size: 30px;
+  }
+
+  .settings-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}

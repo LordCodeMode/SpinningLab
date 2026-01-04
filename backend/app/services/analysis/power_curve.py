@@ -27,6 +27,25 @@ class PowerCurveService:
         ]
         return curve if any(pd.notna(v) for v in curve) else None
 
+    def _enforce_monotonic_curve(self, curve: List[float]) -> List[float]:
+        """Ensure the power curve never increases as duration grows."""
+        if not curve:
+            return curve
+
+        cleaned = []
+        last = None
+        for value in curve:
+            if value is None or (isinstance(value, float) and np.isnan(value)):
+                value_num = last if last is not None else 0.0
+            else:
+                value_num = float(value)
+                if last is not None and value_num > last:
+                    value_num = last
+            last = value_num
+            cleaned.append(value_num)
+
+        return cleaned
+
     def extract_power_series_from_file(self, file_path: str) -> List[float]:
         """Extract power series from FIT file."""
         try:
@@ -42,7 +61,6 @@ class PowerCurveService:
 
             return power_values
         except Exception as e:
-            print(f"Error extracting power from {file_path}: {e}")
             return []
 
     def get_user_power_curve(self, user: User, weighted: bool = False, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Optional[List[float]]:
@@ -60,9 +78,8 @@ class PowerCurveService:
             try:
                 start_dt = datetime.strptime(start_date, "%Y-%m-%d")
                 query = query.filter(Activity.start_time >= start_dt)
-                print(f"[PowerCurve] Filtering from date: {start_dt}")
             except ValueError:
-                print(f"Invalid start date format: {start_date}")
+                pass  # Invalid date format, skip filter
 
         if end_date:
             try:
@@ -70,12 +87,21 @@ class PowerCurveService:
                 # Include the full end day (until 23:59:59)
                 end_dt = end_dt + timedelta(days=1) - timedelta(seconds=1)
                 query = query.filter(Activity.start_time <= end_dt)
-                print(f"[PowerCurve] Filtering to date: {end_dt}")
             except ValueError:
-                print(f"Invalid end date format: {end_date}")
+                pass  # Invalid date format, skip filter
 
         activities = query.all()
-        print(f"[PowerCurve] Found {len(activities)} activities with power data in date range")
+        if not activities:
+            return None
+
+        max_duration_seconds = 0
+        for activity in activities:
+            duration = activity.duration or 0
+            if duration and duration > max_duration_seconds:
+                max_duration_seconds = int(duration)
+
+        if max_duration_seconds > settings.POWER_CURVE_MAX_DURATION_SECONDS:
+            max_duration_seconds = settings.POWER_CURVE_MAX_DURATION_SECONDS
 
         all_curves = []
         skipped_no_filename = 0
@@ -100,10 +126,8 @@ class PowerCurveService:
             if curve:
                 all_curves.append(curve)
 
-        print(f"[PowerCurve] Processed activities - Valid curves: {len(all_curves)}, Skipped (no filename): {skipped_no_filename}, Skipped (no power): {skipped_no_power_values}, Skipped (too short): {skipped_too_short}")
 
         if not all_curves:
-            print(f"[PowerCurve] No valid power curves generated from {len(activities)} activities")
             return None
 
         # Combine all curves to get maximum values
@@ -112,8 +136,40 @@ class PowerCurveService:
             np.pad(c, (0, max_len - len(c)), constant_values=np.nan) 
             for c in all_curves
         ]
-        
-        return np.nanmax(padded_curves, axis=0).tolist()
+
+        combined_curve = np.nanmax(padded_curves, axis=0).tolist()
+        combined_curve = self._enforce_monotonic_curve(combined_curve)
+
+        if max_duration_seconds <= len(combined_curve):
+            return combined_curve
+
+        step_seconds = max(settings.POWER_CURVE_EXTENDED_STEP_SECONDS, 60)
+        extended_curve = list(combined_curve)
+
+        best_avg_power = None
+
+        for duration in range(len(combined_curve) + step_seconds, max_duration_seconds + 1, step_seconds):
+            eligible = []
+            for activity in activities:
+                if (activity.duration or 0) >= duration and activity.avg_power is not None and activity.avg_power > 0:
+                    avg_power = activity.avg_power
+                    if weighted and user.weight:
+                        avg_power = avg_power / user.weight
+                    eligible.append(avg_power)
+
+            best_avg_power = max(eligible) if eligible else None
+
+            if best_avg_power is None:
+                continue
+
+            current_len = len(extended_curve)
+            if duration > current_len:
+                extended_curve.extend([best_avg_power] * (duration - current_len))
+
+        if best_avg_power is not None and len(extended_curve) < max_duration_seconds:
+            extended_curve.extend([best_avg_power] * (max_duration_seconds - len(extended_curve)))
+
+        return self._enforce_monotonic_curve(extended_curve)
     
     def get_power_series(self, activity: Activity) -> List[float]:
         """Return per-second power samples from FIT file/Strava streams, fallback to synthetic."""

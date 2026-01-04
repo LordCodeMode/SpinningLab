@@ -5,8 +5,8 @@
 
 /* Main Dashboard Container */
 .hrz-dashboard {
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: none;
+  width: 100%;
   padding: 0 24px 40px;
   display: flex;
   flex-direction: column;
@@ -19,10 +19,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 0;
-  border-bottom: 2px solid #fee2e2;
+  padding: 20px 0 18px;
+  position: relative;
   flex-wrap: wrap;
   gap: 16px;
+}
+
+.hrz-topbar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: #ffe4ed;
+}
+
+.hrz-topbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 120px;
+  height: 3px;
+  background: linear-gradient(90deg, #db2777 0%, #f472b6 100%);
+  border-radius: 2px;
 }
 
 .hrz-topbar-left {
@@ -33,8 +54,9 @@
   font-size: 32px;
   font-weight: 800;
   margin: 0 0 8px;
-  color: #111827;
+  color: #0f172a;
   letter-spacing: -0.02em;
+  font-family: var(--font-family-display, 'Inter', sans-serif);
 }
 
 .hrz-breadcrumb {
@@ -66,22 +88,22 @@
 }
 
 .hrz-badge-primary {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(236, 72, 153, 0.12);
+  color: #db2777;
+  border: 1px solid rgba(236, 72, 153, 0.25);
 }
 
 .hrz-badge-info {
-  background: rgba(220, 38, 38, 0.15);
-  color: #991b1b;
-  border: 1px solid rgba(220, 38, 38, 0.3);
+  background: rgba(236, 72, 153, 0.1);
+  color: #9d174d;
+  border: 1px solid rgba(236, 72, 153, 0.2);
 }
 
 /* Pill variants (for compatibility) */
 .hrz-pill--primary {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(236, 72, 153, 0.12);
+  color: #db2777;
+  border: 1px solid rgba(236, 72, 153, 0.25);
 }
 
 .hrz-pill--success {
@@ -105,7 +127,7 @@
 .hrz-topbar-controls {
   display: flex;
   gap: 6px;
-  background: #fef2f2;
+  background: #fdf2f8;
   padding: 4px;
   border-radius: 12px;
 }
@@ -124,13 +146,13 @@
 
 .hrz-range-pill:hover {
   background: #ffffff;
-  color: #ef4444;
+  color: #db2777;
 }
 
 .hrz-range-pill.active {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: linear-gradient(135deg, #db2777 0%, #f472b6 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 2px 8px rgba(219, 39, 119, 0.25);
 }
 
 /* ================== MAIN GRID =================== */
@@ -156,18 +178,18 @@
 }
 
 .hrz-chart-widget {
-  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
-  border: 2px solid #fee2e2;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.08);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
   transition: all 0.3s;
 }
 
 .hrz-chart-widget:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.15);
-  border-color: #ef4444;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  border-color: #cbd5e1;
 }
 
 .hrz-widget-header {
@@ -231,8 +253,8 @@
 }
 
 .hrz-stat-mini {
-  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
-  border: 2px solid #fee2e2;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
   border-radius: 12px;
   padding: 16px;
   transition: all 0.3s;
@@ -240,8 +262,8 @@
 
 .hrz-stat-mini:hover {
   transform: translateY(-2px);
-  border-color: #ef4444;
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
 }
 
 .hrz-stat-mini-label {
@@ -275,19 +297,19 @@
 }
 
 .hrz-breakdown-widget {
-  background: linear-gradient(135deg, #ffffff 0%, #fefcfc 100%);
-  border: 2px solid #fee2e2;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
   border-radius: 16px;
   padding: 28px;
-  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.1);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.1);
   transition: all 0.3s;
   flex: 1;
 }
 
 .hrz-breakdown-widget:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 36px rgba(239, 68, 68, 0.15);
-  border-color: #ef4444;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.15);
+  border-color: #cbd5e1;
 }
 
 .hrz-breakdown-header {
@@ -320,8 +342,8 @@
 }
 
 .hrz-zone-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
-  border: 2px solid #fee2e2;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
   border-radius: 12px;
   padding: 18px;
   transition: all 0.3s;
@@ -339,13 +361,13 @@
   left: 0;
   width: 4px;
   height: 100%;
-  background: var(--zone-color, #ef4444);
+  background: var(--zone-color, #475569);
 }
 
 .hrz-zone-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
-  border-color: var(--zone-color, #ef4444);
+  box-shadow: 0 4px 16px rgba(51, 65, 85, 0.15);
+  border-color: var(--zone-color, #475569);
 }
 
 .hrz-zone-card-header {
@@ -365,7 +387,7 @@
 .hrz-zone-percent {
   font-size: 13px;
   font-weight: 700;
-  color: #ef4444;
+  color: #1f2937;
 }
 
 .hrz-zone-name {
@@ -384,14 +406,14 @@
 .hrz-zone-bpm {
   font-size: 13px;
   font-weight: 700;
-  color: var(--zone-color, #ef4444);
+  color: var(--zone-color, #1f2937);
   letter-spacing: 0.3px;
 }
 
 .hrz-zone-bar {
   width: 100%;
   height: 8px;
-  background: #fef2f2;
+  background: #f1f5f9;
   border-radius: 4px;
   overflow: hidden;
   margin: 4px 0;
@@ -401,7 +423,7 @@
   height: 100%;
   border-radius: 4px;
   transition: width 0.5s ease-out;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 2px 4px rgba(51, 65, 85, 0.2);
 }
 
 .hrz-zone-time {
@@ -436,18 +458,18 @@
 }
 
 .hrz-highlight-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
-  border: 2px solid #fee2e2;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.08);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
   transition: all 0.3s;
 }
 
 .hrz-highlight-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.15);
-  border-color: #ef4444;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  border-color: #cbd5e1;
 }
 
 .hrz-highlight-top {
@@ -474,7 +496,7 @@
 .hrz-highlight-bar {
   position: relative;
   height: 12px;
-  background: #fef2f2;
+  background: #e2e8f0;
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 16px;
@@ -483,9 +505,9 @@
 .hrz-highlight-fill {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, #f97316 0%, #dc2626 100%);
+  background: linear-gradient(90deg, #2563eb 0%, #7c3aed 100%);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
   transition: width 0.5s ease-out;
 }
 
@@ -530,11 +552,11 @@
 }
 
 .hrz-insight-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
-  border: 2px solid #fee2e2;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.08);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
   transition: all 0.3s;
   display: flex;
   flex-direction: column;
@@ -543,8 +565,8 @@
 
 .hrz-insight-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.15);
-  border-color: #ef4444;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  border-color: #cbd5e1;
 }
 
 .hrz-insight-header {

@@ -49,6 +49,9 @@ env/
 /backend/cache/
 *.cache
 
+# Local tooling settings
+.claude/
+
 # Logs
 *.log
 logs/
@@ -57,6 +60,7 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+backend/htmlcov/
 
 # Jupyter
 .ipynb_checkpoints
@@ -66,6 +70,18 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/build/
+frontend/.vite/
+.vite/
+frontend/coverage/
+
+# Backend generated data
+backend/data/
+backend/ml_models/*.pkl
+
+# Backup files
+*.bak
+*.backup
+*~.nib
 
 # Temporary files
 *.tmp

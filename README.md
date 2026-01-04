@@ -150,17 +150,32 @@ alembic upgrade head
 If you need to start fresh:
 
 ```bash
+dropdb trainings.db
+createdb trainings.db
 cd backend
-rm -rf data/database/trainings.db
 python init_db.py
 ```
 
 ### Backup the Database
 
 ```bash
-cd backend
-cp data/database/trainings.db data/database/trainings_backup_$(date +%Y%m%d).db
+pg_dump -Fc trainings.db > trainings_backup_$(date +%Y%m%d).dump
 ```
+
+## Redis Cache
+
+Run Redis locally for cache-backed analytics:
+
+```bash
+brew install redis
+brew services start redis
+```
+
+Configure `REDIS_URL` in `backend/.env` if needed.
+
+Cache prewarming runs through `scripts/rebuild_cache_for_user.py` and stores the
+common toggle ranges (training load, power curve, zones, VO2max, efficiency, best powers, comparisons)
+so the dashboard loads without recalculating on first view.
 
 ## API Documentation
 

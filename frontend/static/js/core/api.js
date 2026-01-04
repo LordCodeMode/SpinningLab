@@ -78,6 +78,13 @@ class APIClient {
   delete(endpoint) {
     return this.request(endpoint, { method: 'DELETE' });
   }
+
+  patch(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+  }
 }
 
 const apiClient = new APIClient();
@@ -125,7 +132,7 @@ export const API = {
 
   // Activities
   getActivities(params = {}) {
-    return apiClient.get('/api/activities', params);
+    return apiClient.get('/api/activities/', params);
   },
   
   getActivity(id) {
@@ -134,6 +141,18 @@ export const API = {
 
   getActivityStreams(id) {
     return apiClient.get(`/api/activities/${id}/streams`);
+  },
+
+  deleteActivity(id) {
+    return apiClient.delete(`/api/activities/${id}`);
+  },
+
+  renameActivity(id, name) {
+    return apiClient.patch(`/api/activities/${id}`, { name });
+  },
+
+  updateActivity(id, updates) {
+    return apiClient.patch(`/api/activities/${id}`, updates);
   },
 
   // File Upload
@@ -200,6 +219,134 @@ export const API = {
    */
   disconnectStrava() {
     return apiClient.post('/api/strava/disconnect', {});
+  },
+
+  // ========== WORKOUT PLANNING (NEW) ==========
+
+  /**
+   * Get all workouts
+   */
+  getWorkouts(params = {}) {
+    return apiClient.get('/api/workouts', params);
+  },
+
+  /**
+   * Get a specific workout by ID
+   */
+  getWorkout(id) {
+    return apiClient.get(`/api/workouts/${id}`);
+  },
+
+  /**
+   * Create a new workout
+   */
+  createWorkout(workout) {
+    return apiClient.post('/api/workouts', workout);
+  },
+
+  /**
+   * Update an existing workout
+   */
+  updateWorkout(id, workout) {
+    return apiClient.put(`/api/workouts/${id}`, workout);
+  },
+
+  /**
+   * Delete a workout
+   */
+  deleteWorkout(id) {
+    return apiClient.delete(`/api/workouts/${id}`);
+  },
+
+  /**
+   * Duplicate a workout
+   */
+  duplicateWorkout(id) {
+    return apiClient.post(`/api/workouts/${id}/duplicate`, {});
+  },
+
+  // ========== CALENDAR & PLANNED WORKOUTS (NEW) ==========
+
+  /**
+   * Get planned workouts for a date range
+   */
+  getPlannedWorkouts(params = {}) {
+    return apiClient.get('/api/calendar', params);
+  },
+
+  /**
+   * Get calendar view for a specific week
+   */
+  getCalendarWeek(params = {}) {
+    return apiClient.get('/api/calendar/week', params);
+  },
+
+  /**
+   * Schedule a workout on a specific date
+   */
+  scheduleWorkout(plannedWorkout) {
+    return apiClient.post('/api/calendar', plannedWorkout);
+  },
+
+  /**
+   * Get a specific planned workout
+   */
+  getPlannedWorkout(id) {
+    return apiClient.get(`/api/calendar/${id}`);
+  },
+
+  /**
+   * Update a planned workout (reschedule, mark completed, etc.)
+   */
+  updatePlannedWorkout(id, updates) {
+    return apiClient.put(`/api/calendar/${id}`, updates);
+  },
+
+  /**
+   * Delete a planned workout
+   */
+  deletePlannedWorkout(id) {
+    return apiClient.delete(`/api/calendar/${id}`);
+  },
+
+  /**
+   * Swap two planned workouts
+   */
+  swapPlannedWorkouts(sourceId, targetId) {
+    return apiClient.post('/api/calendar/swap', { source_id: sourceId, target_id: targetId });
+  },
+
+  /**
+   * Move a planned workout to a new date
+   */
+  movePlannedWorkout(id, newDate) {
+    return apiClient.post(`/api/calendar/${id}/move`, { new_date: newDate });
+  },
+
+  // ========== TRAINING PLANS (NEW) ==========
+
+  getTrainingPlanTemplates() {
+    return apiClient.get('/api/training-plans/templates');
+  },
+
+  getTrainingPlans() {
+    return apiClient.get('/api/training-plans/');
+  },
+
+  createTrainingPlan(plan) {
+    return apiClient.post('/api/training-plans/', plan);
+  },
+
+  updateTrainingPlan(id, updates) {
+    return apiClient.put(`/api/training-plans/${id}`, updates);
+  },
+
+  deleteTrainingPlan(id) {
+    return apiClient.delete(`/api/training-plans/${id}`);
+  },
+
+  regenerateTrainingPlan(id, payload = {}) {
+    return apiClient.post(`/api/training-plans/${id}/regenerate`, payload);
   }
 };
 
@@ -228,6 +375,28 @@ export const AnalysisAPI = {
     }
     
     return { current: { ctl: 0, atl: 0, tsb: 0 }, daily: [] };
+  },
+
+  async getComparisons(params = {}) {
+    return apiClient.get('/api/analysis/comparisons', params);
+  },
+
+  // POST /api/analysis/predict-ftp?days=90
+  async predictFtp(params = {}) {
+    const qs = params && Object.keys(params).length
+      ? `?${new URLSearchParams(params).toString()}`
+      : '';
+    return apiClient.post(`/api/analysis/predict-ftp${qs}`, {});
+  },
+
+  // GET /api/analysis/insights?days=14
+  async getInsights(params = {}) {
+    return apiClient.get('/api/analysis/insights', params);
+  },
+
+  // GET /api/analysis/insights/weekly-summary?days=7
+  async getWeeklySummary(params = {}) {
+    return apiClient.get('/api/analysis/insights/weekly-summary', params);
   },
   
   // GET /api/analysis/power-curve?weighted=true&start=YYYY-MM-DD&end=YYYY-MM-DD
@@ -334,8 +503,14 @@ export const AnalysisAPI = {
   
   // GET /api/analysis/best-power-values
   // Returns: {max_5sec_power, max_1min_power, ..., weight}
-  async getBestPowerValues() {
-    return apiClient.get('/api/analysis/best-power-values');
+  async getBestPowerValues(params = {}) {
+    return apiClient.get('/api/analysis/best-power-values', params);
+  },
+
+  // GET /api/analysis/best-power-values/record?duration=300
+  // Returns: {activity_id, duration_seconds, power_value, ...}
+  async getBestPowerRecord(params = {}) {
+    return apiClient.get('/api/analysis/best-power-values/record', params);
   },
   
   // GET /api/analysis/vo2max?days=180
@@ -346,6 +521,31 @@ export const AnalysisAPI = {
   // GET /api/analysis/rider-profile
   async getRiderProfile() {
     return apiClient.get('/api/analysis/rider-profile');
+  },
+
+  // GET /api/analysis/metrics/fatigue-resistance?activity_id=123
+  async getFatigueResistance(params = {}) {
+    return apiClient.get('/api/analysis/metrics/fatigue-resistance', params);
+  },
+
+  // GET /api/analysis/metrics/w-prime-balance?activity_id=123
+  async getWPrimeBalance(params = {}) {
+    return apiClient.get('/api/analysis/metrics/w-prime-balance', params);
+  },
+
+  // GET /api/analysis/metrics/variability-index?activity_id=123
+  async getVariabilityIndex(params = {}) {
+    return apiClient.get('/api/analysis/metrics/variability-index', params);
+  },
+
+  // GET /api/analysis/metrics/decoupling?activity_id=123
+  async getDecoupling(params = {}) {
+    return apiClient.get('/api/analysis/metrics/decoupling', params);
+  },
+
+  // GET /api/analysis/metrics/polarized-distribution?days=30
+  async getPolarizedDistribution(params = {}) {
+    return apiClient.get('/api/analysis/metrics/polarized-distribution', params);
   }
 };
 
@@ -363,7 +563,16 @@ API.getPowerZones = (...args) => AnalysisAPI.getPowerZones(...args);
 API.getHRZones = (...args) => AnalysisAPI.getHRZones(...args);
 API.getHeartRateZones = (...args) => AnalysisAPI.getHeartRateZones(...args);
 API.getBestPowerValues = (...args) => AnalysisAPI.getBestPowerValues(...args);
+API.getBestPowerRecord = (...args) => AnalysisAPI.getBestPowerRecord(...args);
 API.getVO2Max = (...args) => AnalysisAPI.getVO2Max(...args);
 API.getRiderProfile = (...args) => AnalysisAPI.getRiderProfile(...args);
+API.getFtpPrediction = (...args) => AnalysisAPI.predictFtp(...args);
+API.getInsights = (...args) => AnalysisAPI.getInsights(...args);
+API.getWeeklySummary = (...args) => AnalysisAPI.getWeeklySummary(...args);
+API.getFatigueResistance = (...args) => AnalysisAPI.getFatigueResistance(...args);
+API.getWPrimeBalance = (...args) => AnalysisAPI.getWPrimeBalance(...args);
+API.getVariabilityIndex = (...args) => AnalysisAPI.getVariabilityIndex(...args);
+API.getDecoupling = (...args) => AnalysisAPI.getDecoupling(...args);
+API.getPolarizedDistribution = (...args) => AnalysisAPI.getPolarizedDistribution(...args);
 
 export default API;

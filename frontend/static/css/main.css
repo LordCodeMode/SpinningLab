@@ -27,11 +27,14 @@
 @import 'components/table.css';
 @import 'components/form.css';
 @import 'components/skeleton.css';
+@import 'components/optimistic.css';
+@import 'components/workout-card.css';
 
 /* ========== 4. PAGE-SPECIFIC STYLES ========== */
 /* Page styles that override or extend components */
 @import 'pages/overview.css';
 @import 'pages/training-load.css';
+@import 'pages/comparisons.css';
 @import 'pages/power-curve.css';
 @import 'pages/critical-power.css';
 @import 'pages/best-powers.css';
@@ -39,11 +42,19 @@
 @import 'pages/zones.css';
 @import 'pages/hr-zones.css';
 @import 'pages/vo2max.css';
-@import 'pages/fitness-state.css';
 @import 'pages/activities.css';
 @import 'pages/activity.css';
 @import 'pages/upload.css';
 @import 'pages/settings.css';
+@import 'pages/calendar.css';
+@import 'pages/workout-library.css';
+@import 'pages/workout-builder.css';
+@import 'pages/training-plans.css';
+
+/* ========== 5. GLOBAL COLOR OVERRIDES ========== */
+/* MUST come last to ensure new design system colors apply everywhere */
+@import 'global-color-overrides.css';
+
 /* ========== NOTES ========== */
 /*
   Import Order Rules:

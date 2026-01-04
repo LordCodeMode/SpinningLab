@@ -65,7 +65,7 @@ import {
     InteractiveBadge
   } from './Badge.js';
   
-  import { 
+import { 
     LoadingSkeleton,
     LoadingSpinner,
     EmptyState,
@@ -77,6 +77,12 @@ import {
     PermissionDeniedState,
     ComingSoonState
   } from './States.js';
+
+  import {
+    WorkoutCard,
+    CompactWorkoutCard,
+    generateIntervalPreview
+  } from './WorkoutCard.js';
   
   // Re-export all components individually
   export {
@@ -145,7 +151,12 @@ import {
     MaintenanceState,
     OfflineState,
     PermissionDeniedState,
-    ComingSoonState
+    ComingSoonState,
+
+    // Workouts
+    WorkoutCard,
+    CompactWorkoutCard,
+    generateIntervalPreview
   };
   
   // Also export as namespace for convenience
@@ -215,7 +226,12 @@ import {
     MaintenanceState,
     OfflineState,
     PermissionDeniedState,
-    ComingSoonState
+    ComingSoonState,
+
+    // Workouts
+    WorkoutCard,
+    CompactWorkoutCard,
+    generateIntervalPreview
   };
   
   // Default export

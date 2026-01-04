@@ -27,24 +27,23 @@ async def get_critical_power(
         cp_model = cache_manager.get("critical_power", current_user.id, max_age_hours=24)
 
         if cp_model:
-            print(f"[Cache HIT] Critical power from cache")
             return cp_model
 
         # Cache miss - calculate
-        print(f"[Cache MISS] Calculating critical power")
         service = CriticalPowerService(db)
         cp_model = service.calculate_critical_power(current_user)
 
         # Ensure all values are JSON-serializable
-        return {
+        result = {
             "critical_power": float(cp_model.get("critical_power", 0)),
             "w_prime": float(cp_model.get("w_prime", 0)),
             "durations": cp_model.get("durations", []),
             "actual": cp_model.get("actual", []),
             "predicted": cp_model.get("predicted", [])
         }
+        cache_manager.set("critical_power", current_user.id, result)
+        return result
     except Exception as e:
-        print(f"Error getting critical power: {e}")
         import traceback
         traceback.print_exc()
         return {

@@ -12,7 +12,6 @@ def extract_hr_series(df):
         df = df.dropna(subset=["heart_rate"])
         return df["heart_rate"].astype(int)
     except Exception as e:
-        print(f"Error extracting HR series: {e}")
         return None
 
 def compute_avg_hr(hr_series):
@@ -49,5 +48,4 @@ def compute_hr_zones(df: pd.DataFrame, max_hr=190):
         return zone_times
 
     except Exception as e:
-        print(f"Error computing HR zones: {e}")
         return None

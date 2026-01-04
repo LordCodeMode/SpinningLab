@@ -459,6 +459,7 @@ class ChartService {
         }
       }
     };
+    return options;
   }
 
   // ========== EFFICIENCY CHARTS ==========

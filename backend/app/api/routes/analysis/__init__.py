@@ -16,6 +16,10 @@ from .vo2max import router as vo2max_router
 from .fitness_state import router as fitness_state_router
 from .best_power import router as best_power_router
 from .rider_profile import router as rider_profile_router
+from .predict_ftp import router as predict_ftp_router
+from .insights import router as insights_router
+from .advanced_metrics import router as advanced_metrics_router
+from .comparisons import router as comparisons_router
 
 # Create main analysis router
 router = APIRouter()
@@ -29,6 +33,10 @@ router.include_router(vo2max_router, prefix="/vo2max", tags=["vo2max"])
 router.include_router(fitness_state_router, prefix="", tags=["fitness"])  # Provides /fitness-state and /efficiency
 router.include_router(best_power_router, prefix="/best-power-values", tags=["best-power"])
 router.include_router(rider_profile_router, prefix="/rider-profile", tags=["rider-profile"])
+router.include_router(predict_ftp_router, prefix="/predict-ftp", tags=["predict-ftp"])
+router.include_router(insights_router, prefix="/insights", tags=["insights"])
+router.include_router(advanced_metrics_router, prefix="/metrics", tags=["metrics"])
+router.include_router(comparisons_router, prefix="/comparisons", tags=["comparisons"])
 
 # Note: The zone-balance endpoint is now at /zones/balance
 # The old /zone-balance endpoint is maintained for backward compatibility

@@ -1,13 +1,15 @@
 """Power curve analysis endpoints."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime, timedelta
 
 from ....database.connection import get_db
 from ....database.models import User
 from ....api.dependencies import get_current_active_user
 from ....services.analysis.power_curve import PowerCurveService
+from ....core.config import settings
 
 router = APIRouter()
 
@@ -62,6 +64,7 @@ def _prepare_power_curve_response(raw_curve, weighted: bool):
 
 @router.get("")
 async def get_power_curve(
+    background_tasks: BackgroundTasks,
     weighted: bool = Query(False, description="Return watts per kg instead of absolute watts"),
     start: Optional[str] = Query(None, description="Start date (YYYY-MM-DD) for filtering activities"),
     end: Optional[str] = Query(None, description="End date (YYYY-MM-DD) for filtering activities"),
@@ -77,28 +80,57 @@ async def get_power_curve(
         cache_manager = CacheManager()
 
         # Build cache key including date range
-        cache_key = "power_curve_weighted" if weighted else "power_curve_absolute"
+        cache_prefix = "power_curve_weighted" if weighted else "power_curve_absolute"
+        cache_key = cache_prefix
         if start and end:
             cache_key += f"_{start}_{end}"
 
-        curve = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
+        curve = None
+        cached_at = None
+        cache_candidates = []
+
+        if start and end:
+            try:
+                start_dt = datetime.strptime(start, "%Y-%m-%d")
+                end_dt = datetime.strptime(end, "%Y-%m-%d")
+                range_days = (end_dt.date() - start_dt.date()).days + 1
+                today = datetime.now().date()
+                if end_dt.date() == today and range_days in (30, 90, 180, 365):
+                    expected_start = today - timedelta(days=range_days - 1)
+                    if start_dt.date() == expected_start:
+                        cache_candidates.append(f"{cache_prefix}_range_{range_days}")
+                if end_dt.date() == today and start_dt.month == 1 and start_dt.day == 1 and start_dt.year == end_dt.year:
+                    cache_candidates.append(f"{cache_prefix}_ytd")
+            except Exception:
+                cache_candidates = []
+
+        cache_candidates.append(cache_key)
+
+        for candidate in cache_candidates:
+            curve, cached_at = cache_manager.get_with_meta(candidate, current_user.id)
+            if curve:
+                break
 
         if curve:
-            print(f"[Cache HIT] Power curve ({'weighted' if weighted else 'absolute'}, {start or 'all'}-{end or 'all'}) from cache")
+            if cached_at:
+                cache_age = datetime.now().timestamp() - cached_at
+                cache_age_hours = cache_age / 3600
+                if cache_age_hours > settings.POWER_CURVE_CACHE_MAX_AGE_HOURS:
+                    try:
+                        from ....services.cache.cache_tasks import rebuild_power_curve_cache_task
+                        background_tasks.add_task(rebuild_power_curve_cache_task, current_user.id)
+                    except Exception:
+                        pass
             return _prepare_power_curve_response(curve, weighted)
 
         # Cache miss - calculate
-        print(f"[Cache MISS] Calculating power curve ({'weighted' if weighted else 'absolute'}, {start or 'all'}-{end or 'all'})")
         service = PowerCurveService(db)
         curve_data = service.get_user_power_curve(current_user, weighted=weighted, start_date=start, end_date=end)
 
-        if not curve_data or len(curve_data) == 0:
-            return {"durations": [], "powers": [], "weighted": weighted}
-
-        # curve_data is a dict with durations and powers
-        return _prepare_power_curve_response(curve_data, weighted)
+        prepared = _prepare_power_curve_response(curve_data, weighted)
+        cache_manager.set(cache_key, current_user.id, prepared)
+        return prepared
     except Exception as e:
-        print(f"Error getting power curve: {e}")
         import traceback
         traceback.print_exc()
         return {"durations": [], "powers": [], "weighted": weighted}
