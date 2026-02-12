@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AuthAPI } from '../../../static/js/core/api.js';
-import Services from '../../../static/js/services/index.js';
-import { InsightCard, LoadingSkeleton, RecommendationList } from '../../../static/js/components/ui/index.js';
-import CONFIG from '../../../static/js/pages/overview/config.js';
+import polyline from '@mapbox/polyline';
+import { AuthAPI } from '../../lib/core/api.js';
+import Services from '../../lib/services/index.js';
+import { InsightCard, LoadingSkeleton, RecommendationList } from '../components/ui';
+import CONFIG from '../../lib/pages/overview/config.js';
 
 const DISPLAY_NAME_STORAGE_KEY = CONFIG.DISPLAY_NAME_STORAGE_KEY || 'training_dashboard_display_name';
 const WIDGET_ORDER = ['hero', 'quick-stats', 'main-content', 'coach-summary', 'recent-activities', 'insights'];
@@ -16,6 +17,53 @@ const normalizeDistanceKm = (value) => {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
   return num > 1000 ? num / 1000 : num;
+};
+
+const decodeRoutePolyline = (polylineString) => {
+  if (!polylineString) return [];
+  try {
+    return polyline.decode(polylineString).map(([lat, lng]) => [lng, lat]);
+  } catch (err) {
+    return [];
+  }
+};
+
+const buildRoutePreviewPath = (polylineString, width = 120, height = 48, padding = 6) => {
+  const points = decodeRoutePolyline(polylineString);
+  if (points.length < 2) return null;
+
+  let minX = points[0][0];
+  let maxX = points[0][0];
+  let minY = points[0][1];
+  let maxY = points[0][1];
+
+  points.forEach(([x, y]) => {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  });
+
+  const spanX = maxX - minX;
+  const spanY = maxY - minY;
+  if (!Number.isFinite(spanX) || !Number.isFinite(spanY)) return null;
+
+  const safeSpanX = spanX || 1;
+  const safeSpanY = spanY || 1;
+  const scaleX = (width - padding * 2) / safeSpanX;
+  const scaleY = (height - padding * 2) / safeSpanY;
+  const scale = Math.min(scaleX, scaleY);
+  const offsetX = padding + (width - padding * 2 - spanX * scale) / 2;
+  const offsetY = padding + (height - padding * 2 - spanY * scale) / 2;
+
+  return points
+    .map(([x, y], index) => {
+      const scaledX = offsetX + (x - minX) * scale;
+      const scaledY = offsetY + (maxY - y) * scale;
+      const command = index === 0 ? 'M' : 'L';
+      return `${command}${scaledX.toFixed(1)} ${scaledY.toFixed(1)}`;
+    })
+    .join(' ');
 };
 
 const toISODate = (date) => {
@@ -399,6 +447,13 @@ const OverviewApp = () => {
   const [draggingId, setDraggingId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
 
+  useEffect(() => {
+    document.body.classList.add('page-overview');
+    return () => {
+      document.body.classList.remove('page-overview');
+    };
+  }, []);
+
   const activitiesLimit = CONFIG?.ui?.activitiesLimit || 8;
   const activitiesForChartLimit = 600;
 
@@ -614,6 +669,23 @@ const OverviewApp = () => {
     }
 
     const labels = chartSeries.points.map((point) => point.label);
+    const labelCount = labels.length;
+    const maxTicks = chartSeries.mode === 'weekly'
+      ? (trainingLoadRange >= 365 ? 6 : trainingLoadRange >= 180 ? 6 : 8)
+      : trainingLoadRange <= 30
+        ? 8
+        : trainingLoadRange <= 90
+          ? 10
+          : trainingLoadRange <= 180
+            ? 9
+            : 10;
+    const tickStep = Math.max(1, Math.ceil(labelCount / maxTicks));
+    const showTickLabel = (index) => index % tickStep === 0 || index === labelCount - 1;
+    const axisLabels = chartSeries.mode === 'weekly'
+      ? chartSeries.points.map((point) => formatDateShort(point.endDate || point.date))
+      : labels;
+    const pointRadii = labels.map(() => 0);
+    const hoverRadii = labels.map(() => 6);
     const datasets = [];
 
     if (chartSeries.hasTss) {
@@ -623,7 +695,10 @@ const OverviewApp = () => {
         type: 'bar',
         backgroundColor: 'rgba(245, 158, 11, 0.6)',
         borderColor: 'rgba(245, 158, 11, 1)',
-        borderWidth: 2,
+        borderWidth: 1.5,
+        borderRadius: 6,
+        barPercentage: 0.7,
+        categoryPercentage: 0.72,
         yAxisID: 'y',
         order: 3
       });
@@ -636,13 +711,14 @@ const OverviewApp = () => {
         type: 'line',
         borderColor: 'rgba(139, 92, 246, 1)',
         backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        borderWidth: 3,
+        borderWidth: 2.5,
         fill: false,
         tension: 0.4,
         yAxisID: 'y1',
         order: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6
+        pointRadius: pointRadii,
+        pointHoverRadius: hoverRadii,
+        pointHitRadius: 12
       });
     }
 
@@ -651,14 +727,15 @@ const OverviewApp = () => {
       data: chartSeries.points.map((point) => point.ctl || 0),
       type: 'line',
       borderColor: 'rgba(59, 130, 246, 1)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      backgroundColor: 'rgba(59, 130, 246, 0.14)',
       borderWidth: 3,
-      fill: false,
+      fill: true,
       tension: 0.4,
       yAxisID: 'y',
       order: 1,
-      pointRadius: 4,
-      pointHoverRadius: 6
+      pointRadius: pointRadii,
+      pointHoverRadius: hoverRadii,
+      pointHitRadius: 12
     });
 
     chartRef.current = new Chart(canvas, {
@@ -677,7 +754,7 @@ const OverviewApp = () => {
             position: 'top',
             labels: {
               usePointStyle: true,
-              padding: 15,
+              padding: 12,
               font: { size: 12, weight: '600' }
             }
           },
@@ -717,7 +794,13 @@ const OverviewApp = () => {
         scales: {
           x: {
             grid: { display: false },
-            ticks: { font: { size: 11 }, color: '#6b7280' }
+            ticks: {
+              font: { size: 11 },
+              color: '#6b7280',
+              autoSkip: false,
+              maxRotation: 0,
+              callback: (value, index) => (showTickLabel(index) ? axisLabels[index] : '')
+            }
           },
           y: {
             type: 'linear',
@@ -728,7 +811,7 @@ const OverviewApp = () => {
               font: { size: 12, weight: '600' },
               color: '#111827'
             },
-            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+            grid: { color: 'rgba(15, 23, 42, 0.06)' },
             ticks: { font: { size: 11 }, color: '#6b7280' }
           },
           y1: {
@@ -1301,15 +1384,12 @@ const OverviewApp = () => {
             )}
 
             {recs.length ? (
-              <div
-                className="ov-coach-recommendations"
-                dangerouslySetInnerHTML={{
-                  __html: RecommendationList({
-                    title: 'Recommendations',
-                    recommendations: recs
-                  })
-                }}
-              />
+              <div className="ov-coach-recommendations">
+                <RecommendationList
+                  title="Recommendations"
+                  recommendations={recs}
+                />
+              </div>
             ) : (
               <div className="ov-coach-empty">No coaching recommendations at the moment.</div>
             )}
@@ -1337,8 +1417,21 @@ const OverviewApp = () => {
               const intensityFactor = Number(activity.intensity_factor) || 0;
               const ifDisplay = intensityFactor > 0 ? intensityFactor.toFixed(2) : '-';
               const activityId = activity.id ?? activity.activity_id ?? activity.activityId ?? activity._id ?? null;
-              const route = activityId ? `activity/${activityId}` : 'activities';
+              const route = activityId ? `activity/${activityId}?from=overview` : 'activities';
               const displayName = activity.custom_name || activity.file_name || activity.type || 'Ride';
+              const routePolyline = activity.route_polyline || activity.routePolyline || activity.summary_polyline || null;
+              const routePreviewPath = buildRoutePreviewPath(routePolyline);
+              const dateLabel = (() => {
+                if (!activity.start_time) return '';
+                const now = new Date();
+                const start = new Date(activity.start_time);
+                const diffMs = now.getTime() - start.getTime();
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                if (Number.isFinite(diffDays) && diffDays <= 5) {
+                  return formatRelativeDate(activity.start_time);
+                }
+                return formatDateShort(activity.start_time);
+              })();
 
               return (
                 <div
@@ -1353,14 +1446,26 @@ const OverviewApp = () => {
                     }
                   }}
                 >
+                  {routePreviewPath ? (
+                    <svg
+                      className="ov-activity-route-bg"
+                      viewBox="0 0 120 48"
+                      preserveAspectRatio="xMidYMid meet"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d={routePreviewPath} />
+                    </svg>
+                  ) : null}
                   <div className="ov-activity-header">
                     <div className="ov-activity-type">
-                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
-                      {displayName}
+                      <span className="ov-activity-type-icon" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                      </span>
+                      <span className="ov-activity-title" title={displayName}>{displayName}</span>
                     </div>
-                    <div className="ov-activity-date">{formatRelativeDate(activity.start_time)}</div>
                   </div>
                   <div className="ov-activity-primary-stats">
                     <div className="ov-activity-stat">
@@ -1386,6 +1491,9 @@ const OverviewApp = () => {
                       <span className="ov-activity-badge-value">{ifDisplay}</span>
                     </div>
                   </div>
+                  {dateLabel ? (
+                    <div className="ov-activity-date ov-activity-date--corner">{dateLabel}</div>
+                  ) : null}
                 </div>
               );
             })}
@@ -1399,12 +1507,11 @@ const OverviewApp = () => {
       element: data.insights && data.insights.length ? (
         <div className="ov-insights-section">
           <h3 className="ov-section-title">AI Insights</h3>
-          <div
-            className="ov-insights-grid"
-            dangerouslySetInnerHTML={{
-              __html: data.insights.map((insight) => InsightCard(insight)).join('')
-            }}
-          />
+          <div className="ov-insights-grid">
+            {data.insights.map((insight, index) => (
+              <InsightCard key={index} {...insight} />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="ov-insights-empty">
@@ -1439,11 +1546,12 @@ const OverviewApp = () => {
   if (loading) {
     return (
       <div className="ov-section">
-        <div
-          className="metrics-grid"
-          dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'metric', count: 4 }) }}
-        />
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 1 }) }} />
+        <div className="metrics-grid">
+          <LoadingSkeleton type="metric" count={4} />
+        </div>
+        <div>
+          <LoadingSkeleton type="chart" count={1} />
+        </div>
       </div>
     );
   }

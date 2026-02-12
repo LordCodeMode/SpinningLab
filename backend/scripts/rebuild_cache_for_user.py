@@ -6,10 +6,11 @@ Run this on your Mac where the backend is running
 
 import argparse
 import sys
-import os
+from pathlib import Path
 
-# Add the parent directory to the path so we can import from app
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add backend directory to the path so we can import from app
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND_DIR))
 
 from app.database.connection import get_db
 from app.database.models import User
@@ -19,6 +20,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Rebuild cache for a user.")
     parser.add_argument("--email", help="User email to target")
     parser.add_argument("--user-id", type=int, help="User ID to target")
+    parser.add_argument(
+        "--mode",
+        choices=["fast", "full"],
+        default="full",
+        help="Cache rebuild mode (default: full)",
+    )
     return parser.parse_args()
 
 
@@ -68,7 +75,7 @@ def main():
         print("="*60)
 
         cache_builder = CacheBuilder(db)
-        result = cache_builder.rebuild_after_import(user)
+        result = cache_builder.rebuild_after_import(user, mode=args.mode)
 
         # Display results
         print("\n" + "="*60)

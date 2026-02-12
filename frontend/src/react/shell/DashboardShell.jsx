@@ -1,22 +1,78 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Home, 
+  TrendingUp, 
+  BarChart2, 
+  Activity, 
+  Target, 
+  Percent, 
+  Award, 
+  Layers, 
+  Heart, 
+  Wind, 
+  Calendar, 
+  Book, 
+  Edit, 
+  Bluetooth,
+  List, 
+  Upload, 
+  Settings, 
+  LogOut,
+  User,
+  RefreshCw,
+  Moon,
+  Sun
+} from 'lucide-react';
 
-const DashboardShell = () => {
+const DashboardShell = ({
+  children,
+  activePage = 'overview',
+  displayName = 'User',
+  avatarInitial = 'U',
+  onNavigate,
+  onLogout
+}) => {
   const sidebarRef = useRef(null);
   const mainHeaderRef = useRef(null);
   const pageContentRef = useRef(null);
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === 'undefined') return 'light';
+    const stored = window.localStorage.getItem('dashboard-theme');
+    if (stored === 'light' || stored === 'dark') return stored;
+    if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark';
+    return 'light';
+  });
+  const isDark = theme === 'dark';
+
+  const handleNavClick = (event, pageKey) => {
+    if (!onNavigate) return;
+    event.preventDefault();
+    onNavigate(pageKey);
+  };
+
+  const avatarNode = useMemo(() => {
+    if (avatarInitial) {
+      return <span className="user-avatar__initial">{avatarInitial}</span>;
+    }
+    return <User size={20} />;
+  }, [avatarInitial]);
 
   useEffect(() => {
-    const refreshIcons = () => {
-      if (typeof feather !== 'undefined') {
-        feather.replace();
-      }
-    };
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    const body = document.body;
+    root.dataset.theme = theme;
+    root.classList.toggle('dark', isDark);
+    if (body) {
+      body.dataset.theme = theme;
+      body.classList.toggle('dark', isDark);
+    }
+    window.localStorage.setItem('dashboard-theme', theme);
+    window.dispatchEvent(new CustomEvent('dashboard:theme-change', { detail: { theme } }));
+  }, [isDark, theme]);
 
-    refreshIcons();
-
-    const iconObserver = new MutationObserver(() => refreshIcons());
-    iconObserver.observe(document.body, { childList: true, subtree: true });
-
+  useEffect(() => {
     const ensureHeaderHidden = () => {
       if (mainHeaderRef.current) {
         mainHeaderRef.current.classList.add('hidden');
@@ -37,26 +93,36 @@ const DashboardShell = () => {
       }
     };
 
-    const stopSidebarClick = (event) => {
-      event.stopPropagation();
-    };
-
     document.addEventListener('click', handleDocumentClick);
-    if (sidebarRef.current) {
-      sidebarRef.current.addEventListener('click', stopSidebarClick);
-    }
 
     window.dispatchEvent(new CustomEvent('dashboard:shell-ready'));
 
     return () => {
-      iconObserver.disconnect();
       contentObserver.disconnect();
       document.removeEventListener('click', handleDocumentClick);
-      if (sidebarRef.current) {
-        sidebarRef.current.removeEventListener('click', stopSidebarClick);
-      }
     };
   }, []);
+
+  const NavItem = ({ page, icon: Icon, label, delay = 0 }) => (
+    <motion.a
+      initial={{ x: -20, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ delay }}
+      href={`#${page}`}
+      className={`nav-item${activePage === page ? ' active' : ''}`}
+      onClick={(event) => handleNavClick(event, page)}
+    >
+      <Icon size={20} />
+      <span>{label}</span>
+      {activePage === page && (
+        <motion.div 
+          layoutId="active-nav"
+          className="active-indicator"
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        />
+      )}
+    </motion.a>
+  );
 
   return (
     <>
@@ -122,103 +188,71 @@ const DashboardShell = () => {
           <nav className="sidebar-nav">
             <div className="nav-section">
               <div className="nav-section-title">Dashboard</div>
-              <a href="#overview" className="nav-item active" data-page="overview">
-                <i data-feather="home"></i>
-                <span>Overview</span>
-              </a>
+              <NavItem page="overview" icon={Home} label="Overview" delay={0.1} />
             </div>
 
             <div className="nav-section">
               <div className="nav-section-title">Performance</div>
-              <a href="#training-load" className="nav-item" data-page="training-load">
-                <i data-feather="trending-up"></i>
-                <span>Training Load</span>
-              </a>
-              <a href="#comparisons" className="nav-item" data-page="comparisons">
-                <i data-feather="bar-chart-2"></i>
-                <span>Comparisons</span>
-              </a>
-              <a href="#power-curve" className="nav-item" data-page="power-curve">
-                <i data-feather="activity"></i>
-                <span>Power Curve</span>
-              </a>
-              <a href="#critical-power" className="nav-item" data-page="critical-power">
-                <i data-feather="target"></i>
-                <span>Critical Power</span>
-              </a>
-              <a href="#efficiency" className="nav-item" data-page="efficiency">
-                <i data-feather="percent"></i>
-                <span>Efficiency</span>
-              </a>
-              <a href="#best-powers" className="nav-item" data-page="best-powers">
-                <i data-feather="award"></i>
-                <span>Best Powers</span>
-              </a>
+              <NavItem page="training-load" icon={TrendingUp} label="Training Load" delay={0.15} />
+              <NavItem page="comparisons" icon={BarChart2} label="Comparisons" delay={0.2} />
+              <NavItem page="power-curve" icon={Activity} label="Power Curve" delay={0.25} />
+              <NavItem page="critical-power" icon={Target} label="Critical Power" delay={0.3} />
+              <NavItem page="efficiency" icon={Percent} label="Efficiency" delay={0.35} />
+              <NavItem page="best-powers" icon={Award} label="Best Powers" delay={0.4} />
             </div>
 
             <div className="nav-section">
               <div className="nav-section-title">Analysis</div>
-              <a href="#zones" className="nav-item" data-page="zones">
-                <i data-feather="layers"></i>
-                <span>Power Zones</span>
-              </a>
-              <a href="#hr-zones" className="nav-item" data-page="hr-zones">
-                <i data-feather="heart"></i>
-                <span>HR Zones</span>
-              </a>
-              <a href="#vo2max" className="nav-item" data-page="vo2max">
-                <i data-feather="wind"></i>
-                <span>VO2 Max</span>
-              </a>
+              <NavItem page="zones" icon={Layers} label="Power Zones" delay={0.45} />
+              <NavItem page="hr-zones" icon={Heart} label="HR Zones" delay={0.5} />
+              <NavItem page="vo2max" icon={Wind} label="VO2 Max" delay={0.55} />
             </div>
 
             <div className="nav-section">
               <div className="nav-section-title">Workout Planning</div>
-              <a href="#calendar" className="nav-item" data-page="calendar">
-                <i data-feather="calendar"></i>
-                <span>Calendar</span>
-              </a>
-              <a href="#workout-library" className="nav-item" data-page="workout-library">
-                <i data-feather="book"></i>
-                <span>Workout Library</span>
-              </a>
-              <a href="#workout-builder" className="nav-item" data-page="workout-builder">
-                <i data-feather="edit"></i>
-                <span>Workout Builder</span>
-              </a>
-              <a href="#training-plans" className="nav-item" data-page="training-plans">
-                <i data-feather="layers"></i>
-                <span>Training Plans</span>
-              </a>
+              <NavItem page="calendar" icon={Calendar} label="Calendar" delay={0.6} />
+              <NavItem page="workout-library" icon={Book} label="Workout Library" delay={0.65} />
+              <NavItem page="workout-builder" icon={Edit} label="Workout Builder" delay={0.7} />
+              <NavItem page="live-training" icon={Bluetooth} label="Live Training" delay={0.75} />
+              <NavItem page="training-plans" icon={Layers} label="Training Plans" delay={0.8} />
             </div>
 
             <div className="nav-section">
               <div className="nav-section-title">Data</div>
-              <a href="#activities" className="nav-item" data-page="activities">
-                <i data-feather="list"></i>
-                <span>Activities</span>
-              </a>
-              <a href="#upload" className="nav-item" data-page="upload">
-                <i data-feather="upload"></i>
-                <span>Upload</span>
-              </a>
-              <a href="#settings" className="nav-item" data-page="settings">
-                <i data-feather="settings"></i>
-                <span>Settings</span>
-              </a>
+              <NavItem page="activities" icon={List} label="Activities" delay={0.85} />
+              <NavItem page="upload" icon={Upload} label="Upload" delay={0.9} />
+              <NavItem page="settings" icon={Settings} label="Settings" delay={0.95} />
             </div>
           </nav>
 
           <div className="sidebar-footer">
             <div className="user-info">
               <div className="user-avatar" id="user-avatar">
-                <i data-feather="user"></i>
+                {avatarNode}
               </div>
-              <span id="userEmail" title="Current user">User</span>
+              <span id="userEmail" title="Current user">{displayName}</span>
             </div>
-            <button className="logout-btn" id="logout-btn" title="Logout" aria-label="Logout">
-              <i data-feather="log-out"></i>
-            </button>
+            <div className="sidebar-actions">
+              <button
+                className="theme-toggle"
+                type="button"
+                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                aria-pressed={isDark}
+                onClick={() => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))}
+              >
+                {isDark ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+              <button
+                className="logout-btn"
+                id="logout-btn"
+                title="Logout"
+                aria-label="Logout"
+                onClick={onLogout}
+              >
+                <LogOut size={20} />
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -230,21 +264,33 @@ const DashboardShell = () => {
             </div>
             <div className="header-actions">
               <button className="btn btn--secondary btn--sm" id="refresh-btn" title="Refresh Page">
-                <i data-feather="refresh-cw" style={{ width: '16px', height: '16px' }}></i>
+                <RefreshCw size={16} />
                 <span>Refresh</span>
               </button>
               <button className="btn btn--primary btn--sm" id="upload-btn-header" title="Upload Activities">
-                <i data-feather="upload" style={{ width: '16px', height: '16px' }}></i>
+                <Upload size={16} />
                 <span>Upload</span>
               </button>
             </div>
           </header>
 
           <div id="pageContent" ref={pageContentRef}>
-            <div style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8' }}>
-              <div className="loading-spinner" style={{ margin: '0 auto 20px' }}></div>
-              <p style={{ fontSize: '15px', fontWeight: 500 }}>Loading dashboard...</p>
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${activePage}-${theme}`}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {children || (
+                  <div style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8' }}>
+                    <div className="loading-spinner" style={{ margin: '0 auto 20px' }}></div>
+                    <p style={{ fontSize: '15px', fontWeight: 500 }}>Loading dashboard...</p>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </main>
       </div>

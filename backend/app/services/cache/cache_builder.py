@@ -22,7 +22,7 @@ from .cache_manager import CacheManager
 logger = logging.getLogger(__name__)
 
 POWER_CURVE_RANGES = [30, 90, 180, 365]
-COMPARISON_POWER_CURVE_RANGES = [30, 60, 180, 365]
+COMPARISON_POWER_CURVE_RANGES = [30, 60, 90, 180, 365]
 POWER_CURVE_SAMPLE_DURATIONS = [5, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600]
 BEST_POWER_RANGES = [90, 240, 365]
 EFFICIENCY_RANGES = [60, 120, 180, 240]
@@ -594,7 +594,7 @@ class CacheBuilder:
             presets.append((month_start, today))
 
             # Quick ranges used by the comparisons page
-            for days in [30, 60, 180, 365]:
+            for days in [30, 60, 90, 180, 365]:
                 start = today - timedelta(days=days - 1)
                 presets.append((start, today))
 
@@ -930,12 +930,9 @@ class CacheBuilder:
         if mode == "fast":
             return self.build_post_import_cache(user)
         
-        # Step 1: Invalidate all existing cache
-        logger.debug("Step 1: Invalidating existing cache")
-        self.invalidate_cache(user)
-        
-        # Step 2: Rebuild all caches
-        logger.debug("Step 2: Building all caches")
+        # Full rebuild: overwrite existing cache entries without clearing everything first.
+        # This keeps cached responses available while the rebuild runs.
+        logger.debug("Step 1: Building all caches")
         results = self.build_all_cache(user)
         
         return results
@@ -1045,11 +1042,13 @@ class CacheBuilder:
         cache_info = self.cache_manager.get_cache_info(user.id)
         cache_built_at = self.cache_manager.get("cache_built_at", user.id, max_age_hours=999)
         cache_built_after_import = self.cache_manager.get("cache_built_after_import", user.id, max_age_hours=999)
+        cache_rebuild_status = self.cache_manager.get("cache_rebuild_status", user.id, max_age_hours=999)
         
         return {
             "user_id": user.id,
             "cache_built_at": cache_built_at,
             "cache_built_after_import": cache_built_after_import,
+            "cache_rebuild_status": cache_rebuild_status,
             "is_valid": self.is_cache_valid(user),
             "total_files": cache_info["files"],
             "total_size_bytes": cache_info["total_size"],

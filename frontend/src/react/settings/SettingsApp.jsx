@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
-import { notify } from '../../../static/js/core/utils.js';
-import { eventBus } from '../../../static/js/core/eventBus.js';
-import CONFIG from '../../../static/js/pages/settings/config.js';
+import Services from '../../lib/services/index.js';
+import { LoadingSkeleton } from '../components/ui';
+import { notify } from '../../lib/core/utils.js';
+import { eventBus } from '../../lib/core/eventBus.js';
+import CONFIG from '../../lib/pages/settings/config.js';
+import { useDashboard } from '../app/DashboardContext.jsx';
 
 const DISPLAY_NAME_STORAGE_KEY = CONFIG.DISPLAY_NAME_STORAGE_KEY || 'training_dashboard_display_name';
 
@@ -46,12 +47,18 @@ const extractStravaParams = () => {
 };
 
 const SettingsApp = () => {
+  const { updateDisplayName, forceUpdateHeaderStats } = useDashboard();
   const [settings, setSettings] = useState(null);
   const [stravaStatus, setStravaStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [syncState, setSyncState] = useState('idle');
+
+  useEffect(() => {
+    document.body.classList.add('page-settings');
+    return () => document.body.classList.remove('page-settings');
+  }, []);
 
   const [form, setForm] = useState({
     display_name: '',
@@ -184,14 +191,14 @@ const SettingsApp = () => {
       setSettings((prev) => ({ ...prev, ...updatedSettings }));
       const resolvedName = updatedSettings?.name ?? payload.name ?? null;
       persistDisplayName(resolvedName);
-      if (window.dashboard?.updateDisplayName) {
-        window.dashboard.updateDisplayName(resolvedName);
+      if (updateDisplayName) {
+        updateDisplayName(resolvedName);
       }
       notify('Settings saved successfully!', 'success');
       Services.analytics.trackEvent('settings_saved', { fields: Object.keys(payload) });
       Services.data.clearCache();
-      if (window.dashboard) {
-        await window.dashboard.forceUpdateHeaderStats();
+      if (forceUpdateHeaderStats) {
+        await forceUpdateHeaderStats();
       }
     } catch (err) {
       console.error('[Settings] Save failed:', err);
@@ -237,8 +244,8 @@ const SettingsApp = () => {
       const result = await Services.api.syncStravaActivities();
       notify(result.message, 'success');
       Services.data.clearCache();
-      if (window.dashboard) {
-        await window.dashboard.forceUpdateHeaderStats();
+      if (forceUpdateHeaderStats) {
+        await forceUpdateHeaderStats();
       }
       setSyncState('success');
       setTimeout(() => setSyncState('idle'), 3000);
@@ -273,13 +280,15 @@ const SettingsApp = () => {
   if (loading) {
     return (
       <div className="settings-shell">
-        <div className="settings-hero">
-          <div className="settings-hero__eyebrow">Performance calibration</div>
-          <h1 className="settings-hero__title">Settings Studio</h1>
-          <p className="settings-hero__subtitle">Loading your configuration...</p>
+        <div className="settings-hero page-header">
+          <div className="settings-hero__content">
+            <div className="settings-hero__eyebrow">Performance calibration</div>
+            <h1 className="settings-hero__title page-title">Settings Studio</h1>
+            <p className="settings-hero__subtitle page-description">Loading your configuration...</p>
+          </div>
         </div>
         <div className="settings-cards-grid">
-          <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'card', count: 3 }) }} />
+          <div><LoadingSkeleton type="card" count={3} /></div>
         </div>
       </div>
     );
@@ -288,10 +297,12 @@ const SettingsApp = () => {
   if (error) {
     return (
       <div className="settings-shell">
-        <div className="settings-hero">
-          <div className="settings-hero__eyebrow">Performance calibration</div>
-          <h1 className="settings-hero__title">Settings Studio</h1>
-          <p className="settings-hero__subtitle">We could not load your settings.</p>
+        <div className="settings-hero page-header">
+          <div className="settings-hero__content">
+            <div className="settings-hero__eyebrow">Performance calibration</div>
+            <h1 className="settings-hero__title page-title">Settings Studio</h1>
+            <p className="settings-hero__subtitle page-description">We could not load your settings.</p>
+          </div>
         </div>
         <div className="settings-error">
           <h3>Failed to Load Settings</h3>
@@ -308,33 +319,35 @@ const SettingsApp = () => {
 
   return (
     <div className="settings-shell">
-      <header className="settings-hero">
-        <div className="settings-hero__eyebrow">Performance calibration</div>
-        <h1 className="settings-hero__title">Settings Studio</h1>
-        <p className="settings-hero__subtitle">Tune your profile and training inputs so every chart, zone, and insight stays accurate.</p>
-        <div className="settings-hero__chips">
-          <span className="settings-chip">FTP {form.ftp || '--'} W</span>
-          <span className="settings-chip">Weight {form.weight || '--'} kg</span>
-          <span className="settings-chip">HR Max {form.hr_max || '--'} bpm</span>
-          <span className="settings-chip">LTHR {form.lthr || '--'} bpm</span>
-        </div>
-        <div className="settings-hero__note">
-          <strong>Why these settings matter:</strong> FTP and weight drive power zones and w/kg, while heart-rate metrics keep training load and intensity tracking precise.
+      <header className="settings-hero page-header">
+        <div className="settings-hero__content">
+          <div className="settings-hero__eyebrow">Performance calibration</div>
+          <h1 className="settings-hero__title page-title">Settings Studio</h1>
+          <p className="settings-hero__subtitle page-description">Tune your profile and training inputs so every chart, zone, and insight stays accurate.</p>
+          <div className="settings-hero__chips page-header__meta">
+            <span className="settings-chip page-pill">FTP {form.ftp || '--'} W</span>
+            <span className="settings-chip page-pill">Weight {form.weight || '--'} kg</span>
+            <span className="settings-chip page-pill">HR Max {form.hr_max || '--'} bpm</span>
+            <span className="settings-chip page-pill">LTHR {form.lthr || '--'} bpm</span>
+          </div>
+          <div className="settings-hero__note">
+            <strong>Why these settings matter:</strong> FTP and weight drive power zones and w/kg, while heart-rate metrics keep training load and intensity tracking precise.
+          </div>
         </div>
       </header>
 
       <div className="settings-layout">
         <form className="settings-main settings-cards-grid" onSubmit={handleSubmit}>
           <section className="settings-card">
-            <div className="settings-card-header">
+            <div className="settings-card-header section-header">
               <div className="settings-card-icon profile">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A7 7 0 0112 15h0a7 7 0 016.879 2.804M15 11a3 3 0 10-6 0 3 3 0 006 0z" />
                 </svg>
               </div>
               <div className="settings-card-title-group">
-                <h3 className="settings-card-title">Profile</h3>
-                <p className="settings-card-subtitle">Control how your name appears across the dashboard</p>
+                <h3 className="settings-card-title section-title">Profile</h3>
+                <p className="settings-card-subtitle section-subtitle">Control how your name appears across the dashboard</p>
               </div>
             </div>
 
@@ -390,7 +403,7 @@ const SettingsApp = () => {
           </section>
 
           <section className="settings-card">
-            <div className="settings-card-header">
+            <div className="settings-card-header section-header">
               <div className="settings-card-icon strava-icon">
                 <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <rect width="64" height="64" rx="12" fill="#fc4c02" />
@@ -399,8 +412,8 @@ const SettingsApp = () => {
                 </svg>
               </div>
               <div className="settings-card-title-group">
-                <h3 className="settings-card-title">Strava Integration</h3>
-                <p className="settings-card-subtitle">Auto-import activities from Strava with full power and HR data</p>
+                <h3 className="settings-card-title section-title">Strava Integration</h3>
+                <p className="settings-card-subtitle section-subtitle">Auto-import activities from Strava with full power and HR data</p>
               </div>
             </div>
 
@@ -464,15 +477,15 @@ const SettingsApp = () => {
           </section>
 
           <section className="settings-card">
-            <div className="settings-card-header">
+            <div className="settings-card-header section-header">
               <div className="settings-card-icon power">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <div className="settings-card-title-group">
-                <h3 className="settings-card-title">Power Settings</h3>
-                <p className="settings-card-subtitle">Configure FTP and power calibration inputs</p>
+                <h3 className="settings-card-title section-title">Power Settings</h3>
+                <p className="settings-card-subtitle section-subtitle">Configure FTP and power calibration inputs</p>
               </div>
             </div>
 
@@ -511,15 +524,15 @@ const SettingsApp = () => {
           </section>
 
           <section className="settings-card">
-            <div className="settings-card-header">
+            <div className="settings-card-header section-header">
               <div className="settings-card-icon body">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
               <div className="settings-card-title-group">
-                <h3 className="settings-card-title">Physical Parameters</h3>
-                <p className="settings-card-subtitle">Body measurements for w/kg calculations</p>
+                <h3 className="settings-card-title section-title">Physical Parameters</h3>
+                <p className="settings-card-subtitle section-subtitle">Body measurements for w/kg calculations</p>
               </div>
             </div>
 
@@ -558,15 +571,15 @@ const SettingsApp = () => {
           </section>
 
           <section className="settings-card">
-            <div className="settings-card-header">
+            <div className="settings-card-header section-header">
               <div className="settings-card-icon heart">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
               </div>
               <div className="settings-card-title-group">
-                <h3 className="settings-card-title">Heart Rate Zones</h3>
-                <p className="settings-card-subtitle">Configure maximum, resting, and threshold heart rate</p>
+                <h3 className="settings-card-title section-title">Heart Rate Zones</h3>
+                <p className="settings-card-subtitle section-subtitle">Configure maximum, resting, and threshold heart rate</p>
               </div>
             </div>
 

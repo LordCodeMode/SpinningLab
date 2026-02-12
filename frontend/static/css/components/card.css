@@ -6,18 +6,18 @@
 /* ========== BASE CARD ========== */
 
 .card {
-  background: #ffffff;
-  border: 2px solid #d1d5db;
-  border-radius: var(--radius-lg, 12px);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 16px rgba(15, 23, 42, 0.06);
+  background: var(--surface-card, #ffffff);
+  border: 1px solid var(--border-card, #d1d5db);
+  border-radius: var(--radius-card, 16px);
+  box-shadow: var(--shadow-card-sm, 0 8px 20px rgba(15, 23, 42, 0.08));
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
 .card:hover {
   transform: translateY(-2px);
-  border-color: #3b82f6;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15), 0 0 0 1px #3b82f6;
+  border-color: var(--border-card-hover, #3b82f6);
+  box-shadow: var(--shadow-card-hover, 0 20px 40px rgba(15, 23, 42, 0.14));
 }
 
 .card--clickable {
@@ -26,8 +26,8 @@
 
 .card--no-hover:hover {
   transform: none;
-  border-color: #d1d5db;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 16px rgba(15, 23, 42, 0.06);
+  border-color: var(--border-card, #d1d5db);
+  box-shadow: var(--shadow-card-sm, 0 8px 20px rgba(15, 23, 42, 0.08));
 }
 
 /* Card Sections */
@@ -36,7 +36,7 @@
   align-items: center;
   gap: var(--space-3, 12px);
   padding: var(--space-5, 20px) var(--space-6, 24px);
-  border-bottom: 2px solid var(--color-border, #e5e7eb);
+  border-bottom: 1px solid var(--border-card-soft, #e5e7eb);
 }
 
 .card__body {
@@ -45,8 +45,8 @@
 
 .card__footer {
   padding: var(--space-4, 16px) var(--space-6, 24px);
-  border-top: 1px solid var(--color-border, #e5e7eb);
-  background: var(--color-gray-50, #f9fafb);
+  border-top: 1px solid var(--border-card-soft, #e5e7eb);
+  background: var(--surface-card-soft, #f9fafb);
 }
 
 /* Card Icon */
@@ -87,11 +87,11 @@
 .metric-card {
   position: relative;
   cursor: pointer;
-  background: #ffffff;
-  border: 2px solid #d1d5db;
-  border-radius: var(--radius, 12px);
+  background: var(--surface-card-gradient, #ffffff);
+  border: 1px solid var(--border-card, #d1d5db);
+  border-radius: var(--radius-card, 16px);
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-card-sm, 0 8px 20px rgba(15, 23, 42, 0.08));
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
@@ -111,8 +111,9 @@
 }
 
 .metric-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  border-color: var(--border-card-hover, #3b82f6);
+  box-shadow: var(--shadow-card-hover, 0 20px 40px rgba(15, 23, 42, 0.14));
 }
 
 .metric-card:hover::before {
@@ -123,8 +124,8 @@
 /* Metric Card Variant-specific hover colors */
 /* Unified hover for metric cards to avoid color mismatch across pages */
 .metric-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.15);
+  border-color: var(--border-card-hover, #3b82f6);
+  box-shadow: var(--shadow-card-hover, 0 20px 40px rgba(15, 23, 42, 0.14));
 }
 
 /* Metric Card Internal Structure */
@@ -230,18 +231,18 @@
 /* ========== CHART CARD ========== */
 
 .chart-card {
-  background: #ffffff;
-  border: 2px solid #d1d5db;
-  border-radius: var(--radius, 12px);
+  background: var(--surface-card, #ffffff);
+  border: 1px solid var(--border-card, #d1d5db);
+  border-radius: var(--radius-card, 16px);
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-card-sm, 0 8px 20px rgba(15, 23, 42, 0.08));
   transition: all 0.3s ease;
 }
 
 .chart-card:hover {
-  transform: translateY(-4px);
-  border-color: #3b82f6;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15), 0 0 0 1px #3b82f6;
+  transform: translateY(-2px);
+  border-color: var(--border-card-hover, #3b82f6);
+  box-shadow: var(--shadow-card-hover, 0 20px 40px rgba(15, 23, 42, 0.14));
 }
 
 .chart-header {
@@ -268,7 +269,7 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -305,11 +306,11 @@
 
 .chart-control {
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
   background: transparent;
-  border: 1.5px solid var(--color-border, #d1d5db);
+  border: 1px solid var(--border-card, #d1d5db);
   color: var(--color-text-primary, #111827);
   cursor: pointer;
   transition: all 0.2s;
@@ -317,13 +318,13 @@
 
 .chart-control:hover {
   background: var(--color-surface-hover, #f3f4f6);
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: var(--border-card-hover, #3b82f6);
+  color: var(--border-card-hover, #3b82f6);
 }
 
 .chart-control.active {
   background: var(--gradient-hero, linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%));
-  border-color: #3b82f6;
+  border-color: var(--border-card-hover, #3b82f6);
   color: white;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
@@ -337,16 +338,16 @@
 /* ========== ACTIVITIES CARD ========== */
 
 .activities-card {
-  background: #ffffff;
-  border: 2px solid #d1d5db;
-  border-radius: var(--radius, 12px);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--surface-card, #ffffff);
+  border: 1px solid var(--border-card, #d1d5db);
+  border-radius: var(--radius-card, 16px);
+  box-shadow: var(--shadow-card-sm, 0 8px 20px rgba(15, 23, 42, 0.08));
   transition: all 0.3s ease;
 }
 
 .activities-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15), 0 0 0 1px #3b82f6;
+  border-color: var(--border-card-hover, #3b82f6);
+  box-shadow: var(--shadow-card-hover, 0 20px 40px rgba(15, 23, 42, 0.14));
 }
 
 .activities-card-header {
@@ -354,7 +355,7 @@
   align-items: center;
   gap: 12px;
   padding: 20px 24px;
-  border-bottom: 2px solid var(--color-border, #e5e7eb);
+  border-bottom: 1px solid var(--border-card-soft, #e5e7eb);
 }
 
 .activities-card-icon {

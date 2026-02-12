@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Router } from '../static/js/core/router.js';
-import { eventBus, EVENTS } from '../static/js/core/eventBus.js';
-import { state } from '../static/js/core/state.js';
+import { Router } from '../src/lib/core/router.js';
+import { eventBus, EVENTS } from '../src/lib/core/eventBus.js';
+import { state } from '../src/lib/core/state.js';
 
 describe('Router', () => {
   let router;

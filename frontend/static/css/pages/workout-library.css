@@ -2,6 +2,65 @@
    WORKOUT LIBRARY PAGE
    ====================== */
 
+.workout-library-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5, 20px);
+}
+
+/* ======================
+   CARDLESS LAYOUT
+   ====================== */
+
+body.page-workout-library .workout-library-page {
+  background: var(--color-surface);
+  padding: 32px;
+  margin: -32px;
+  gap: 24px;
+}
+
+body.page-workout-library .workout-library-filters {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0 0 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+body.page-workout-library .workout-library-filters .form-input,
+body.page-workout-library .workout-library-filters .form-select {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border);
+}
+
+body.page-workout-library .workout-library-grid .card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+  transition: border-color 0.2s ease;
+}
+
+body.page-workout-library .workout-library-grid .card:hover {
+  transform: none;
+  border-color: rgba(37, 99, 235, 0.45);
+  box-shadow: none;
+}
+
+body.page-workout-library .workout-library-grid .card__header {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+body.page-workout-library .workout-library-grid .card__footer {
+  background: transparent;
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+body.page-workout-library .workout-library-empty {
+  background: transparent;
+  border: 1px dashed var(--color-border-dark);
+}
+
 .workout-library-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -30,14 +89,15 @@
   border-radius: var(--radius-xl);
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(255, 255, 255, 0.9) 55%);
   box-shadow: var(--shadow-sm);
+  --page-accent: #2563eb;
+  --page-accent-alt: #0ea5e9;
+  --page-accent-soft: rgba(37, 99, 235, 0.2);
 }
 
-.workout-library-hero__underline {
-  width: 180px;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #2563eb 0%, rgba(37, 99, 235, 0.25) 100%);
-  margin: var(--space-2) 0 var(--space-2);
+.workout-library-header {
+  --page-accent: #2563eb;
+  --page-accent-alt: #0ea5e9;
+  --page-accent-soft: rgba(37, 99, 235, 0.2);
 }
 
 .workout-library-filters .form-input {
@@ -58,7 +118,31 @@
   background: var(--color-surface-soft);
 }
 
+.wl-preview__bars {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.wl-preview__block {
+  min-width: 1px;
+  box-sizing: border-box;
+  border-right: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.wl-preview__block:last-child {
+  border-right: 0;
+}
+
 @media (max-width: 768px) {
+  body.page-workout-library .workout-library-page {
+    padding: 24px;
+    margin: -24px;
+  }
+
   .workout-library-grid {
     grid-template-columns: 1fr;
   }

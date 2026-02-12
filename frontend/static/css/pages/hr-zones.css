@@ -11,6 +11,9 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  --page-accent: #db2777;
+  --page-accent-alt: #f472b6;
+  --page-accent-soft: rgba(219, 39, 119, 0.18);
 }
 
 /* ================== TOP BAR =================== */
@@ -25,7 +28,144 @@
   gap: 16px;
 }
 
-.hrz-topbar::before {
+/* ================== CARDLESS LAYOUT =================== */
+
+body.page-hr-zones .hrz-dashboard {
+  background: var(--color-surface);
+  padding: 32px;
+  margin: -32px;
+  gap: 28px;
+  --hrz-section-line-inset: 24px;
+}
+
+body.page-hr-zones .hrz-chart-widget,
+body.page-hr-zones .hrz-breakdown-widget,
+body.page-hr-zones .hrz-highlight-card,
+body.page-hr-zones .hrz-insight-card,
+body.page-hr-zones .hrz-zone-card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+body.page-hr-zones .hrz-chart-widget:hover,
+body.page-hr-zones .hrz-breakdown-widget:hover,
+body.page-hr-zones .hrz-highlight-card:hover,
+body.page-hr-zones .hrz-insight-card:hover,
+body.page-hr-zones .hrz-zone-card:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+body.page-hr-zones .hrz-highlight-card,
+body.page-hr-zones .hrz-insight-card {
+  position: relative;
+  overflow: visible;
+}
+
+body.page-hr-zones .hrz-insight-card::before {
+  content: '';
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 0;
+  width: 2px;
+  background: rgba(219, 39, 119, 0.5);
+}
+
+body.page-hr-zones .hrz-stat-mini {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+body.page-hr-zones .hrz-stat-mini:hover {
+  transform: none;
+  background: var(--color-surface-soft);
+  border-color: var(--color-border-dark);
+  box-shadow: none;
+}
+
+body.page-hr-zones .hrz-zone-card {
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.page-hr-zones .hrz-zone-card:hover {
+  background: rgba(219, 39, 119, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(219, 39, 119, 0.25);
+}
+
+body.page-hr-zones .hrz-dashboard > :not(.hrz-topbar):not(.hrz-main-grid) {
+  padding-top: 20px;
+  position: relative;
+}
+
+body.page-hr-zones .hrz-dashboard > :not(.hrz-topbar):not(.hrz-main-grid)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--hrz-section-line-inset);
+  right: var(--hrz-section-line-inset);
+  height: 1px;
+  background: rgba(148, 163, 184, 0.35);
+}
+
+body.page-hr-zones .hrz-empty {
+  background: transparent;
+  border: 1px dashed var(--color-border);
+}
+
+@media (min-width: 1200px) {
+  body.page-hr-zones .hrz-highlight-card:not(:nth-child(4n + 1))::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    bottom: 16px;
+    left: -9px;
+    width: 2px;
+    background: rgba(219, 39, 119, 0.38);
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1199px) {
+  body.page-hr-zones .hrz-highlight-card:not(:nth-child(3n + 1))::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    bottom: 16px;
+    left: -9px;
+    width: 2px;
+    background: rgba(219, 39, 119, 0.38);
+  }
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
+  body.page-hr-zones .hrz-highlight-card:not(:nth-child(2n + 1))::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    bottom: 16px;
+    left: -9px;
+    width: 2px;
+    background: rgba(219, 39, 119, 0.38);
+  }
+}
+
+@media (min-width: 1060px) {
+  body.page-hr-zones .hrz-highlight-card:not(:nth-child(5n + 1))::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    bottom: 16px;
+    left: -9px;
+    width: 2px;
+    background: rgba(219, 39, 119, 0.38);
+  }
+}
+
+
+.hrz-topbar:not(.page-header)::before {
   content: '';
   position: absolute;
   left: 0;
@@ -35,7 +175,7 @@
   background: #ffe4ed;
 }
 
-.hrz-topbar::after {
+.hrz-topbar:not(.page-header)::after {
   content: '';
   position: absolute;
   left: 0;
@@ -54,7 +194,7 @@
   font-size: 32px;
   font-weight: 800;
   margin: 0 0 8px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   letter-spacing: -0.02em;
   font-family: var(--font-family-display, 'Inter', sans-serif);
 }
@@ -84,7 +224,7 @@
 
 .hrz-badge-muted {
   background: #f3f4f6;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .hrz-badge-primary {
@@ -120,8 +260,8 @@
 
 .hrz-pill--muted {
   background: #f3f4f6;
-  color: #6b7280;
-  border: 1px solid #e5e7eb;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 
 .hrz-topbar-controls {
@@ -139,13 +279,13 @@
   border: none;
   font-size: 13px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .hrz-range-pill:hover {
-  background: #ffffff;
+  background: var(--color-surface);
   color: #db2777;
 }
 
@@ -178,8 +318,8 @@
 }
 
 .hrz-chart-widget {
-  background: #ffffff;
-  border: 2px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
@@ -189,7 +329,7 @@
 .hrz-chart-widget:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-  border-color: #cbd5e1;
+  border-color: var(--color-border-dark);
 }
 
 .hrz-widget-header {
@@ -199,11 +339,11 @@
   margin-bottom: 20px;
 }
 
-.hrz-widget-header h3 {
+.hrz-widget-header h3:not(.section-title) {
   font-size: 18px;
   font-weight: 700;
   margin: 0;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .hrz-chart-wrapper {
@@ -233,7 +373,7 @@
   align-items: center;
   gap: 10px;
   font-size: 13px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-weight: 600;
 }
 
@@ -253,8 +393,8 @@
 }
 
 .hrz-stat-mini {
-  background: #ffffff;
-  border: 2px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 12px;
   padding: 16px;
   transition: all 0.3s;
@@ -262,14 +402,14 @@
 
 .hrz-stat-mini:hover {
   transform: translateY(-2px);
-  border-color: #cbd5e1;
+  border-color: var(--color-border-dark);
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
 }
 
 .hrz-stat-mini-label {
   font-size: 11px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 8px;
@@ -278,7 +418,7 @@
 .hrz-stat-mini-value {
   font-size: 24px;
   font-weight: 800;
-  color: #111827;
+  color: var(--color-text-primary);
   line-height: 1;
   margin-bottom: 4px;
 }
@@ -286,7 +426,7 @@
 .hrz-stat-mini-unit {
   font-size: 11px;
   font-weight: 500;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
 }
 
 /* ================== RIGHT COLUMN: ZONE BREAKDOWN =================== */
@@ -297,8 +437,8 @@
 }
 
 .hrz-breakdown-widget {
-  background: #ffffff;
-  border: 2px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   padding: 28px;
   box-shadow: 0 4px 20px rgba(15, 23, 42, 0.1);
@@ -309,7 +449,7 @@
 .hrz-breakdown-widget:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 36px rgba(15, 23, 42, 0.15);
-  border-color: #cbd5e1;
+  border-color: var(--color-border-dark);
 }
 
 .hrz-breakdown-header {
@@ -319,11 +459,11 @@
   margin-bottom: 24px;
 }
 
-.hrz-breakdown-header h3 {
+.hrz-breakdown-header h3:not(.section-title) {
   font-size: 20px;
   font-weight: 700;
   margin: 0;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .hrz-breakdown-meta {
@@ -331,7 +471,7 @@
   gap: 16px;
   font-size: 13px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 /* Zone Cards Grid */
@@ -342,8 +482,8 @@
 }
 
 .hrz-zone-card {
-  background: #ffffff;
-  border: 2px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 12px;
   padding: 18px;
   transition: all 0.3s;
@@ -379,7 +519,7 @@
 .hrz-zone-num {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -387,19 +527,19 @@
 .hrz-zone-percent {
   font-size: 13px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--color-text-primary);
 }
 
 .hrz-zone-name {
   font-size: 17px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .hrz-zone-range {
   font-size: 12px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
@@ -413,7 +553,7 @@
 .hrz-zone-bar {
   width: 100%;
   height: 8px;
-  background: #f1f5f9;
+  background: var(--color-surface-soft);
   border-radius: 4px;
   overflow: hidden;
   margin: 4px 0;
@@ -429,7 +569,7 @@
 .hrz-zone-time {
   font-size: 20px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text-primary);
   line-height: 1;
 }
 
@@ -443,11 +583,11 @@
   margin-bottom: 20px;
 }
 
-.hrz-highlights-header h3 {
+.hrz-highlights-header h3:not(.section-title) {
   font-size: 24px;
   font-weight: 800;
   margin: 0 0 8px;
-  color: #111827;
+  color: var(--color-text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -458,8 +598,8 @@
 }
 
 .hrz-highlight-card {
-  background: #ffffff;
-  border: 2px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
@@ -469,7 +609,7 @@
 .hrz-highlight-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-  border-color: #cbd5e1;
+  border-color: var(--color-border-dark);
 }
 
 .hrz-highlight-top {
@@ -482,7 +622,7 @@
 .hrz-highlight-label {
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -490,13 +630,13 @@
 .hrz-highlight-value {
   font-size: 28px;
   font-weight: 800;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .hrz-highlight-bar {
   position: relative;
   height: 12px;
-  background: #e2e8f0;
+  background: var(--color-border);
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 16px;
@@ -522,7 +662,7 @@
 
 .hrz-highlight-footer {
   font-size: 14px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   line-height: 1.6;
   margin: 8px 0 0;
 }
@@ -541,7 +681,7 @@
   font-size: 24px;
   font-weight: 800;
   margin: 0 0 8px;
-  color: #111827;
+  color: var(--color-text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -552,8 +692,8 @@
 }
 
 .hrz-insight-card {
-  background: #ffffff;
-  border: 2px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
@@ -566,7 +706,7 @@
 .hrz-insight-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-  border-color: #cbd5e1;
+  border-color: var(--color-border-dark);
 }
 
 .hrz-insight-header {
@@ -578,20 +718,20 @@
 .hrz-insight-body h4 {
   font-size: 18px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text-primary);
   margin: 0 0 8px;
 }
 
 .hrz-insight-body p {
   font-size: 14px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   line-height: 1.6;
   margin: 0;
 }
 
 .hrz-insight-footer {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   margin-top: 4px;
 }
 
@@ -603,7 +743,7 @@
   border: 2px dashed #fee2e2;
   background: #fef2f2;
   text-align: center;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -623,7 +763,7 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .hrz-empty p {
@@ -635,6 +775,12 @@
 /* ================== RESPONSIVE =================== */
 
 @media (max-width: 768px) {
+  body.page-hr-zones .hrz-dashboard {
+    padding: 24px;
+    margin: -24px;
+    --hrz-section-line-inset: 16px;
+  }
+
   .hrz-dashboard {
     padding: 0 16px 32px;
   }
@@ -669,5 +815,13 @@
   .hrz-highlights-grid,
   .hrz-insights-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 540px) {
+  body.page-hr-zones .hrz-dashboard {
+    padding: 16px;
+    margin: -16px;
+    --hrz-section-line-inset: 12px;
   }
 }

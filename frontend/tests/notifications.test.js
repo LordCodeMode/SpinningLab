@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { notify } from '../static/js/utils/notifications.js';
+import { notify } from '../src/lib/utils/notifications.js';
 
 describe('notifications', () => {
   beforeEach(() => {

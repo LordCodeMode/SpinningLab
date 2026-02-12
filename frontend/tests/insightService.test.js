@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { InsightService } from '../static/js/services/InsightService.js';
+import { InsightService } from '../src/lib/services/InsightService.js';
 
 const service = new InsightService();
 

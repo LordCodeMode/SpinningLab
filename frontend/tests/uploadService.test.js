@@ -38,13 +38,13 @@ const configMocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock('../static/js/core/api.js', () => apiMocks);
-vi.mock('../static/js/core/eventBus.js', () => eventBusMocks);
-vi.mock('../static/js/utils/notifications.js', () => notifyMocks);
-vi.mock('../static/js/core/state.js', () => stateMocks);
-vi.mock('../static/js/core/config.js', () => configMocks);
+vi.mock('../src/lib/core/api.js', () => apiMocks);
+vi.mock('../src/lib/core/eventBus.js', () => eventBusMocks);
+vi.mock('../src/lib/utils/notifications.js', () => notifyMocks);
+vi.mock('../src/lib/core/state.js', () => stateMocks);
+vi.mock('../src/lib/core/config.js', () => configMocks);
 
-import { UploadService } from '../static/js/services/UploadService.js';
+import { UploadService } from '../src/lib/services/UploadService.js';
 
 describe('UploadService', () => {
   beforeEach(() => {

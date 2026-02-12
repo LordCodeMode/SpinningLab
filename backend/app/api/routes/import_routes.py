@@ -17,7 +17,7 @@ from ...database.models import User, Activity
 from ...api.dependencies import get_current_active_user
 from ...services.fit_processing.fit_import_service import FitImportService
 from ...services.cache.cache_builder import CacheBuilder
-from ...services.cache.cache_tasks import rebuild_user_caches_task
+from ...services.cache.cache_tasks import rebuild_user_caches_task, rebuild_user_caches_two_stage
 from ...core.config import settings
 
 router = APIRouter()
@@ -162,9 +162,8 @@ async def import_fit_files(
         
         # Add cache rebuild task to background
         background_tasks.add_task(
-            rebuild_user_caches_task,
-            user_id=current_user.id,
-            mode="fast"
+            rebuild_user_caches_two_stage,
+            current_user.id
         )
     
     return {

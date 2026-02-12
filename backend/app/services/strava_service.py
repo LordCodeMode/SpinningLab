@@ -7,8 +7,9 @@ import time
 import json
 import os
 import logging
-from datetime import datetime, timezone
-from typing import Optional, Dict, List, Any
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Dict, List, Any, Iterable
+import xml.etree.ElementTree as ET
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ from ..core.config import settings
 from ..services.fit_processing.power_metrics import extract_power_metrics
 from ..services.fit_processing.heart_rate_metrics import compute_hr_zones
 from ..services.fit_processing.zones import compute_power_zones
+from ..utils.polyline import encode_polyline
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,7 @@ class StravaService:
             "redirect_uri": redirect_uri_without_hash,
             "response_type": "code",
             "approval_prompt": "auto",
-            "scope": "activity:read_all,activity:read"
+            "scope": "activity:read_all,activity:read,activity:write"
         }
 
         if state:
@@ -62,6 +64,166 @@ class StravaService:
 
         query_string = urlencode(params)
         return f"{self.OAUTH_URL}?{query_string}"
+
+    def _build_tcx(
+        self,
+        name: str,
+        started_at: Optional[str],
+        samples: Iterable[Dict[str, Any]],
+        activity_type: str = "Biking"
+    ) -> bytes:
+        tcx_ns = "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
+        tpx_ns = "http://www.garmin.com/xmlschemas/ActivityExtension/v2"
+        xsi_ns = "http://www.w3.org/2001/XMLSchema-instance"
+
+        ET.register_namespace("", tcx_ns)
+        ET.register_namespace("tpx", tpx_ns)
+
+        root = ET.Element(
+            f"{{{tcx_ns}}}TrainingCenterDatabase",
+            {
+                f"{{{xsi_ns}}}schemaLocation": (
+                    f"{tcx_ns} http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd "
+                    f"{tpx_ns} http://www.garmin.com/xmlschemas/ActivityExtensionv2.xsd"
+                )
+            }
+        )
+        activities = ET.SubElement(root, f"{{{tcx_ns}}}Activities")
+        activity = ET.SubElement(activities, f"{{{tcx_ns}}}Activity", Sport=activity_type)
+
+        def parse_iso(value: Optional[str]) -> Optional[datetime]:
+            if not value:
+                return None
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+
+        samples_list = list(samples)
+        start_dt = parse_iso(started_at)
+        if not start_dt and samples_list:
+            first_ts = samples_list[0].get("timestamp")
+            if isinstance(first_ts, (int, float)):
+                start_dt = datetime.fromtimestamp(first_ts / 1000, tz=timezone.utc)
+        if not start_dt:
+            start_dt = datetime.now(timezone.utc)
+
+        def fmt_time(dt: datetime) -> str:
+            return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+        start_iso = fmt_time(start_dt)
+        ET.SubElement(activity, f"{{{tcx_ns}}}Id").text = start_iso
+
+        lap = ET.SubElement(activity, f"{{{tcx_ns}}}Lap", StartTime=start_iso)
+        total_seconds = max(len(samples_list), 1)
+        if samples_list:
+            last_elapsed = samples_list[-1].get("elapsedSec")
+            if isinstance(last_elapsed, (int, float)) and last_elapsed >= 0:
+                total_seconds = max(int(round(last_elapsed)), 1)
+        ET.SubElement(lap, f"{{{tcx_ns}}}TotalTimeSeconds").text = str(total_seconds)
+
+        total_distance = 0.0
+        if samples_list:
+            last_distance = samples_list[-1].get("distanceMeters")
+            if isinstance(last_distance, (int, float)) and last_distance >= 0:
+                total_distance = float(last_distance)
+        ET.SubElement(lap, f"{{{tcx_ns}}}DistanceMeters").text = f"{total_distance:.3f}"
+        ET.SubElement(lap, f"{{{tcx_ns}}}Intensity").text = "Active"
+        ET.SubElement(lap, f"{{{tcx_ns}}}TriggerMethod").text = "Manual"
+
+        track = ET.SubElement(lap, f"{{{tcx_ns}}}Track")
+        for index, sample in enumerate(samples_list):
+            timestamp = sample.get("timestamp")
+            elapsed_sec = sample.get("elapsedSec")
+            if isinstance(timestamp, (int, float)):
+                sample_dt = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+            else:
+                if isinstance(elapsed_sec, (int, float)):
+                    sample_dt = start_dt + timedelta(seconds=elapsed_sec)
+                else:
+                    sample_dt = start_dt + timedelta(seconds=index)
+
+            tp = ET.SubElement(track, f"{{{tcx_ns}}}Trackpoint")
+            ET.SubElement(tp, f"{{{tcx_ns}}}Time").text = fmt_time(sample_dt)
+
+            distance = sample.get("distanceMeters")
+            if isinstance(distance, (int, float)) and distance >= 0:
+                ET.SubElement(tp, f"{{{tcx_ns}}}DistanceMeters").text = f"{distance:.3f}"
+
+            heart_rate = sample.get("heartRate")
+            if isinstance(heart_rate, (int, float)):
+                hr = ET.SubElement(tp, f"{{{tcx_ns}}}HeartRateBpm")
+                ET.SubElement(hr, f"{{{tcx_ns}}}Value").text = str(int(round(heart_rate)))
+
+            cadence = sample.get("cadence")
+            if isinstance(cadence, (int, float)):
+                ET.SubElement(tp, f"{{{tcx_ns}}}Cadence").text = str(int(round(cadence)))
+
+            power = sample.get("power")
+            speed = sample.get("speed")
+            has_extensions = isinstance(power, (int, float)) or isinstance(speed, (int, float))
+            if has_extensions:
+                extensions = ET.SubElement(tp, f"{{{tcx_ns}}}Extensions")
+                tpx = ET.SubElement(extensions, f"{{{tpx_ns}}}TPX")
+                if isinstance(speed, (int, float)):
+                    speed_mps = speed * 1000 / 3600
+                    ET.SubElement(tpx, f"{{{tpx_ns}}}Speed").text = f"{speed_mps:.3f}"
+                if isinstance(power, (int, float)):
+                    ET.SubElement(tpx, f"{{{tpx_ns}}}Watts").text = str(int(round(power)))
+
+        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    async def upload_activity_tcx(
+        self,
+        user: User,
+        db: Session,
+        name: str,
+        started_at: Optional[str],
+        samples: List[Dict[str, Any]],
+        description: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Upload a live training session to Strava using TCX format.
+        """
+        if not user.strava_athlete_id:
+            raise ValueError("Strava account not connected.")
+
+        access_token = await self.get_valid_token(user, db)
+        tcx_bytes = self._build_tcx(name=name, started_at=started_at, samples=samples)
+
+        os.makedirs(settings.FIT_FILES_DIR, exist_ok=True)
+        session_dir = os.path.join(settings.FIT_FILES_DIR, "live_training")
+        os.makedirs(session_dir, exist_ok=True)
+        timestamp = int(time.time())
+        file_name = f"live_training_{user.id}_{timestamp}.tcx"
+        file_path = os.path.join(session_dir, file_name)
+        try:
+            with open(file_path, "wb") as handle:
+                handle.write(tcx_bytes)
+        except OSError:
+            logger.warning("Failed to persist TCX file for user %s", user.id)
+
+        headers = {"Authorization": f"Bearer {access_token}"}
+        external_id = f"td_{user.id}_{timestamp}"
+        data = {
+            "data_type": "tcx",
+            "name": name,
+            "trainer": 1,
+            "external_id": external_id
+        }
+        if description:
+            data["description"] = description
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.API_BASE}/uploads",
+                headers=headers,
+                data=data,
+                files={"file": (file_name, tcx_bytes, "application/vnd.garmin.tcx+xml")},
+                timeout=60.0
+            )
+            response.raise_for_status()
+            return response.json()
 
     async def exchange_code_for_token(self, code: str) -> Dict[str, Any]:
         """
@@ -196,7 +358,8 @@ class StravaService:
                 "temp",
                 "moving",
                 "distance",
-                "velocity_smooth"
+                "velocity_smooth",
+                "latlng"
             ]
 
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -301,6 +464,11 @@ class StravaService:
                     if not existing.custom_name and activity_data.get("name"):
                         existing.custom_name = activity_data["name"]
                         db.commit()
+                    if not existing.route_polyline:
+                        summary_polyline = (activity_data.get("map") or {}).get("summary_polyline")
+                        if summary_polyline:
+                            existing.route_polyline = summary_polyline
+                            db.commit()
                     logger.debug(f"Activity {activity_data['id']} already exists, skipping")
                     skipped_count += 1
                     continue
@@ -308,6 +476,9 @@ class StravaService:
                 # Parse basic activity data
                 parsed_data = self.parse_strava_activity(activity_data)
                 parsed_data["user_id"] = user.id
+                summary_polyline = (activity_data.get("map") or {}).get("summary_polyline")
+                if summary_polyline:
+                    parsed_data["route_polyline"] = summary_polyline
 
                 # Fetch detailed streams for power/HR analysis
                 power_zones = []
@@ -323,6 +494,10 @@ class StravaService:
                     power_zones = stream_metrics.pop("power_zones", [])
                     hr_zones = stream_metrics.pop("hr_zones", [])
                     parsed_data.update(stream_metrics)
+
+                    route_polyline = self._extract_route_polyline(streams)
+                    if route_polyline:
+                        parsed_data["route_polyline"] = route_polyline
 
                 except Exception as stream_error:
                     logger.warning(f"Could not fetch streams for activity {activity_data['id']}: {stream_error}")
@@ -402,9 +577,19 @@ class StravaService:
             "tss",
             "intensity_factor",
             "efficiency_factor",
-            "critical_power"
+            "critical_power",
+            "route_polyline"
         }
         return {k: v for k, v in data.items() if k in allowed}
+
+    def _extract_route_polyline(self, streams: Dict[str, Any]) -> Optional[str]:
+        if not streams:
+            return None
+        latlng_stream = streams.get("latlng", {})
+        latlng_data = latlng_stream.get("data") if isinstance(latlng_stream, dict) else None
+        if not latlng_data:
+            return None
+        return encode_polyline(latlng_data)
 
     def _process_streams(self, streams: Dict[str, Any], user: User) -> Dict[str, Any]:
         """Process Strava streams into activity metrics and zones."""

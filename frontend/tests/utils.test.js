@@ -19,9 +19,9 @@ import {
   isEmpty,
   getRelativeTime,
   getTSBStatus
-} from '../static/js/core/utils.js';
-import { eventBus, EVENTS } from '../static/js/core/eventBus.js';
-import CONFIG from '../static/js/core/config.js';
+} from '../src/lib/core/utils.js';
+import { eventBus, EVENTS } from '../src/lib/core/eventBus.js';
+import CONFIG from '../src/lib/core/config.js';
 
 describe('core utils', () => {
   beforeEach(() => {

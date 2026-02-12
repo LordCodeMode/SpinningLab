@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
+import Services from '../../lib/services/index.js';
+import { LoadingSkeleton } from '../components/ui';
 
 const VO2_CATEGORIES = [
   {
@@ -578,6 +578,26 @@ const Vo2maxApp = () => {
   }, [currentDays, loadData]);
 
   useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    const pageContent = document.getElementById('pageContent');
+    const prevBodyBg = document.body.style.backgroundColor;
+    const prevMainBg = mainContent?.style.backgroundColor;
+    const prevPageBg = pageContent?.style.backgroundColor;
+
+    document.body.classList.add('page-vo2max');
+    document.body.style.backgroundColor = 'var(--color-background)';
+    if (mainContent) mainContent.style.backgroundColor = 'var(--color-surface)';
+    if (pageContent) pageContent.style.backgroundColor = 'var(--color-surface)';
+
+    return () => {
+      document.body.classList.remove('page-vo2max');
+      document.body.style.backgroundColor = prevBodyBg;
+      if (mainContent) mainContent.style.backgroundColor = prevMainBg || '';
+      if (pageContent) pageContent.style.backgroundColor = prevPageBg || '';
+    };
+  }, []);
+
+  useEffect(() => {
     if (!metrics?.hasData) return;
     const Chart = window.Chart;
     if (!Chart) return;
@@ -870,7 +890,7 @@ const Vo2maxApp = () => {
   if (loading) {
     return (
       <div className="vo2-dashboard">
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 2 }) }} />
+        <div><LoadingSkeleton type="chart" count={2} /></div>
       </div>
     );
   }
@@ -940,16 +960,17 @@ const Vo2maxApp = () => {
 
   return (
     <div className="vo2-dashboard">
-      <div className="vo2-topbar">
-        <div className="vo2-topbar-left">
-          <h1 className="vo2-page-title">VO₂ Max Analysis</h1>
-          <div className="vo2-breadcrumb">
-            <span className={`vo2-badge ${category.badgeClass}`}>{category.label}</span>
-            <span className={`vo2-badge ${trendClass}`}>30d: {change30Label}</span>
-            <span className="vo2-badge vo2-badge-muted">{currentDaysLabel}</span>
+      <header className="vo2-topbar page-header">
+        <div>
+          <h1 className="page-title">VO₂ Max Analysis</h1>
+          <p className="page-description">Track aerobic fitness, readiness, and VO₂-driven training signals.</p>
+          <div className="page-header__meta">
+            <span className={`page-pill vo2-badge ${category.badgeClass}`}>{category.label}</span>
+            <span className={`page-pill vo2-badge ${trendClass}`}>30d: {change30Label}</span>
+            <span className="page-pill vo2-badge vo2-badge-muted">{currentDaysLabel}</span>
           </div>
         </div>
-        <div className="vo2-topbar-controls">
+        <div className="vo2-topbar-controls page-header__actions">
           {RANGE_OPTIONS.map((days) => (
             <button
               key={days}
@@ -961,13 +982,13 @@ const Vo2maxApp = () => {
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
       <div className="vo2-main-grid">
         <div className="vo2-left-column">
           <div className="vo2-gauge-widget">
-            <div className="vo2-widget-header">
-              <h3>Current VO₂ Max</h3>
+            <div className="vo2-widget-header section-header">
+              <h3 className="section-title">Current VO₂ Max</h3>
               <span className={`vo2-widget-badge ${category.badgeClass}`}>{category.label}</span>
             </div>
             <div className="vo2-gauge-wrapper">
@@ -980,50 +1001,12 @@ const Vo2maxApp = () => {
             </div>
             <p className="vo2-gauge-desc">{category.description}</p>
           </div>
-
-          <div className="vo2-quick-grid">
-            <div className="vo2-stat-mini">
-              <div className="vo2-stat-mini-label">Current VO₂</div>
-              <div className="vo2-stat-mini-value">{formatNumber(latestEntry.vo2max, 1)}</div>
-              <div className="vo2-stat-mini-unit">ml/kg/min</div>
-            </div>
-
-            <div className="vo2-stat-mini">
-              <div className="vo2-stat-mini-label">Season Peak</div>
-              <div className="vo2-stat-mini-value">{formatNumber(bestVO2, 1)}</div>
-              <div className="vo2-stat-mini-unit">ml/kg/min</div>
-            </div>
-
-            <div className="vo2-stat-mini">
-              <div className="vo2-stat-mini-label">30-Day Change</div>
-              <div className={`vo2-stat-mini-value ${change30 >= 0 ? 'positive' : 'negative'}`}>{formatDelta(change30)}</div>
-              <div className="vo2-stat-mini-unit">delta</div>
-            </div>
-
-            <div className="vo2-stat-mini">
-              <div className="vo2-stat-mini-label">Consistency</div>
-              <div className="vo2-stat-mini-value">{Math.round(consistencyScore)}</div>
-              <div className="vo2-stat-mini-unit">/ 100</div>
-            </div>
-
-            <div className="vo2-stat-mini">
-              <div className="vo2-stat-mini-label">Weekly Volume</div>
-              <div className="vo2-stat-mini-value">{formatNumber(averageWeeklyHours, 1)}</div>
-              <div className="vo2-stat-mini-unit">hours</div>
-            </div>
-
-            <div className="vo2-stat-mini">
-              <div className="vo2-stat-mini-label">VO₂ Zone Time</div>
-              <div className="vo2-stat-mini-value">{formatNumber(redlineMinutes, 0)}</div>
-              <div className="vo2-stat-mini-unit">min/week</div>
-            </div>
-          </div>
         </div>
 
         <div className="vo2-right-column">
           <div className="vo2-chart-main">
-            <div className="vo2-chart-header">
-              <h3>VO₂ Max Progression</h3>
+            <div className="vo2-chart-header section-header">
+              <h3 className="section-title">VO₂ Max Progression</h3>
               <div className="vo2-chart-meta">
                 <span>Current: {formatNumber(latestEntry.vo2max, 1)}</span>
                 <span>Peak: {formatNumber(bestVO2, 1)}</span>
@@ -1036,10 +1019,48 @@ const Vo2maxApp = () => {
         </div>
       </div>
 
+      <div className="vo2-quick-grid">
+        <div className="vo2-stat-mini">
+          <div className="vo2-stat-mini-label">Current VO₂</div>
+          <div className="vo2-stat-mini-value">{formatNumber(latestEntry.vo2max, 1)}</div>
+          <div className="vo2-stat-mini-unit">ml/kg/min</div>
+        </div>
+
+        <div className="vo2-stat-mini">
+          <div className="vo2-stat-mini-label">Season Peak</div>
+          <div className="vo2-stat-mini-value">{formatNumber(bestVO2, 1)}</div>
+          <div className="vo2-stat-mini-unit">ml/kg/min</div>
+        </div>
+
+        <div className="vo2-stat-mini">
+          <div className="vo2-stat-mini-label">30-Day Change</div>
+          <div className={`vo2-stat-mini-value ${change30 >= 0 ? 'positive' : 'negative'}`}>{formatDelta(change30)}</div>
+          <div className="vo2-stat-mini-unit">delta</div>
+        </div>
+
+        <div className="vo2-stat-mini">
+          <div className="vo2-stat-mini-label">Consistency</div>
+          <div className="vo2-stat-mini-value">{Math.round(consistencyScore)}</div>
+          <div className="vo2-stat-mini-unit">/ 100</div>
+        </div>
+
+        <div className="vo2-stat-mini">
+          <div className="vo2-stat-mini-label">Weekly Volume</div>
+          <div className="vo2-stat-mini-value">{formatNumber(averageWeeklyHours, 1)}</div>
+          <div className="vo2-stat-mini-unit">hours</div>
+        </div>
+
+        <div className="vo2-stat-mini">
+          <div className="vo2-stat-mini-label">VO₂ Zone Time</div>
+          <div className="vo2-stat-mini-value">{formatNumber(redlineMinutes, 0)}</div>
+          <div className="vo2-stat-mini-unit">min/week</div>
+        </div>
+      </div>
+
       <section className="vo2-section">
-        <header className="vo2-section-header">
-          <h2 className="vo2-section-title">Key Metrics Snapshot</h2>
-          <p className="vo2-section-subtitle">Critical deltas and training load distribution for informed decision-making.</p>
+        <header className="vo2-section-header section-header">
+          <h2 className="vo2-section-title section-title">Key Metrics Snapshot</h2>
+          <p className="vo2-section-subtitle section-subtitle">Critical deltas and training load distribution for informed decision-making.</p>
         </header>
         <div className="vo2-highlight-grid">
           {[
@@ -1091,9 +1112,9 @@ const Vo2maxApp = () => {
 
       {(hasIntensityData || hasWeeklyTrend) && (
         <section className="vo2-section">
-          <header className="vo2-section-header">
-            <h2 className="vo2-section-title">Training Analysis</h2>
-            <p className="vo2-section-subtitle">Visualize how your training composition influences VO₂ Max development.</p>
+          <header className="vo2-section-header section-header">
+            <h2 className="vo2-section-title section-title">Training Analysis</h2>
+            <p className="vo2-section-subtitle section-subtitle">Visualize how your training composition influences VO₂ Max development.</p>
           </header>
           <div className="vo2-visual-grid">
             {hasIntensityData && (
@@ -1136,9 +1157,9 @@ const Vo2maxApp = () => {
       )}
 
       <section className="vo2-section">
-        <header className="vo2-section-header">
-          <h2 className="vo2-section-title">Coaching Insights</h2>
-          <p className="vo2-section-subtitle">Actionable takeaways based on your intensity distribution and VO₂ classification.</p>
+        <header className="vo2-section-header section-header">
+          <h2 className="vo2-section-title section-title">Coaching Insights</h2>
+          <p className="vo2-section-subtitle section-subtitle">Actionable takeaways based on your intensity distribution and VO₂ classification.</p>
         </header>
         <div className="vo2-focus-grid">
           <article className="vo2-focus-card">
@@ -1178,9 +1199,9 @@ const Vo2maxApp = () => {
 
       {insights.length > 0 && (
         <section className="vo2-section">
-          <header className="vo2-section-header">
-            <h2 className="vo2-section-title">Detailed Analysis</h2>
-            <p className="vo2-section-subtitle">Contextual recommendations tailored to your specific training patterns.</p>
+          <header className="vo2-section-header section-header">
+            <h2 className="vo2-section-title section-title">Detailed Analysis</h2>
+            <p className="vo2-section-subtitle section-subtitle">Contextual recommendations tailored to your specific training patterns.</p>
           </header>
           <div className="vo2-insight-grid">
             {insights.map((insight) => (
@@ -1198,9 +1219,9 @@ const Vo2maxApp = () => {
       )}
 
       <section className="vo2-section">
-        <header className="vo2-section-header">
-          <h2 className="vo2-section-title">Model Methodology</h2>
-          <p className="vo2-section-subtitle">Understand how VO₂ Max is calculated and how to improve data quality.</p>
+        <header className="vo2-section-header section-header">
+          <h2 className="vo2-section-title section-title">Model Methodology</h2>
+          <p className="vo2-section-subtitle section-subtitle">Understand how VO₂ Max is calculated and how to improve data quality.</p>
         </header>
         <div className="vo2-methodology-grid">
           <article className="vo2-method-card">

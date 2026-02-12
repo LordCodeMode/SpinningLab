@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import API from '../../../static/js/core/api.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
-import { notify } from '../../../static/js/utils/notifications.js';
-import CONFIG from '../../../static/js/pages/workout-builder/config.js';
-import { POWER_ZONES } from '../../../static/js/pages/workout-builder/zones.js';
-import { INTERVAL_TEMPLATES, getTemplate, formatDuration as formatTemplateDuration } from '../../../static/js/pages/workout-builder/templates.js';
-import { getIntervalColorClass, getIntervalPowerPercent } from '../../../static/js/utils/workout-colors.js';
+import API from '../../lib/core/api.js';
+import { LoadingSkeleton } from '../components/ui';
+import { notify } from '../../lib/utils/notifications.js';
+import CONFIG from '../../lib/pages/workout-builder/config.js';
+import { POWER_ZONES } from '../../lib/pages/workout-builder/zones.js';
+import { INTERVAL_TEMPLATES, getTemplate, formatDuration as formatTemplateDuration } from '../../lib/pages/workout-builder/templates.js';
+import { getIntervalColorClass, getIntervalPowerPercent } from '../../lib/utils/workout-colors.js';
 
 const MAX_POWER_PERCENT = 200;
 const DEFAULT_FTP = 250;
@@ -287,6 +287,13 @@ const WorkoutBuilderApp = () => {
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.add('page-workout-builder');
+    return () => {
+      document.body.classList.remove('page-workout-builder');
     };
   }, []);
 
@@ -737,24 +744,25 @@ const WorkoutBuilderApp = () => {
         <div className="page-header">
           <h1 className="page-title">Loading Workout Builder...</h1>
         </div>
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 1, customClass: 'wb-skeleton' }) }} />
+        <div>
+          <LoadingSkeleton type="chart" count={1} className="wb-skeleton" />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="wb-react">
-      <div className="wb-hero">
+      <div className="wb-hero page-header">
         <div>
           <div className="wb-hero-eyebrow">Workout Builder</div>
-          <h1 className="wb-hero-title">{isEditing ? 'Edit Workout' : 'Create Workout'}</h1>
-          <div className="wb-hero-underline"></div>
-          <p className="wb-hero-subtitle">
+          <h1 className="wb-hero-title page-title">{isEditing ? 'Edit Workout' : 'Create Workout'}</h1>
+          <p className="wb-hero-subtitle page-description">
             Drag blocks into the timeline to craft a complete session. Resize for duration, then pull the top handle
             to dial in power targets.
           </p>
         </div>
-        <div className="wb-hero-actions">
+        <div className="wb-hero-actions page-header__actions">
           <button className="btn btn--secondary" type="button" onClick={handleCancel}>
             Cancel
           </button>

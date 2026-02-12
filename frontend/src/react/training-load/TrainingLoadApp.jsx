@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
-import CONFIG from '../../../static/js/pages/training-load/config.js';
+import Services from '../../lib/services/index.js';
+import { LoadingSkeleton } from '../components/ui';
+import CONFIG from '../../lib/pages/training-load/config.js';
 
 const RANGE_OPTIONS = [30, 60, 90, 180, 365];
 
@@ -55,7 +55,7 @@ const getTsbStatus = (tsb) => {
     return { label: 'Fresh & Ready', description: 'Ideal window for quality sessions or race efforts.', badgeClass: 'tl-pill--success' };
   }
   if (tsb >= -5) {
-    return { label: 'Productive Load', description: 'You are balancing stress and recovery well.', badgeClass: 'tl-pill--primary' };
+    return { label: 'Productive Load', description: 'You are balancing stress and recovery well.', badgeClass: 'tl-pill--success' };
   }
   if (tsb >= -15) {
     return { label: 'Accumulating Fatigue', description: 'Plan lighter days soon to consolidate gains.', badgeClass: 'tl-pill--warning' };
@@ -352,6 +352,26 @@ const TrainingLoadApp = () => {
   }, []);
 
   useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    const pageContent = document.getElementById('pageContent');
+    const prevBodyBg = document.body.style.backgroundColor;
+    const prevMainBg = mainContent?.style.backgroundColor;
+    const prevPageBg = pageContent?.style.backgroundColor;
+
+    document.body.classList.add('page-training-load');
+    document.body.style.backgroundColor = 'var(--color-background)';
+    if (mainContent) mainContent.style.backgroundColor = 'var(--color-surface)';
+    if (pageContent) pageContent.style.backgroundColor = 'var(--color-surface)';
+
+    return () => {
+      document.body.classList.remove('page-training-load');
+      document.body.style.backgroundColor = prevBodyBg;
+      if (mainContent) mainContent.style.backgroundColor = prevMainBg || '';
+      if (pageContent) pageContent.style.backgroundColor = prevPageBg || '';
+    };
+  }, []);
+
+  useEffect(() => {
     const forceRefresh = forceRefreshRef.current;
     forceRefreshRef.current = false;
     fetchData(currentDays, forceRefresh);
@@ -385,6 +405,32 @@ const TrainingLoadApp = () => {
     const ctlValues = data.map((entry) => entry.ctl || 0);
     const atlValues = data.map((entry) => entry.atl || 0);
     const tsbValues = data.map((entry) => entry.tsb || 0);
+    const theme = Services.chart?.getThemeTokens?.();
+    const chartColors = Services.chart?.colors || {
+      primary: '#3b82f6',
+      warning: '#f59e0b',
+      success: '#10b981'
+    };
+
+    const ctx = canvas.getContext('2d');
+    const toRgba = (hex, alpha) => {
+      if (Services.chart?.hexToRgba) return Services.chart.hexToRgba(hex, alpha);
+      const value = (hex || '').replace('#', '');
+      if (value.length !== 6) return `rgba(59, 130, 246, ${alpha})`;
+      const r = parseInt(value.slice(0, 2), 16);
+      const g = parseInt(value.slice(2, 4), 16);
+      const b = parseInt(value.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+
+    const buildFill = (color) => {
+      if (!ctx) return toRgba(color, 0.12);
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height || 320);
+      gradient.addColorStop(0, toRgba(color, 0.28));
+      gradient.addColorStop(0.6, toRgba(color, 0.14));
+      gradient.addColorStop(1, toRgba(color, 0));
+      return gradient;
+    };
 
     mainChartRef.current = new Chart(canvas, {
       type: 'line',
@@ -394,36 +440,48 @@ const TrainingLoadApp = () => {
           {
             label: 'CTL (Fitness)',
             data: ctlValues,
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderColor: chartColors.primary || '#3b82f6',
+            backgroundColor: buildFill(chartColors.primary || '#3b82f6'),
             fill: true,
             borderWidth: 3,
             tension: 0.4,
             pointRadius: 0,
-            pointHoverRadius: 5
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: chartColors.primary || '#3b82f6',
+            pointHoverBorderColor: '#ffffff',
+            pointHoverBorderWidth: 2,
+            hitRadius: 12
           },
           {
             label: 'ATL (Fatigue)',
             data: atlValues,
-            borderColor: '#f59e0b',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            borderColor: chartColors.warning || '#f59e0b',
+            backgroundColor: buildFill(chartColors.warning || '#f59e0b'),
             fill: true,
             borderWidth: 3,
             tension: 0.4,
             pointRadius: 0,
-            pointHoverRadius: 5
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: chartColors.warning || '#f59e0b',
+            pointHoverBorderColor: '#ffffff',
+            pointHoverBorderWidth: 2,
+            hitRadius: 12
           },
           {
             label: 'TSB (Form)',
             data: tsbValues,
-            borderColor: '#10b981',
+            borderColor: chartColors.success || '#10b981',
             backgroundColor: 'transparent',
             fill: false,
             borderWidth: 2,
-            borderDash: [5, 3],
+            borderDash: [6, 4],
             tension: 0.4,
             pointRadius: 0,
-            pointHoverRadius: 5
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: chartColors.success || '#10b981',
+            pointHoverBorderColor: '#ffffff',
+            pointHoverBorderWidth: 2,
+            hitRadius: 12
           }
         ]
       },
@@ -434,7 +492,11 @@ const TrainingLoadApp = () => {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            backgroundColor: theme?.tooltipBg || 'rgba(17, 24, 39, 0.95)',
+            borderColor: theme?.tooltipBorder || 'rgba(148, 163, 184, 0.35)',
+            borderWidth: 1,
+            titleColor: theme?.tooltipTitle || '#f8fafc',
+            bodyColor: theme?.tooltipBody || '#e2e8f0',
             padding: 12,
             titleFont: { size: 13, weight: 'bold' },
             bodyFont: { size: 12 },
@@ -446,12 +508,12 @@ const TrainingLoadApp = () => {
         scales: {
           y: {
             beginAtZero: false,
-            grid: { color: 'rgba(0,0,0,0.05)' },
-            ticks: { font: { size: 11 }, color: '#6b7280' }
+            grid: { color: theme?.grid || 'rgba(15, 23, 42, 0.06)', drawBorder: false },
+            ticks: { font: { size: 11 }, color: theme?.label || '#6b7280', maxTicksLimit: 6 }
           },
           x: {
             grid: { display: false },
-            ticks: { font: { size: 10 }, color: '#6b7280', maxRotation: 0 }
+            ticks: { font: { size: 10 }, color: theme?.label || '#6b7280', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }
           }
         }
       }
@@ -475,9 +537,9 @@ const TrainingLoadApp = () => {
     const gaugeValue = Math.max(0, Math.min(100, ((tsb + 30) / 55) * 100));
 
     let gaugeColor;
-    if (tsb >= 15) gaugeColor = '#10b981';
-    else if (tsb >= 5) gaugeColor = '#3b82f6';
-    else if (tsb >= -5) gaugeColor = '#6366f1';
+    if (tsb >= 15) gaugeColor = '#059669';
+    else if (tsb >= 5) gaugeColor = '#10b981';
+    else if (tsb >= -5) gaugeColor = '#10b981';
     else if (tsb >= -15) gaugeColor = '#f59e0b';
     else gaugeColor = '#ef4444';
 
@@ -500,7 +562,7 @@ const TrainingLoadApp = () => {
       options: {
         responsive: true,
         maintainAspectRatio: true,
-        cutout: '75%',
+        cutout: '82%',
         plugins: {
           legend: { display: false },
           tooltip: { enabled: false }
@@ -564,9 +626,9 @@ const TrainingLoadApp = () => {
   if (loading) {
     return (
       <div className="tl-dashboard">
-        <div
-          dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 2 }) }}
-        />
+        <div>
+          <LoadingSkeleton type="chart" count={2} />
+        </div>
       </div>
     );
   }
@@ -611,16 +673,17 @@ const TrainingLoadApp = () => {
 
   return (
     <div className="tl-dashboard">
-      <div className="tl-topbar">
-        <div className="tl-topbar-left">
-          <h1 className="tl-page-title">Training Load</h1>
-          <div className="tl-breadcrumb">
-            <span className={`tl-badge ${tsbStatus.badgeClass}`}>{tsbStatus.label}</span>
-            <span className="tl-badge tl-badge-muted">{trainingStreak}d streak</span>
-            <span className="tl-badge tl-badge-muted">{currentDays}d view</span>
+      <header className="tl-topbar page-header">
+        <div>
+          <h1 className="page-title">{CONFIG.title}</h1>
+          <p className="page-description">{CONFIG.subtitle}</p>
+          <div className="page-header__meta">
+            <span className={`page-pill ${tsbStatus.badgeClass}`}>{tsbStatus.label}</span>
+            <span className="page-pill page-pill--muted">{trainingStreak}d streak</span>
+            <span className="page-pill page-pill--muted">{currentDays}d view</span>
           </div>
         </div>
-        <div className="tl-topbar-controls">
+        <div className="tl-topbar-controls page-header__actions">
           {RANGE_OPTIONS.map((days) => (
             <button
               key={days}
@@ -632,18 +695,18 @@ const TrainingLoadApp = () => {
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
       <div className="tl-main-grid">
-        <div className="tl-left-column">
+        <div className="tl-left-column tl-section-block tl-section-block--soft">
           <div className="tl-gauge-widget">
-            <div className="tl-widget-header">
-              <h3>Current Form</h3>
+            <div className="tl-widget-header section-header">
+              <h3 className="section-title">Current Form</h3>
               <span className={`tl-widget-badge ${tsbStatus.badgeClass}`}>{tsbStatus.label}</span>
             </div>
             <div className="tl-gauge-wrapper">
               <canvas id="tl-form-gauge" ref={gaugeCanvasRef}></canvas>
-              <div className="tl-gauge-center">
+              <div className="tl-gauge-metric">
                 <div className="tl-gauge-value">{formatNumber(current.tsb, 1)}</div>
                 <div className="tl-gauge-label">TSB</div>
               </div>
@@ -667,10 +730,10 @@ const TrainingLoadApp = () => {
           </div>
         </div>
 
-        <div className="tl-center-column">
+        <div className="tl-center-column tl-section-block tl-section-block--soft">
           <div className="tl-chart-widget">
-            <div className="tl-widget-header">
-              <h3>Load Timeline</h3>
+            <div className="tl-widget-header section-header">
+              <h3 className="section-title">Load Timeline</h3>
               <div className="tl-chart-legend">
                 <span className="tl-legend-item"><i style={{ background: '#3b82f6' }}></i>CTL</span>
                 <span className="tl-legend-item"><i style={{ background: '#f59e0b' }}></i>ATL</span>
@@ -683,7 +746,7 @@ const TrainingLoadApp = () => {
           </div>
         </div>
 
-        <div className="tl-right-column">
+        <div className="tl-right-column tl-section-block tl-section-block--soft">
           <div className="tl-metric-tile" data-color="blue">
             <div className="tl-metric-tile-header">
               <span className="tl-metric-tile-label">Fitness</span>
@@ -722,10 +785,10 @@ const TrainingLoadApp = () => {
         </div>
       </div>
 
-      <div className="tl-bottom-section">
+      <div className="tl-bottom-section tl-section-block">
         {weeklyCards.length ? (
           <div className="tl-weekly-strip">
-            <h3 className="tl-section-title">Last 4 Weeks</h3>
+            <h3 className="tl-section-title section-title">Last 4 Weeks</h3>
             <div className="tl-week-grid">
               {weeklyCards.map((week) => (
                 <div key={week.label} className="tl-week-card">

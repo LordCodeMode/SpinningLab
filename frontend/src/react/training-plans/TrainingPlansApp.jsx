@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import API from '../../../static/js/core/api.js';
-import { notify } from '../../../static/js/utils/notifications.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
-import CONFIG from '../../../static/js/pages/training-plans/config.js';
+import API from '../../lib/core/api.js';
+import { notify } from '../../lib/utils/notifications.js';
+import { LoadingSkeleton } from '../components/ui';
+import CONFIG from '../../lib/pages/training-plans/config.js';
 
 const PLAN_START_STORAGE_KEY = 'training_plan_start_date';
 
@@ -101,6 +101,13 @@ export default function TrainingPlansApp() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
+
+  useEffect(() => {
+    document.body.classList.add('page-training-plans');
+    return () => {
+      document.body.classList.remove('page-training-plans');
+    };
+  }, []);
 
   const activeTemplate = useMemo(
     () => templates.find((template) => template.id === activeTemplateId) || null,
@@ -292,11 +299,6 @@ export default function TrainingPlansApp() {
     window.location.hash = `#/calendar${query}`;
   };
 
-  const handleSwitchToClassic = () => {
-    localStorage.setItem('training_plans_ui', 'vanilla');
-    window.location.reload();
-  };
-
   const renderTemplateCard = (template) => {
     const weekData = parseWeekStructure(template.week_structure || []);
     const stats = getWeekStats(weekData);
@@ -354,21 +356,20 @@ export default function TrainingPlansApp() {
   if (loading) {
     return (
       <div className="training-plans-react">
-        <div
-          dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 1 }) }}
-        />
+        <div>
+          <LoadingSkeleton type="chart" count={1} />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="training-plans-react">
-      <section className="tp-hero">
+      <section className="tp-hero page-header">
         <div className="tp-hero-left">
           <div className="tp-hero-eyebrow">Training Plans Studio</div>
-          <h1 className="tp-hero-title">{CONFIG.PAGE_TITLE}</h1>
-          <div className="tp-hero-underline" />
-          <p className="tp-hero-copy">{CONFIG.PAGE_DESCRIPTION}</p>
+          <h1 className="tp-hero-title page-title">{CONFIG.PAGE_TITLE}</h1>
+          <p className="tp-hero-copy page-description">{CONFIG.PAGE_DESCRIPTION}</p>
 
           <div className="tp-hero-stats">
             <div className="tp-stat-card">
@@ -385,15 +386,12 @@ export default function TrainingPlansApp() {
             </div>
           </div>
 
-          <div className="tp-hero-actions">
+          <div className="tp-hero-actions page-header__actions">
             <button
               className="btn btn--primary"
               onClick={() => templatesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             >
               Browse templates
-            </button>
-            <button className="btn btn--ghost" onClick={handleSwitchToClassic}>
-              Use classic layout
             </button>
           </div>
         </div>
@@ -428,10 +426,10 @@ export default function TrainingPlansApp() {
       </section>
 
       <section className="tp-panel" ref={templatesRef}>
-        <div className="tp-panel-header">
+        <div className="tp-panel-header section-header">
           <div>
-            <h2>Plan Templates</h2>
-            <p>Pick a start date and auto-schedule workouts into your calendar.</p>
+            <h2 className="section-title">Plan Templates</h2>
+            <p className="section-subtitle">Pick a start date and auto-schedule workouts into your calendar.</p>
           </div>
           <div className="tp-filter-group">
             {planTypes.map((type) => (
@@ -480,10 +478,10 @@ export default function TrainingPlansApp() {
       </section>
 
       <section className="tp-panel">
-        <div className="tp-panel-header">
+        <div className="tp-panel-header section-header">
           <div>
-            <h2>Your Plans</h2>
-            <p>Review existing plans, track progress, and manage your active block.</p>
+            <h2 className="section-title">Your Plans</h2>
+            <p className="section-subtitle">Review existing plans, track progress, and manage your active block.</p>
           </div>
         </div>
 

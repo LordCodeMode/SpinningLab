@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
+import Services from '../../lib/services/index.js';
 
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 Bytes';
@@ -214,10 +214,17 @@ const UploadApp = () => {
 
   return (
     <div className="upload-section">
-      <div className="upload-header">
-        <h1>Upload Activities</h1>
-        <p>Import .FIT files from your cycling computer or training platform</p>
-      </div>
+      <header className="upload-header page-header">
+        <div>
+          <h1 className="page-title">Upload Activities</h1>
+          <p className="page-description">Import .FIT files from your cycling computer or training platform.</p>
+          <div className="page-header__meta">
+            <span className="page-pill">.FIT only</span>
+            <span className="page-pill page-pill--muted">{fileCountLabel}</span>
+            <span className="page-pill page-pill--muted">Auto cache refresh</span>
+          </div>
+        </div>
+      </header>
 
       <div
         className={`upload-zone ${isDragOver ? 'drag-over' : ''}`}

@@ -3,19 +3,39 @@ Strava OAuth and Activity Sync API Routes
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 import logging
+
+from pydantic import BaseModel, Field
 
 from ...database.connection import get_db
 from ...database.models import User, Activity
 from ...services.strava_service import strava_service
 from ..dependencies import get_current_user
-from ...services.cache.cache_tasks import rebuild_user_caches_task
+from ...services.cache.cache_tasks import rebuild_user_caches_two_stage
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/strava", tags=["strava"])
+
+
+class LiveTrainingSample(BaseModel):
+    timestamp: Optional[int] = None
+    elapsedSec: Optional[int] = None
+    power: Optional[float] = None
+    cadence: Optional[float] = None
+    speed: Optional[float] = None
+    distanceMeters: Optional[float] = None
+    heartRate: Optional[float] = None
+
+
+class LiveTrainingUploadRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+    startedAt: Optional[str] = None
+    description: Optional[str] = None
+    activityId: Optional[int] = None
+    samples: List[LiveTrainingSample]
 
 
 @router.get("/connect")
@@ -200,7 +220,7 @@ async def sync_strava_activities(
         # Rebuild caches if activities were imported
         if result["imported"] > 0:
             logger.info("Triggering cache rebuild after importing %s activities", result["imported"])
-            background_tasks.add_task(rebuild_user_caches_task, current_user.id, "fast")
+            background_tasks.add_task(rebuild_user_caches_two_stage, current_user.id)
 
         return {
             "success": True,
@@ -219,4 +239,73 @@ async def sync_strava_activities(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to sync activities: {str(e)}"
+        )
+
+
+@router.post("/upload-session")
+async def upload_live_training_session(
+    payload: LiveTrainingUploadRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload a live training session to Strava as a TCX file.
+    """
+    if not current_user.strava_athlete_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not connected to Strava. Connect your account first."
+        )
+
+    if not payload.samples:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No samples provided for upload."
+        )
+
+    activity = None
+    if payload.activityId is not None:
+        activity = db.query(Activity).filter(
+            Activity.id == payload.activityId,
+            Activity.user_id == current_user.id
+        ).first()
+        if not activity:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Activity not found for upload."
+            )
+        if activity.strava_activity_id or activity.strava_upload_id:
+            return {
+                "success": True,
+                "already_uploaded": True,
+                "upload": {"id": activity.strava_upload_id}
+            }
+
+    try:
+        result = await strava_service.upload_activity_tcx(
+            user=current_user,
+            db=db,
+            name=payload.name,
+            started_at=payload.startedAt,
+            samples=[sample.model_dump() for sample in payload.samples],
+            description=payload.description
+        )
+        if activity is not None:
+            activity.strava_upload_id = result.get("id") if isinstance(result, dict) else None
+            activity.strava_uploaded_at = datetime.now(timezone.utc)
+            db.commit()
+        return {
+            "success": True,
+            "upload": result
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error("Error uploading live training session: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload session to Strava"
         )

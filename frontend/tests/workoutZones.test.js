@@ -12,8 +12,8 @@ import {
   getRecommendedZone,
   validatePower,
   getZoneCSSVariable
-} from '../static/js/pages/workout-builder/zones.js';
-import { getIntervalColorClass, getIntervalPowerPercent } from '../static/js/utils/workout-colors.js';
+} from '../src/lib/pages/workout-builder/zones.js';
+import { getIntervalColorClass, getIntervalPowerPercent } from '../src/lib/utils/workout-colors.js';
 
 describe('Workout zones utilities', () => {
   it('maps power percentages to zones and colors', () => {

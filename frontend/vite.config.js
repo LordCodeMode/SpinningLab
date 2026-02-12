@@ -47,6 +47,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         dashboard: resolve(__dirname, 'dashboard.html'),
+        virtualRide: resolve(__dirname, 'virtual-ride.html'),
       },
 
       output: {
@@ -54,16 +55,16 @@ export default defineConfig({
         manualChunks: {
           // Core utilities
           'core': [
-            './static/js/core/api.js',
-            './static/js/core/state.js',
-            './static/js/core/router.js',
-            './static/js/core/eventBus.js',
+            './src/lib/core/api.js',
+            './src/lib/core/state.js',
+            './src/lib/core/eventBus.js',
+            './src/lib/core/utils.js',
           ],
           // Services
           'services': [
-            './static/js/services/DataService.js',
-            './static/js/services/AnalyticsService.js',
-            './static/js/services/InsightService.js',
+            './src/lib/services/DataService.js',
+            './src/lib/services/AnalyticsService.js',
+            './src/lib/services/InsightService.js',
           ],
         },
 

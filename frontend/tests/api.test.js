@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { API, AuthAPI, AnalysisAPI } from '../static/js/core/api.js';
+import { API, AuthAPI, AnalysisAPI } from '../src/lib/core/api.js';
 
 const createResponse = ({
   status = 200,

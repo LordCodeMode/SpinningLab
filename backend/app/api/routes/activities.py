@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fitparse import FitFile
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, func
@@ -14,9 +14,10 @@ from sqlalchemy.orm import Session, selectinload
 from ...api.dependencies import get_current_active_user
 from ...core.config import settings
 from ...database.connection import get_db
-from ...database.models import Activity, ActivityTag, User
-from ...services.fit_processing.power_metrics import rolling_best_powers
-from ...services.fit_processing.heart_rate_metrics import compute_hr_zones
+from ...database.models import Activity, ActivityTag, User, PowerZone, HrZone
+from ...services.fit_processing.power_metrics import extract_power_metrics, rolling_best_powers
+from ...services.fit_processing.heart_rate_metrics import compute_hr_zones, extract_hr_series, compute_avg_hr
+from ...services.fit_processing.zones import compute_power_zones
 
 router = APIRouter()
 
@@ -90,6 +91,7 @@ async def get_activities(
             "file_name": activity.file_name,
             "duration": activity.duration,
             "distance": activity.distance,
+            "route_polyline": activity.route_polyline,
             "avg_power": activity.avg_power,
             "normalized_power": activity.normalized_power,
             "max_5sec_power": activity.max_5sec_power,
@@ -192,6 +194,7 @@ async def get_activity_detail(
         "file_name": activity.file_name,
         "duration": activity.duration,
         "distance": activity.distance,
+        "route_polyline": activity.route_polyline,
 
         # Power metrics
         "avg_power": activity.avg_power,
@@ -264,6 +267,8 @@ def _extract_activity_streams_from_fit(file_path: str) -> dict:
     time_stream: List[float] = []
     power_stream: List[Optional[float]] = []
     hr_stream: List[Optional[float]] = []
+    latlng_stream: List[Optional[List[float]]] = []
+    moving_stream: List[bool] = []
 
     start_timestamp = None
     for record in fitfile.get_messages("record"):
@@ -277,8 +282,32 @@ def _extract_activity_streams_from_fit(file_path: str) -> dict:
             elapsed = time_stream[-1] + 1 if time_stream else 0
 
         time_stream.append(float(elapsed))
-        power_stream.append(_coerce_numeric(data.get("power")))
-        hr_stream.append(_coerce_numeric(data.get("heart_rate")))
+        power_value = _coerce_numeric(data.get("power"))
+        hr_value = _coerce_numeric(data.get("heart_rate"))
+        speed_value = _coerce_numeric(data.get("enhanced_speed") or data.get("speed"))
+        cadence_value = _coerce_numeric(data.get("cadence"))
+
+        power_stream.append(power_value)
+        hr_stream.append(hr_value)
+
+        if speed_value is not None:
+            moving_stream.append(speed_value > 0.5)
+        elif cadence_value is not None:
+            moving_stream.append(cadence_value > 0)
+        elif power_value is not None:
+            moving_stream.append(power_value > 0)
+        else:
+            moving_stream.append(False)
+
+        lat_val = data.get("position_lat")
+        lon_val = data.get("position_long")
+        if lat_val is not None and lon_val is not None:
+            latlng_stream.append([
+                _semicircle_to_degrees(lat_val),
+                _semicircle_to_degrees(lon_val)
+            ])
+        else:
+            latlng_stream.append(None)
 
     if not time_stream:
         return {
@@ -289,7 +318,18 @@ def _extract_activity_streams_from_fit(file_path: str) -> dict:
             "metadata": {"sample_count": 0, "downsampled_count": 0}
         }
 
-    downsampled_time, [downsampled_power, downsampled_hr] = _downsample_streams(
+    filtered = _filter_moving_samples(
+        time_stream,
+        moving_stream,
+        power_stream,
+        hr_stream,
+        latlng_stream
+    )
+
+    if filtered:
+        time_stream, power_stream, hr_stream, latlng_stream = filtered
+
+    downsampled_time, [downsampled_power, downsampled_hr], indices = _downsample_streams_with_indices(
         time_stream,
         [power_stream, hr_stream]
     )
@@ -300,6 +340,7 @@ def _extract_activity_streams_from_fit(file_path: str) -> dict:
         "time": downsampled_time,
         "power": downsampled_power,
         "heart_rate": downsampled_hr,
+        "latlng": _downsample_latlng(latlng_stream, indices),
         "power_curve": power_curve,
         "metadata": {
             "sample_count": len(time_stream),
@@ -320,11 +361,27 @@ def _extract_activity_streams_from_json(stream_path: str) -> dict:
     time_stream = get_stream("time")
     power_stream = get_stream("watts") or get_stream("power")
     hr_stream = get_stream("heartrate")
+    latlng_stream = get_stream("latlng")
+    moving_stream = get_stream("moving")
 
-    downsampled_time, [downsampled_power, downsampled_hr] = _downsample_streams(
+    if not time_stream:
+        time_stream = list(range(len(power_stream) or len(hr_stream) or len(moving_stream)))
+
+    filtered = _filter_moving_samples(
+        time_stream,
+        moving_stream,
+        power_stream,
+        hr_stream,
+        latlng_stream
+    )
+
+    if filtered:
+        time_stream, power_stream, hr_stream, latlng_stream = filtered
+
+    downsampled_time, [downsampled_power, downsampled_hr], indices = _downsample_streams_with_indices(
         time_stream,
         [power_stream, hr_stream]
-    ) if time_stream else _downsample_streams(list(range(len(power_stream) or len(hr_stream))), [power_stream, hr_stream])
+    )
 
     power_curve = _build_power_curve(power_stream)
 
@@ -332,6 +389,7 @@ def _extract_activity_streams_from_json(stream_path: str) -> dict:
         "time": downsampled_time,
         "power": downsampled_power,
         "heart_rate": downsampled_hr,
+        "latlng": _downsample_latlng(latlng_stream, indices),
         "power_curve": power_curve,
         "metadata": {
             "sample_count": len(time_stream) if time_stream else len(power_stream),
@@ -349,6 +407,51 @@ def _coerce_numeric(value):
         return None
 
 
+def _filter_moving_samples(
+    time_stream: List[float],
+    moving_stream: List[bool],
+    power_stream: List[Optional[float]],
+    hr_stream: List[Optional[float]],
+    latlng_stream: List[Optional[List[float]]]
+):
+    if not time_stream or not moving_stream:
+        return None
+
+    max_len = min(len(time_stream), len(moving_stream))
+    if max_len == 0:
+        return None
+
+    moving_indices = [idx for idx in range(max_len) if moving_stream[idx]]
+    if not moving_indices:
+        return None
+
+    moving_time = []
+    running = 0.0
+    previous_time = time_stream[0]
+    for idx in range(max_len):
+        current_time = time_stream[idx]
+        delta = current_time - previous_time
+        if delta < 0:
+            delta = 0.0
+        if moving_stream[idx]:
+            running += delta
+            moving_time.append(running)
+        previous_time = current_time
+
+    if moving_time and moving_time[0] > 0:
+        offset = moving_time[0]
+        moving_time = [value - offset for value in moving_time]
+
+    def pick(stream: List, idx: int):
+        return stream[idx] if idx < len(stream) else None
+
+    moving_power = [pick(power_stream, idx) for idx in moving_indices]
+    moving_hr = [pick(hr_stream, idx) for idx in moving_indices]
+    moving_latlng = [pick(latlng_stream, idx) for idx in moving_indices]
+
+    return moving_time, moving_power, moving_hr, moving_latlng
+
+
 def _downsample_streams(time_stream: List[float], value_streams: List[List[Optional[float]]], max_points: int = 4000):
     if len(time_stream) <= max_points:
         return time_stream, value_streams
@@ -364,6 +467,40 @@ def _downsample_streams(time_stream: List[float], value_streams: List[List[Optio
         downsampled_values.append([stream[i] for i in indices])
 
     return downsampled_time, downsampled_values
+
+
+def _downsample_streams_with_indices(
+    time_stream: List[float],
+    value_streams: List[List[Optional[float]]],
+    max_points: int = 4000
+):
+    if len(time_stream) <= max_points:
+        indices = list(range(len(time_stream)))
+    else:
+        step = math.ceil(len(time_stream) / max_points)
+        indices = list(range(0, len(time_stream), step))
+        if indices[-1] != len(time_stream) - 1:
+            indices.append(len(time_stream) - 1)
+
+    downsampled_time = [time_stream[i] for i in indices]
+    downsampled_values = []
+    for stream in value_streams:
+        downsampled_values.append([stream[i] if i < len(stream) else None for i in indices])
+
+    return downsampled_time, downsampled_values, indices
+
+
+def _downsample_latlng(latlng_stream: List[Optional[List[float]]], indices: List[int]):
+    if not latlng_stream:
+        return []
+    return [latlng_stream[i] if i < len(latlng_stream) else None for i in indices]
+
+
+def _semicircle_to_degrees(value):
+    try:
+        return float(value) * (180.0 / 2147483648.0)
+    except (TypeError, ValueError):
+        return None
 
 
 def _build_power_curve(power_stream: List[Optional[float]]):
@@ -439,6 +576,7 @@ def _get_stream_path(activity: Activity) -> Optional[str]:
 @router.delete("/{activity_id}")
 async def delete_activity(
     activity_id: int,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -466,6 +604,12 @@ async def delete_activity(
         except OSError:
             pass
 
+    try:
+        from ...services.cache.cache_tasks import rebuild_user_caches_two_stage
+        background_tasks.add_task(rebuild_user_caches_two_stage, current_user.id)
+    except Exception:
+        pass
+
     return {"success": True, "message": "Activity deleted"}
 
 
@@ -474,6 +618,23 @@ class ActivityUpdate(BaseModel):
     notes: Optional[str] = None
     rpe: Optional[int] = Field(None, ge=1, le=10)
     tags: Optional[List[str]] = None
+
+
+class LiveTrainingSample(BaseModel):
+    timestamp: Optional[float] = None
+    elapsedSec: Optional[float] = None
+    power: Optional[float] = None
+    heartRate: Optional[float] = None
+    cadence: Optional[float] = None
+    speed: Optional[float] = None
+    distanceMeters: Optional[float] = None
+
+
+class LiveTrainingSaveRequest(BaseModel):
+    name: Optional[str] = None
+    startedAt: Optional[str] = None
+    description: Optional[str] = None
+    samples: List[LiveTrainingSample]
 
 
 @router.patch("/{activity_id}")
@@ -543,6 +704,209 @@ async def update_activity(
             "tags": [tag.name for tag in activity.tags]
         }
     }
+
+
+@router.post("/live-session")
+async def save_live_training_session(
+    payload: LiveTrainingSaveRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    if not payload.samples:
+        raise HTTPException(status_code=400, detail="No samples provided.")
+
+    start_time = None
+    if payload.startedAt:
+        try:
+            start_time = datetime.fromisoformat(payload.startedAt.replace("Z", "+00:00"))
+        except ValueError:
+            start_time = None
+    if start_time is None:
+        start_time = datetime.utcnow()
+
+    time_stream: List[float] = []
+    power_stream: List[Optional[float]] = []
+    hr_stream: List[Optional[float]] = []
+    cadence_stream: List[Optional[float]] = []
+    speed_stream: List[Optional[float]] = []
+    distance_stream: List[Optional[float]] = []
+    moving_stream: List[bool] = []
+
+    fallback_distance = 0.0
+    last_time = None
+    for idx, sample in enumerate(payload.samples):
+        elapsed = sample.elapsedSec
+        if not isinstance(elapsed, (int, float)):
+            elapsed = idx
+        time_stream.append(float(elapsed))
+
+        power_val = sample.power if isinstance(sample.power, (int, float)) else None
+        hr_val = sample.heartRate if isinstance(sample.heartRate, (int, float)) else None
+        cadence_val = sample.cadence if isinstance(sample.cadence, (int, float)) else None
+        speed_val = sample.speed if isinstance(sample.speed, (int, float)) else None
+        distance_val = sample.distanceMeters if isinstance(sample.distanceMeters, (int, float)) else None
+
+        if distance_val is None and speed_val is not None:
+            if last_time is None:
+                last_time = float(elapsed)
+            delta = max(float(elapsed) - last_time, 0)
+            fallback_distance += (speed_val * 1000 / 3600) * delta
+            distance_val = fallback_distance
+            last_time = float(elapsed)
+        elif distance_val is not None:
+            last_time = float(elapsed)
+
+        power_stream.append(power_val)
+        hr_stream.append(hr_val)
+        cadence_stream.append(cadence_val)
+        speed_stream.append(speed_val)
+        distance_stream.append(distance_val)
+
+        is_moving = False
+        if speed_val is not None:
+            is_moving = speed_val > 1.0
+        elif cadence_val is not None:
+            is_moving = cadence_val > 0
+        elif power_val is not None:
+            is_moving = power_val > 0
+        moving_stream.append(is_moving)
+
+    duration_sec = None
+    if time_stream:
+        duration_sec = max(time_stream) - min(time_stream)
+    if not duration_sec or duration_sec <= 0:
+        duration_sec = float(len(payload.samples))
+
+    distance_meters = next(
+        (val for val in reversed(distance_stream) if isinstance(val, (int, float))),
+        None
+    )
+    distance_km = distance_meters / 1000 if distance_meters is not None else None
+
+    df = pd.DataFrame({
+        "time": time_stream,
+        "power": power_stream,
+        "heart_rate": hr_stream,
+        "cadence": cadence_stream,
+        "speed": speed_stream,
+        "moving": moving_stream
+    })
+
+    hr_series = extract_hr_series(df) if not df.empty else None
+    hr_avg = compute_avg_hr(hr_series)
+    power_metrics = extract_power_metrics(df, hr_avg, current_user) if not df.empty else {}
+
+    activity = Activity(
+        user_id=current_user.id,
+        start_time=start_time,
+        file_name="Live Training Session",
+        custom_name=payload.name.strip()[:255] if payload.name else None,
+        duration=duration_sec,
+        distance=distance_km,
+        avg_power=power_metrics.get("avg_power"),
+        normalized_power=power_metrics.get("normalized_power"),
+        max_5sec_power=power_metrics.get("max_5sec_power"),
+        max_1min_power=power_metrics.get("max_1min_power"),
+        max_3min_power=power_metrics.get("max_3min_power"),
+        max_5min_power=power_metrics.get("max_5min_power"),
+        max_10min_power=power_metrics.get("max_10min_power"),
+        max_20min_power=power_metrics.get("max_20min_power"),
+        max_30min_power=power_metrics.get("max_30min_power"),
+        max_60min_power=power_metrics.get("max_60min_power"),
+        avg_heart_rate=hr_avg,
+        max_heart_rate=float(hr_series.max()) if hr_series is not None and not hr_series.empty else None,
+        tss=power_metrics.get("tss"),
+        intensity_factor=power_metrics.get("intensity_factor"),
+        efficiency_factor=power_metrics.get("efficiency_factor"),
+        notes=payload.description.strip() if payload.description else None
+    )
+
+    db.add(activity)
+    db.flush()
+
+    try:
+        stream_path = _get_stream_path(activity)
+        if stream_path:
+            os.makedirs(os.path.dirname(stream_path), exist_ok=True)
+            stream_payload = {
+                "time": {"data": time_stream},
+                "watts": {"data": power_stream},
+                "heartrate": {"data": hr_stream},
+                "cadence": {"data": cadence_stream},
+                "moving": {"data": moving_stream},
+                "distance": {"data": distance_stream},
+                "speed": {"data": speed_stream}
+            }
+            with open(stream_path, "w") as f:
+                json.dump(stream_payload, f)
+    except Exception:
+        pass
+
+    if power_metrics.get("avg_power") and not df.empty:
+        try:
+            power_zones = compute_power_zones(df, current_user.ftp or 250)
+            for zone_label, seconds in power_zones.items():
+                if seconds > 0:
+                    db.add(PowerZone(
+                        activity_id=activity.id,
+                        zone_label=zone_label,
+                        seconds_in_zone=seconds
+                    ))
+        except Exception:
+            pass
+
+    if hr_series is not None and not hr_series.empty and not df.empty:
+        try:
+            hr_zones = compute_hr_zones(df, current_user.hr_max or 190)
+            if hr_zones:
+                for zone_label, seconds in hr_zones.items():
+                    if seconds > 0:
+                        db.add(HrZone(
+                            activity_id=activity.id,
+                            zone_label=zone_label,
+                            seconds_in_zone=seconds
+                        ))
+        except Exception:
+            pass
+
+    db.commit()
+
+    try:
+        from ...services.cache.cache_manager import CacheManager
+        cache_manager = CacheManager()
+        cache_manager.clear_user_cache_by_prefixes(
+            current_user.id,
+            [
+                "training_load",
+                "power_curve",
+                "critical_power",
+                "efficiency",
+                "power_zones",
+                "hr_zones",
+                "fitness_state",
+                "vo2max",
+                "best_power",
+                "rider_profile",
+                "zone_balance",
+                "comparisons",
+                "ftp_prediction",
+                "insights",
+                "weekly_summary",
+                "polarized_distribution",
+                "advanced_metrics",
+            ],
+        )
+    except Exception:
+        pass
+
+    try:
+        from ...services.cache.cache_tasks import rebuild_user_caches_two_stage
+        background_tasks.add_task(rebuild_user_caches_two_stage, current_user.id)
+    except Exception:
+        pass
+
+    return {"success": True, "activity_id": activity.id}
 
 
 def _get_duration_key(seconds: int) -> str:

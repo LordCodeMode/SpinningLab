@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { eventBus } from '../static/js/core/eventBus.js';
+import { eventBus } from '../src/lib/core/eventBus.js';
 
 const TEST_EVENT = 'test:event';
 

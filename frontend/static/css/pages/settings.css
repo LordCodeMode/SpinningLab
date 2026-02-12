@@ -6,11 +6,18 @@
    .settings-section {
     display: grid;
     gap: 28px;
-    max-width: 1000px;
-    margin: 0 auto;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+  }
+
+  .settings-shell {
+    --page-accent: #2563eb;
+    --page-accent-alt: #7c3aed;
+    --page-accent-soft: rgba(37, 99, 235, 0.18);
   }
   
-  .settings-header {
+.settings-header {
     margin-bottom: 14px;
     padding-bottom: 16px;
     position: relative;
@@ -31,17 +38,17 @@
     margin: 0;
   }
 
-  .settings-header::before {
+.settings-header::before {
     content: '';
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
     height: 2px;
-    background: #e5e7eb;
+    background: var(--color-border);
   }
 
-  .settings-header::after {
+.settings-header::after {
     content: '';
     position: absolute;
     left: 0;
@@ -56,21 +63,23 @@
      SETTINGS CARDS GRID
      ============================================ */
   
-  .settings-cards-grid {
-    display: grid;
-    gap: 20px;
-  }
+.settings-cards-grid {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+}
   
-  .settings-card {
-    background: #ffffff;
-    border: 2px solid #e5e7eb;
-    border-radius: 16px;
-    padding: 28px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-  }
+.settings-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
   
   .settings-card::before {
     content: '';
@@ -106,6 +115,11 @@
     margin-bottom: 24px;
     padding-bottom: 20px;
     border-bottom: 2px solid #f3f4f6;
+  }
+
+  .settings-card-header.section-header {
+    justify-content: flex-start;
+    align-items: center;
   }
   
   .settings-card-icon {
@@ -230,7 +244,7 @@
     flex: 1;
   }
   
-  .settings-card-title {
+.settings-card-title:not(.section-title) {
     font-size: 20px;
     font-weight: 700;
     color: var(--text-primary);
@@ -238,7 +252,7 @@
     letter-spacing: -0.01em;
   }
   
-  .settings-card-subtitle {
+  .settings-card-subtitle:not(.section-subtitle) {
     font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.5;
@@ -282,9 +296,9 @@
   }
   
   .settings-field-input {
-    background: #ffffff;
+    background: var(--color-surface);
     color: var(--text-primary);
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--color-border);
     border-radius: 10px;
     padding: 14px 16px;
     font-size: 15px;
@@ -294,7 +308,7 @@
   }
   
   .settings-field-input:hover {
-    border-color: #d1d5db;
+    border-color: var(--color-border-dark);
   }
   
   .settings-field-input:focus {
@@ -304,7 +318,7 @@
   }
   
   .settings-field-input::placeholder {
-    color: #9ca3af;
+    color: var(--color-text-tertiary);
   }
   
   .settings-field-help {
@@ -319,7 +333,7 @@
   .settings-field-help svg {
     width: 14px;
     height: 14px;
-    color: #6b7280;
+    color: var(--color-text-secondary);
     flex-shrink: 0;
   }
   
@@ -338,8 +352,8 @@
     font-weight: 600;
     color: var(--text-secondary);
     padding: 0 8px;
-    background: #f9fafb;
-    border: 2px solid #e5e7eb;
+    background: var(--color-surface-soft);
+    border: 2px solid var(--color-border);
     border-radius: 8px;
     height: 48px;
     display: flex;
@@ -383,7 +397,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    background: white;
+    background: var(--color-surface);
     border-radius: 8px;
     font-size: 13px;
     transition: all 0.2s ease;
@@ -592,7 +606,8 @@
    ============================================ */
 
 .settings-shell {
-  max-width: 1200px;
+  max-width: none;
+  width: 100%;
   margin: 0 auto;
   padding: 24px 24px 48px;
   display: flex;
@@ -601,17 +616,24 @@
 }
 
 .settings-hero {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 20px;
   padding: 28px 32px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   position: relative;
   overflow: hidden;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
-.settings-hero::after {
+.settings-hero__content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.settings-hero:not(.page-header)::after {
   content: '';
   position: absolute;
   left: 0;
@@ -627,20 +649,20 @@
   letter-spacing: 0.3em;
   font-size: 12px;
   font-weight: 700;
-  color: #64748b;
+  color: var(--color-text-secondary);
   margin-bottom: 10px;
 }
 
-.settings-hero__title {
+.settings-hero__title:not(.page-title) {
   font-size: 36px;
   font-weight: 800;
   margin: 0 0 8px 0;
   letter-spacing: -0.02em;
 }
 
-.settings-hero__subtitle {
+.settings-hero__subtitle:not(.page-description) {
   font-size: 15px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   margin: 0 0 16px 0;
   max-width: 640px;
   line-height: 1.6;
@@ -654,51 +676,53 @@
 }
 
 .settings-hero__note {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 12px 16px;
   font-size: 13px;
-  color: #475569;
+  color: var(--color-text-secondary);
 }
 
 .settings-hero__note strong {
   font-weight: 600;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .settings-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+  width: 100%;
 }
 
 .settings-main {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
 }
 
 .settings-side {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
-  position: sticky;
-  top: 24px;
+  width: 100%;
 }
 
 .settings-side-card {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.35);
   padding: 18px;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  width: 100%;
 }
 
 .settings-card {
   border: 1px solid rgba(148, 163, 184, 0.35);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: var(--gradient-card);
   box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
 }
 
@@ -750,7 +774,7 @@
 }
 
 .settings-metric {
-  background: #f8fafc;
+  background: var(--color-surface-soft);
   border-radius: 12px;
   padding: 12px;
   border: 1px solid rgba(148, 163, 184, 0.25);
@@ -758,7 +782,7 @@
 
 .settings-metric span {
   font-size: 12px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -768,20 +792,20 @@
   margin-top: 6px;
   font-size: 16px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .settings-progress__label {
   font-size: 12px;
   font-weight: 600;
-  color: #475569;
+  color: var(--color-text-secondary);
   margin-bottom: 6px;
 }
 
 .settings-progress__track {
   height: 8px;
   border-radius: 999px;
-  background: #e2e8f0;
+  background: var(--color-border);
   overflow: hidden;
 }
 
@@ -816,7 +840,7 @@
 
 .settings-strava-meta {
   font-size: 13px;
-  color: #475569;
+  color: var(--color-text-secondary);
 }
 
 .settings-strava-empty h4 {
@@ -825,7 +849,7 @@
 }
 
 .settings-strava-empty p {
-  color: #64748b;
+  color: var(--color-text-secondary);
   margin-bottom: 12px;
 }
 
@@ -858,10 +882,10 @@
 }
 
 .settings-error {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 16px;
   padding: 24px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
 }
 
 @media (max-width: 1024px) {
@@ -881,5 +905,190 @@
 
   .settings-metric-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
+   Cardless layout overrides (Settings)
+   ============================================ */
+
+body.page-settings .main-content,
+body.page-settings #pageContent {
+  background: var(--color-surface);
+}
+
+body.page-settings .settings-shell {
+  background: var(--color-surface);
+  padding: 32px;
+  margin: -32px;
+  gap: 28px;
+}
+
+body.page-settings .settings-hero {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 12px 0 20px;
+}
+
+body.page-settings .settings-hero::before {
+  content: '';
+  position: absolute;
+  inset: -14px -24px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92) 0%, rgba(255, 255, 255, 0.2) 100%);
+  z-index: -1;
+}
+
+body.page-settings .settings-hero::after {
+  height: 2px;
+  background: rgba(37, 99, 235, 0.45);
+}
+
+body.page-settings .settings-hero__content {
+  gap: 12px;
+}
+
+body.page-settings .settings-hero__chips {
+  margin-bottom: 10px;
+}
+
+body.page-settings .settings-hero__eyebrow {
+  margin-bottom: 6px;
+}
+
+body.page-settings .settings-hero__note {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+}
+
+body.page-settings .settings-main > * {
+  padding: 22px 22px;
+  border-radius: 18px;
+}
+
+body.page-settings .settings-main > *:nth-of-type(even) {
+  background: var(--gradient-card);
+}
+
+body.page-settings .settings-main > *:nth-of-type(odd) {
+  background: transparent;
+}
+
+body.page-settings .settings-card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+body.page-settings .settings-card::before {
+  display: none;
+}
+
+body.page-settings .settings-card:hover {
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+body.page-settings .settings-card-header {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+body.page-settings .settings-main > *:nth-of-type(odd) .settings-card-header {
+  border-bottom-color: rgba(148, 163, 184, 0.22);
+}
+
+body.page-settings .settings-field-input {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+body.page-settings .settings-field-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+}
+
+body.page-settings .settings-field-unit {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border);
+}
+
+body.page-settings .settings-zones-preview,
+body.page-settings .settings-strava-status,
+body.page-settings .settings-info-banner {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border);
+}
+
+body.page-settings .settings-zone-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+body.page-settings .settings-zone-item:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+body.page-settings .settings-save-card {
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+body.page-settings .settings-save-card:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+body.page-settings .settings-save-icon {
+  box-shadow: none;
+}
+
+body.page-settings .settings-side-card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 16px;
+  padding: 18px;
+}
+
+body.page-settings .settings-metric {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+body.page-settings .settings-side-card:nth-of-type(even) {
+  background: var(--gradient-card);
+}
+
+@media (max-width: 900px) {
+  body.page-settings .settings-shell {
+    margin: -24px;
+    padding: 24px;
+    --settings-section-line-inset: 16px;
+  }
+
+  body.page-settings .settings-hero::before {
+    inset: -12px -16px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.page-settings .settings-shell {
+    margin: -16px;
+    padding: 16px;
+  }
+
+  body.page-settings .settings-hero {
+    padding: 8px 0 16px;
+  }
+
+  body.page-settings .settings-hero::before {
+    inset: -10px -12px;
   }
 }

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import API from '../../../static/js/core/api.js';
-import { notify } from '../../../static/js/utils/notifications.js';
-import CONFIG from '../../../static/js/pages/calendar/config.js';
-import { getIntervalColorClass, getIntervalPowerPercent } from '../../../static/js/utils/workout-colors.js';
-import { POWER_ZONES } from '../../../static/js/pages/workout-builder/zones.js';
+import API from '../../lib/core/api.js';
+import { notify } from '../../lib/utils/notifications.js';
+import CONFIG from '../../lib/pages/calendar/config.js';
+import { getIntervalColorClass, getIntervalPowerPercent } from '../../lib/utils/workout-colors.js';
+import { POWER_ZONES } from '../../lib/pages/workout-builder/zones.js';
 
 const getHashParams = () => {
   const hash = window.location.hash || '';
@@ -192,6 +192,13 @@ const CalendarApp = () => {
   useEffect(() => {
     workoutMapRef.current = workoutMap;
   }, [workoutMap]);
+
+  useEffect(() => {
+    document.body.classList.add('page-calendar');
+    return () => {
+      document.body.classList.remove('page-calendar');
+    };
+  }, []);
 
   const registerPlannedRef = useCallback((plannedId) => (node) => {
     const key = String(plannedId);
@@ -1107,9 +1114,13 @@ const CalendarApp = () => {
 
   if (loading) {
     return (
-      <div className="page-header">
-        <h1 className="page-title">{CONFIG.PAGE_TITLE}</h1>
-        <p className="page-description">{CONFIG.PAGE_DESCRIPTION}</p>
+      <div className="calendar-page">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">{CONFIG.PAGE_TITLE}</h1>
+            <p className="page-description">{CONFIG.PAGE_DESCRIPTION}</p>
+          </div>
+        </div>
         <div className="calendar-container">
           <div className="calendar-main">
             <div className="calendar-view">
@@ -1128,8 +1139,13 @@ const CalendarApp = () => {
 
   if (error) {
     return (
-      <div className="page-header">
-        <h1 className="page-title">{CONFIG.PAGE_TITLE}</h1>
+      <div className="calendar-page">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">{CONFIG.PAGE_TITLE}</h1>
+            <p className="page-description">{CONFIG.PAGE_DESCRIPTION}</p>
+          </div>
+        </div>
         <div className="error-state">
           <h3>Error Loading Calendar</h3>
           <p>{error}</p>
@@ -1143,9 +1159,18 @@ const CalendarApp = () => {
   const days = viewData?.days || [];
 
   return (
-    <>
+    <div className="calendar-page">
       <div className="page-header">
-        <h1 className="page-title">{CONFIG.PAGE_TITLE}</h1>
+        <div>
+          <h1 className="page-title">{CONFIG.PAGE_TITLE}</h1>
+          <p className="page-description">{CONFIG.PAGE_DESCRIPTION}</p>
+          <div className="page-header__meta">
+            <span className="page-pill page-pill--accent">{viewLabel}</span>
+            <span className="page-pill page-pill--muted">
+              {currentView === 'month' ? 'Monthly planning' : 'Weekly planning'}
+            </span>
+          </div>
+        </div>
         <div className="page-header__actions calendar-controls">
           <div className="calendar-view-toggle">
             <button
@@ -1183,13 +1208,10 @@ const CalendarApp = () => {
 
       <div className="calendar-container">
         <div className="calendar-main">
-          <div className="calendar-header">
+          <div className="calendar-header section-header">
             <div className="calendar-header__range">
-              <span className="calendar-header__label">Date Range</span>
-              <h2 className="calendar-week-label">{viewLabel}</h2>
-              <span className="calendar-header__chip">
-                {currentView === 'month' ? 'Monthly planning' : 'Weekly planning'}
-              </span>
+              <span className="calendar-header__label section-subtitle">Date Range</span>
+              <h2 className="calendar-week-label section-title">{viewLabel}</h2>
             </div>
             <div className="calendar-week-stats">
               <div className="calendar-stat calendar-stat--planned">
@@ -1576,7 +1598,7 @@ const CalendarApp = () => {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

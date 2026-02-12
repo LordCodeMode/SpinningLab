@@ -5,7 +5,7 @@ import {
   optimisticAdd,
   withButtonLoading,
   optimisticToggle
-} from '../static/js/utils/optimisticUpdates.js';
+} from '../src/lib/utils/optimisticUpdates.js';
 
 describe('optimisticDelete', () => {
   let element, parent, deleteFn;

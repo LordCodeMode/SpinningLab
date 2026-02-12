@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
+import Services from '../../lib/services/index.js';
+import { LoadingSkeleton } from '../components/ui';
 
 const DEFAULT_DURATIONS = [
   1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240,
@@ -31,13 +31,13 @@ const formatDuration = (seconds) => {
   return label;
 };
 
-const getIconPath = (icon) => {
+const getIcon = (icon) => {
   const icons = {
-    'zap': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>',
-    'battery-charging': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>',
-    'target': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
-    'trending-up': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>',
-    'activity': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>'
+    'zap': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>,
+    'battery-charging': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>,
+    'target': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>,
+    'trending-up': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>,
+    'activity': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
   };
   return icons[icon] || icons.zap;
 };
@@ -117,7 +117,6 @@ const CriticalPowerApp = () => {
   const [data, setData] = useState(null);
   const [powerCurvePoints, setPowerCurvePoints] = useState([]);
   const [modelPowerPoints, setModelPowerPoints] = useState([]);
-  const [tooltip, setTooltip] = useState(null);
 
   const chartRef = useRef(null);
   const canvasRef = useRef(null);
@@ -157,6 +156,26 @@ const CriticalPowerApp = () => {
   useEffect(() => {
     loadCriticalPower();
   }, [loadCriticalPower]);
+
+  useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    const pageContent = document.getElementById('pageContent');
+    const prevBodyBg = document.body.style.backgroundColor;
+    const prevMainBg = mainContent?.style.backgroundColor;
+    const prevPageBg = pageContent?.style.backgroundColor;
+
+    document.body.classList.add('page-critical-power');
+    document.body.style.backgroundColor = 'var(--color-background)';
+    if (mainContent) mainContent.style.backgroundColor = 'var(--color-surface)';
+    if (pageContent) pageContent.style.backgroundColor = 'var(--color-surface)';
+
+    return () => {
+      document.body.classList.remove('page-critical-power');
+      document.body.style.backgroundColor = prevBodyBg;
+      if (mainContent) mainContent.style.backgroundColor = prevMainBg || '';
+      if (pageContent) pageContent.style.backgroundColor = prevPageBg || '';
+    };
+  }, []);
 
   useEffect(() => () => {
     isMountedRef.current = false;
@@ -271,6 +290,9 @@ const CriticalPowerApp = () => {
 
     const { actualData, modelData, differenceData, tickValues, minDuration, maxDuration } = chartSeries;
 
+    const theme = Services.chart.getThemeTokens();
+    const axisColor = theme.axis || theme.gridStrong || '#94a3b8';
+
     chartRef.current = new Chart(canvas, {
       type: 'line',
       data: {
@@ -329,10 +351,10 @@ const CriticalPowerApp = () => {
           legend: { display: false },
           tooltip: {
             enabled: true,
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            titleColor: '#ffffff',
-            bodyColor: '#ffffff',
-            borderColor: '#8b5cf6',
+            backgroundColor: theme.tooltipBg,
+            titleColor: theme.tooltipTitle,
+            bodyColor: theme.tooltipBody,
+            borderColor: theme.tooltipBorder,
             borderWidth: 1,
             padding: 12,
             displayColors: true,
@@ -367,22 +389,29 @@ const CriticalPowerApp = () => {
             title: {
               display: true,
               text: 'Duration',
-              font: { size: 13, weight: '600' },
-              color: '#6b7280'
+              font: { size: 13, weight: '700', family: 'Inter' },
+              color: theme.title,
+              padding: { top: 10 }
             },
             ticks: {
               callback: (value) => formatDuration(value),
-              color: '#6b7280',
-              font: { size: 11 },
+              color: theme.label,
+              font: { size: 11, weight: '600', family: 'Inter' },
               maxRotation: 0,
               minRotation: 0,
-              autoSkip: false
+              autoSkip: false,
+              padding: 8
             },
             afterBuildTicks: (scale) => {
               scale.ticks = tickValues.map((value) => ({ value }));
               return scale.ticks;
             },
-            grid: { color: 'rgba(0, 0, 0, 0.05)', drawBorder: false },
+            grid: { display: false, drawBorder: false },
+            border: {
+              display: true,
+              color: axisColor,
+              width: 1.6
+            },
             min: minDuration,
             max: maxDuration * 1.05
           },
@@ -391,15 +420,22 @@ const CriticalPowerApp = () => {
             title: {
               display: true,
               text: 'Power (watts)',
-              font: { size: 13, weight: '600' },
-              color: '#6b7280'
+              font: { size: 13, weight: '700', family: 'Inter' },
+              color: theme.title,
+              padding: { bottom: 10 }
             },
             ticks: {
-              color: '#6b7280',
-              font: { size: 11 },
+              color: theme.label,
+              font: { size: 11, weight: '600', family: 'Inter' },
+              padding: 8,
               callback: (value) => `${Math.round(value)} W`
             },
-            grid: { color: 'rgba(0, 0, 0, 0.05)', drawBorder: false }
+            grid: { display: false, drawBorder: false },
+            border: {
+              display: true,
+              color: axisColor,
+              width: 1.6
+            }
           }
         }
       }
@@ -413,31 +449,21 @@ const CriticalPowerApp = () => {
     };
   }, [chartSeries, data]);
 
-  const handleTooltip = (event, text) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    setTooltip({
-      text,
-      top: rect.top - 12,
-      left: rect.left + rect.width / 2
-    });
-  };
-
-  const clearTooltip = () => {
-    setTooltip(null);
-  };
-
   if (loading) {
     return (
       <div className="cp-section">
-        <div className="cp-header">
-          <h1>Critical Power Analysis</h1>
-          <p>Loading your power data...</p>
+        <div className="cp-header page-header">
+          <div>
+            <h1 className="page-title">Critical Power Analysis</h1>
+            <p className="page-description">Loading your power data...</p>
+          </div>
         </div>
-      <div
-        className="cp-metrics-grid"
-        dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'metric', count: 3 }) }}
-      />
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 1 }) }} />
+        <div className="cp-metrics-grid">
+          <LoadingSkeleton type="metric" count={3} />
+        </div>
+        <div>
+          <LoadingSkeleton type="chart" count={1} />
+        </div>
       </div>
     );
   }
@@ -496,9 +522,16 @@ const CriticalPowerApp = () => {
 
   return (
     <div className="cp-section">
-      <div className="cp-header">
-        <h1>Critical Power Analysis</h1>
-        <p>Advanced 2-parameter physiological model comparing your theoretical capacity with actual performance across all durations</p>
+      <div className="cp-header page-header">
+        <div>
+          <h1 className="page-title">Critical Power Analysis</h1>
+          <p className="page-description">Advanced 2-parameter physiological model comparing theoretical capacity with actual performance.</p>
+          <div className="page-header__meta">
+            <span className="page-pill">Model fit {fitScore}%</span>
+            <span className="page-pill page-pill--muted">Source {sourceLabel}</span>
+            <span className="page-pill page-pill--muted">{pointsCount} points</span>
+          </div>
+        </div>
       </div>
 
       <div className="cp-metrics-grid">
@@ -508,35 +541,32 @@ const CriticalPowerApp = () => {
             value: Math.round(critical_power),
             subtitle: `${cpPerKg} W/kg · Sustainable threshold`,
             variant: 'purple',
-            icon: 'zap',
-            tooltip: 'The highest power output you can theoretically sustain indefinitely. This represents your aerobic capacity ceiling.'
+            icon: 'zap'
           },
           {
             label: "W' (W Prime)",
             value: Math.round(w_prime),
             subtitle: `${wPrimeKj} kJ · Anaerobic capacity`,
             variant: 'blue',
-            icon: 'battery-charging',
-            tooltip: 'Your anaerobic work capacity - the total energy available above CP before exhaustion. Think of it as your battery for efforts above threshold.'
+            icon: 'battery-charging'
           },
           {
             label: 'Model Fit Quality',
             value: fitScore,
             subtitle: 'R² · Prediction accuracy',
             variant: 'amber',
-            icon: 'target',
-            tooltip: 'How well the CP model fits your actual power data. Higher values (>90%) indicate the model accurately predicts your performance.'
+            icon: 'target'
           }
         ].map((card) => (
           <div
             key={card.label}
             className="cp-metric-card"
-            onMouseEnter={(event) => handleTooltip(event, card.tooltip)}
-            onMouseLeave={clearTooltip}
           >
             <div className="cp-metric-header-row">
               <div className={`cp-metric-icon ${card.variant}`}>
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: getIconPath(card.icon) }} />
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {getIcon(card.icon)}
+                </svg>
               </div>
             </div>
             <div className="cp-metric-label">{card.label}</div>
@@ -547,7 +577,7 @@ const CriticalPowerApp = () => {
       </div>
 
       <div className="cp-chart-card">
-        <div className="cp-chart-header">
+        <div className="cp-chart-header section-header">
           <div className="cp-chart-title-group">
             <div className="cp-chart-icon">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -555,12 +585,12 @@ const CriticalPowerApp = () => {
               </svg>
             </div>
             <div>
-              <div className="cp-chart-title">Power Duration Model vs Actual</div>
-              <div className="cp-chart-subtitle">
+              <h3 className="cp-chart-title section-title">Power Duration Model vs Actual</h3>
+              <p className="cp-chart-subtitle section-subtitle">
                 {hasActual
                   ? 'Compare theoretical CP model predictions with your best recorded powers'
                   : 'Showing CP model prediction (upload activities to see actual power comparison)'}
-              </div>
+              </p>
             </div>
           </div>
           <div className="cp-chart-legend">
@@ -584,9 +614,11 @@ const CriticalPowerApp = () => {
       </div>
 
       <div className="cp-data-overview">
-        <div className="cp-data-header">
-          <h3>Data Overview</h3>
-          <p>{pointsCount > 0 ? `Showing ${pointsCount} data points (${sourceLabel})` : 'No actual power data available yet'}</p>
+        <div className="cp-data-header section-header">
+          <div>
+            <h3 className="section-title">Data Overview</h3>
+            <p className="section-subtitle">{pointsCount > 0 ? `Showing ${pointsCount} data points (${sourceLabel})` : 'No actual power data available yet'}</p>
+          </div>
         </div>
         <div className="cp-data-grid">
           <div className="cp-data-card">
@@ -681,7 +713,9 @@ const CriticalPowerApp = () => {
           ].map((card) => (
             <div key={card.title} className="cp-insight-card">
               <div className="cp-insight-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: getIconPath(card.icon) }} />
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {getIcon(card.icon)}
+                </svg>
               </div>
               <div className="cp-insight-title">{card.title}</div>
               <div className="cp-insight-text">{card.text}</div>
@@ -709,20 +743,6 @@ const CriticalPowerApp = () => {
           </ul>
         </div>
       </div>
-
-      {tooltip ? (
-        <div
-          className="cp-tooltip show"
-          style={{
-            position: 'fixed',
-            top: `${tooltip.top}px`,
-            left: `${tooltip.left}px`,
-            transform: 'translate(-50%, -100%)'
-          }}
-        >
-          {tooltip.text}
-        </div>
-      ) : null}
     </div>
   );
 };

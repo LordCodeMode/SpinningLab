@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
-import CONFIG from '../../../static/js/pages/best-powers/config.js';
+import Services from '../../lib/services/index.js';
+import { LoadingSkeleton } from '../components/ui';
+import CONFIG from '../../lib/pages/best-powers/config.js';
 
 const DEFAULT_WEIGHT = 75;
 
@@ -424,9 +424,30 @@ export default function BestPowersApp() {
   const [currentRange, setCurrentRange] = useState('all');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [detailDurationKey, setDetailDurationKey] = useState(null);
 
   useEffect(() => {
     Services.analytics.trackPageView('best-powers');
+  }, []);
+
+  useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    const pageContent = document.getElementById('pageContent');
+    const prevBodyBg = document.body.style.backgroundColor;
+    const prevMainBg = mainContent?.style.backgroundColor;
+    const prevPageBg = pageContent?.style.backgroundColor;
+
+    document.body.classList.add('page-best-powers');
+    document.body.style.backgroundColor = 'var(--color-background)';
+    if (mainContent) mainContent.style.backgroundColor = 'var(--color-surface)';
+    if (pageContent) pageContent.style.backgroundColor = 'var(--color-surface)';
+
+    return () => {
+      document.body.classList.remove('page-best-powers');
+      document.body.style.backgroundColor = prevBodyBg;
+      if (mainContent) mainContent.style.backgroundColor = prevMainBg || '';
+      if (pageContent) pageContent.style.backgroundColor = prevPageBg || '';
+    };
   }, []);
 
   const fetchData = useCallback(async (rangeId) => {
@@ -475,6 +496,21 @@ export default function BestPowersApp() {
     [data, weight, usingWkg]
   );
 
+  const validDurations = useMemo(
+    () => durationData.filter((item) => item.hasValue),
+    [durationData]
+  );
+
+  const milestoneDurations = useMemo(
+    () => durationData.filter((item) => item.hasValue && item.nextLevel),
+    [durationData]
+  );
+
+  const detailOptions = useMemo(() => {
+    const byKey = new Map(validDurations.map((duration) => [duration.key, duration]));
+    return DURATION_SEGMENTS.map((segment) => byKey.get(segment.key)).filter(Boolean);
+  }, [validDurations]);
+
   const profile = useMemo(() => buildProfile(durationData), [durationData]);
   const insights = useMemo(() => buildInsights(durationData, profile, { usingWkg, weight }), [durationData, profile, usingWkg, weight]);
 
@@ -502,6 +538,8 @@ export default function BestPowersApp() {
     const labels = validDurations.map((d) => d.energySystem);
     const userValues = validDurations.map((d) => d.percentWorldTour);
     const wtValues = validDurations.map(() => 100);
+
+    const theme = Services.chart.getThemeTokens();
 
     radarChartRef.current = new Chart(canvas, {
       type: 'radar',
@@ -542,11 +580,15 @@ export default function BestPowersApp() {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backgroundColor: theme.tooltipBg,
             padding: 12,
             cornerRadius: 8,
             titleFont: { size: 13, weight: '600' },
             bodyFont: { size: 12 },
+            titleColor: theme.tooltipTitle,
+            bodyColor: theme.tooltipBody,
+            borderColor: theme.tooltipBorder,
+            borderWidth: 1,
             callbacks: {
               label: (context) => `${context.dataset.label}: ${context.parsed.r}%`,
             },
@@ -559,16 +601,16 @@ export default function BestPowersApp() {
             ticks: {
               stepSize: 20,
               font: { size: 11 },
-              color: '#94a3b8',
+              color: theme.label,
               backdropColor: 'transparent',
             },
             grid: {
-              color: 'rgba(148, 163, 184, 0.15)',
+              color: theme.grid,
               lineWidth: 1,
             },
             pointLabels: {
               font: { size: 12, weight: '600' },
-              color: '#475569',
+              color: theme.legend,
             },
           },
         },
@@ -644,6 +686,8 @@ export default function BestPowersApp() {
       });
     });
 
+    const theme = Services.chart.getThemeTokens();
+
     powerChartRef.current = new Chart(canvas, {
       type: 'line',
       data: { labels, datasets },
@@ -664,17 +708,21 @@ export default function BestPowersApp() {
               boxHeight: 12,
               padding: 12,
               font: { size: 12, weight: '600' },
-              color: '#475569',
+              color: theme.legend,
               usePointStyle: true,
               pointStyle: 'circle',
             },
           },
           tooltip: {
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backgroundColor: theme.tooltipBg,
             padding: 12,
             cornerRadius: 8,
             titleFont: { size: 13, weight: '600' },
             bodyFont: { size: 12 },
+            titleColor: theme.tooltipTitle,
+            bodyColor: theme.tooltipBody,
+            borderColor: theme.tooltipBorder,
+            borderWidth: 1,
             callbacks: {
               label: (context) => `${context.dataset.label}: ${formatTooltipValue(context.parsed.y, { usingWkg })}`,
             },
@@ -683,21 +731,21 @@ export default function BestPowersApp() {
         scales: {
           x: {
             grid: { display: false },
-            ticks: { font: { size: 12, weight: '600' }, color: '#64748b' },
+            ticks: { font: { size: 12, weight: '600' }, color: theme.label },
           },
           y: {
             beginAtZero: true,
-            grid: { color: 'rgba(148, 163, 184, 0.1)', lineWidth: 1 },
+            grid: { color: theme.grid, lineWidth: 1 },
             ticks: {
               font: { size: 11 },
-              color: '#94a3b8',
+              color: theme.label,
               callback: (value) => formatAxisValue(value, { usingWkg }),
             },
             title: {
               display: true,
               text: usingWkg ? 'W/kg' : 'Watts',
               font: { size: 12, weight: '600' },
-              color: '#64748b',
+              color: theme.title,
             },
           },
         },
@@ -721,10 +769,21 @@ export default function BestPowersApp() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!detailOptions.length) {
+      if (detailDurationKey !== null) setDetailDurationKey(null);
+      return;
+    }
+    const hasSelection = detailOptions.some((option) => option.key === detailDurationKey);
+    if (!hasSelection) {
+      setDetailDurationKey(detailOptions[0].key);
+    }
+  }, [detailOptions, detailDurationKey]);
+
   if (!hasLoaded && loading) {
     return (
       <div className="bp-react-shell">
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'metric', count: 6 }) }} />
+        <div><LoadingSkeleton type="metric" count={6} /></div>
       </div>
     );
   }
@@ -742,21 +801,24 @@ export default function BestPowersApp() {
 
   const highlightDurations = profile.topDurations || [];
   const radarAvailable = durationData.some((item) => item.hasValue);
-  const validDurations = durationData.filter((item) => item.hasValue);
-  const milestoneDurations = durationData.filter((item) => item.hasValue && item.nextLevel);
+  const selectedDetail = detailOptions.find((option) => option.key === detailDurationKey) || detailOptions[0] || null;
   const rangeLabel = RANGE_OPTIONS.find((option) => option.id === currentRange)?.label || 'All Time';
 
   return (
     <div className={`bp-react-shell ${isTransitioning ? 'is-loading' : ''}`}>
       <div className={`bp-react-overlay ${isTransitioning ? 'is-active' : ''}`} aria-hidden="true"></div>
-      <header className="bp-react-header">
-        <div className="bp-react-header__title">
+      <header className="bp-react-header page-header">
+        <div>
           <span className="bp-react-kicker">Performance Atlas</span>
-          <h1>Best Powers</h1>
-          <p>Peak output snapshots across sprint, aerobic, and endurance systems.</p>
-          <div className="bp-react-title-underline" aria-hidden="true"></div>
+          <h1 className="page-title">Best Powers</h1>
+          <p className="page-description">Peak output snapshots across sprint, aerobic, and endurance systems.</p>
+          <div className="page-header__meta">
+            <span className="page-pill">Range {rangeLabel}</span>
+            <span className="page-pill page-pill--muted">{usingWkg ? `${weight.toFixed(1)} kg` : 'Absolute watts'}</span>
+            <span className="page-pill page-pill--muted">{validDurations.length} efforts</span>
+          </div>
         </div>
-        <div className="bp-react-header__controls">
+        <div className="bp-react-header__controls page-header__actions">
           <div className="bp-react-range">
             {RANGE_OPTIONS.map((option) => (
               <button
@@ -767,12 +829,6 @@ export default function BestPowersApp() {
                 {option.label}
               </button>
             ))}
-          </div>
-          <div className="bp-react-header__meta">
-            <span className="bp-react-pill">{rangeLabel} view</span>
-            <span className="bp-react-pill bp-react-pill--ghost">
-              {usingWkg ? `${weight.toFixed(1)} kg` : 'Absolute watts'}
-            </span>
           </div>
         </div>
       </header>
@@ -830,8 +886,8 @@ export default function BestPowersApp() {
         <div className="bp-react-card bp-react-radar">
           <div className="bp-react-card__header">
             <div>
-              <h3>System Balance</h3>
-              <p>Compare your strengths to WorldTour standards.</p>
+            <h3 className="section-title">System Balance</h3>
+            <p className="section-subtitle">Compare your strengths to WorldTour standards.</p>
             </div>
             <span className="bp-react-tag">Radar</span>
           </div>
@@ -855,10 +911,10 @@ export default function BestPowersApp() {
       </section>
 
       <section className="bp-react-section">
-        <header className="bp-react-section__header">
+        <header className="bp-react-section__header section-header">
           <div>
-            <h2>Performance Metrics</h2>
-            <p>Your peak power output across key durations.</p>
+            <h2 className="section-title">Performance Metrics</h2>
+            <p className="section-subtitle">Your peak power output across key durations.</p>
           </div>
         </header>
         <div className="bp-react-metric-grid">
@@ -908,10 +964,10 @@ export default function BestPowersApp() {
       </section>
 
       <section className="bp-react-section">
-        <header className="bp-react-section__header">
+        <header className="bp-react-section__header section-header">
           <div>
-            <h2>Benchmark Analysis</h2>
-            <p>Compare your power profile against competitive standards.</p>
+            <h2 className="section-title">Benchmark Analysis</h2>
+            <p className="section-subtitle">Compare your power profile against competitive standards.</p>
           </div>
         </header>
         {validDurations.length ? (
@@ -919,8 +975,8 @@ export default function BestPowersApp() {
             <div className="bp-react-card bp-react-chart-card">
               <div className="bp-react-card__header">
                 <div>
-                  <h3>Power Curve vs Benchmarks</h3>
-                  <p>Track your profile against elite standards.</p>
+                  <h3 className="section-title">Power Curve vs Benchmarks</h3>
+                  <p className="section-subtitle">Track your profile against elite standards.</p>
                 </div>
                 <span className="bp-react-tag">Interactive</span>
               </div>
@@ -931,61 +987,81 @@ export default function BestPowersApp() {
             <div className="bp-react-card bp-react-detail-card">
               <div className="bp-react-card__header">
                 <div>
-                  <h3>Detailed Comparison</h3>
-                  <p>See how each duration stacks up.</p>
+                  <h3 className="section-title">Detailed Comparison</h3>
+                  <p className="section-subtitle">See how each duration stacks up.</p>
                 </div>
+                {detailOptions.length ? (
+                  <div className="bp-react-detail-controls" role="tablist" aria-label="Select duration">
+                    {detailOptions.map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        className={`bp-react-detail-btn ${option.key === detailDurationKey ? 'is-active' : ''}`}
+                        onClick={() => setDetailDurationKey(option.key)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className="bp-react-detail-list">
-                {validDurations.map((duration) => {
-                  const markers = duration.benchmarks.map((level) => (
-                    <span
-                      className={`bp-react-marker bp-react-marker--${level.id}`}
-                      key={`${duration.key}-${level.id}`}
-                      style={{ left: `${level.valueRatio * 100}%` }}
-                      title={`${level.label}: ${level.formattedValue}`}
-                    >
-                      {level.short}
-                    </span>
-                  ));
-                  const userPercent = Math.max(0, Math.min(100, duration.percentWorldTour));
-                  const goalText = duration.nextLevel ? (
-                    <span className="bp-react-goal">
-                      {formatDelta(duration.nextLevel.delta, { usingWkg: duration.usingWkg })} to reach {duration.nextLevel.label}
-                    </span>
-                  ) : (
-                    <span className="bp-react-goal">Top benchmark held.</span>
-                  );
+                {selectedDetail ? (
+                  (() => {
+                    const markers = selectedDetail.benchmarks.map((level) => (
+                      <span
+                        className={`bp-react-marker bp-react-marker--${level.id}`}
+                        key={`${selectedDetail.key}-${level.id}`}
+                        style={{ left: `${level.valueRatio * 100}%` }}
+                        title={`${level.label}: ${level.formattedValue}`}
+                      >
+                        {level.short}
+                      </span>
+                    ));
+                    const userPercent = Math.max(0, Math.min(100, selectedDetail.percentWorldTour));
+                    const goalText = selectedDetail.nextLevel ? (
+                      <span className="bp-react-goal">
+                        {formatDelta(selectedDetail.nextLevel.delta, { usingWkg: selectedDetail.usingWkg })} to reach {selectedDetail.nextLevel.label}
+                      </span>
+                    ) : (
+                      <span className="bp-react-goal">Top benchmark held.</span>
+                    );
 
-                  return (
-                    <div className="bp-react-detail-row" key={duration.key}>
-                      <div className="bp-react-detail-label">
-                        <span>{duration.label}</span>
-                        <small>{duration.energySystem}</small>
-                      </div>
-                      <div className="bp-react-detail-rail">
-                        <div className="bp-react-detail-bar">
-                          <div className="bp-react-detail-fill" style={{ width: `${userPercent}%` }}></div>
+                    return (
+                      <div className="bp-react-detail-row" key={selectedDetail.key}>
+                        <div className="bp-react-detail-label">
+                          <span>{selectedDetail.label}</span>
+                          <small>{selectedDetail.energySystem}</small>
                         </div>
-                        <div className="bp-react-detail-markers">{markers}</div>
-                      </div>
-                      <div className="bp-react-detail-legend">
-                        <span className="bp-react-legend-chip bp-react-legend-chip--club">Dev</span>
-                        <span className="bp-react-legend-chip bp-react-legend-chip--amateur">Am</span>
-                        <span className="bp-react-legend-chip bp-react-legend-chip--cat1">Cat1</span>
-                        <span className="bp-react-legend-chip bp-react-legend-chip--pro">Pro</span>
-                        <span className="bp-react-legend-chip bp-react-legend-chip--worldTour">WT</span>
-                      </div>
-                      <div className="bp-react-detail-stats">
-                        <div className="bp-react-detail-metrics">
-                          <strong>{duration.formattedValue}</strong>
-                          <span>{duration.percentWorldTour}% WT</span>
+                        <div className="bp-react-detail-rail">
+                          <div className="bp-react-detail-bar">
+                            <div className="bp-react-detail-fill" style={{ width: `${userPercent}%` }}></div>
+                          </div>
+                          <div className="bp-react-detail-markers">{markers}</div>
                         </div>
-                        {goalText}
-                        <span className={`bp-badge ${duration.level.className}`}>{duration.level.label}</span>
+                        <div className="bp-react-detail-legend">
+                          <span className="bp-react-legend-chip bp-react-legend-chip--club">Dev</span>
+                          <span className="bp-react-legend-chip bp-react-legend-chip--amateur">Am</span>
+                          <span className="bp-react-legend-chip bp-react-legend-chip--cat1">Cat1</span>
+                          <span className="bp-react-legend-chip bp-react-legend-chip--pro">Pro</span>
+                          <span className="bp-react-legend-chip bp-react-legend-chip--worldTour">WT</span>
+                        </div>
+                        <div className="bp-react-detail-stats">
+                          <div className="bp-react-detail-metrics">
+                            <strong>{selectedDetail.formattedValue}</strong>
+                            <span>{selectedDetail.percentWorldTour}% WT</span>
+                          </div>
+                          {goalText}
+                          <span className={`bp-badge ${selectedDetail.level.className}`}>{selectedDetail.level.label}</span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })()
+                ) : (
+                  <div className="bp-react-empty">
+                    <p>Select a duration to see the comparison.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -998,10 +1074,10 @@ export default function BestPowersApp() {
       </section>
 
       <section className="bp-react-section">
-        <header className="bp-react-section__header">
+        <header className="bp-react-section__header section-header">
           <div>
-            <h2>Next Milestones</h2>
-            <p>Your pathway to the next performance level.</p>
+            <h2 className="section-title">Next Milestones</h2>
+            <p className="section-subtitle">Your pathway to the next performance level.</p>
           </div>
         </header>
         {milestoneDurations.length ? (
@@ -1020,7 +1096,9 @@ export default function BestPowersApp() {
                         {formatDelta(duration.nextLevel.delta, { usingWkg: duration.usingWkg })}
                       </span>
                       <span> to reach </span>
-                      <span className={`bp-badge ${duration.nextLevel.className}`}>{duration.nextLevel.label}</span>
+                      <span className="bp-react-milestone__badge-line">
+                        <span className={`bp-badge ${duration.nextLevel.className}`}>{duration.nextLevel.label}</span>
+                      </span>
                     </div>
                     <p>
                       Current: {duration.formattedValue} → Target: {formatPowerValue(duration.nextLevel.value, { usingWkg: duration.usingWkg })}
@@ -1042,10 +1120,10 @@ export default function BestPowersApp() {
       </section>
 
       <section className="bp-react-section">
-        <header className="bp-react-section__header">
+        <header className="bp-react-section__header section-header">
           <div>
-            <h2>Performance Insights</h2>
-            <p>Personalized recommendations based on your power data.</p>
+            <h2 className="section-title">Performance Insights</h2>
+            <p className="section-subtitle">Personalized recommendations based on your power data.</p>
           </div>
         </header>
         {insights.length ? (

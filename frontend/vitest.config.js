@@ -19,14 +19,13 @@ export default defineConfig({
         'src/main.js',
         'src/dashboard-main.js',
         'src/react/**',
-        'static/js/pages/**',
-        'static/js/core/dashboard.js'
+        'src/lib/pages/**'
       ]
     }
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, './static/js')
+      '@': resolve(__dirname, './src/lib')
     }
   }
 });

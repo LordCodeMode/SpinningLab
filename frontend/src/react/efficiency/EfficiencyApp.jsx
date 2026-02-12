@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
-import { LoadingSkeleton, InsightCard } from '../../../static/js/components/ui/index.js';
-import CONFIG from '../../../static/js/pages/efficiency/config.js';
-import { eventBus, EVENTS } from '../../../static/js/core/eventBus.js';
+import Services from '../../lib/services/index.js';
+import { LoadingSkeleton, InsightCard } from '../components/ui';
+import CONFIG from '../../lib/pages/efficiency/config.js';
+import { eventBus, EVENTS } from '../../lib/core/eventBus.js';
 
 const RANGE_OPTIONS = [60, 120, 180, 240];
 const DEFAULT_DAYS = CONFIG.DEFAULT_DAYS?.efficiency || 120;
@@ -56,6 +56,26 @@ const EfficiencyApp = () => {
     Services.analytics.trackPageView('efficiency');
     loadData({ days: currentDays });
   }, [currentDays, loadData]);
+
+  useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    const pageContent = document.getElementById('pageContent');
+    const prevBodyBg = document.body.style.backgroundColor;
+    const prevMainBg = mainContent?.style.backgroundColor;
+    const prevPageBg = pageContent?.style.backgroundColor;
+
+    document.body.classList.add('page-efficiency');
+    document.body.style.backgroundColor = 'var(--color-background)';
+    if (mainContent) mainContent.style.backgroundColor = 'var(--color-surface)';
+    if (pageContent) pageContent.style.backgroundColor = 'var(--color-surface)';
+
+    return () => {
+      document.body.classList.remove('page-efficiency');
+      document.body.style.backgroundColor = prevBodyBg;
+      if (mainContent) mainContent.style.backgroundColor = prevMainBg || '';
+      if (pageContent) pageContent.style.backgroundColor = prevPageBg || '';
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = eventBus.on(EVENTS.DATA_IMPORTED, () => {
@@ -144,7 +164,9 @@ const EfficiencyApp = () => {
   if (loading) {
     return (
       <div className="eff-page">
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 1 }) }} />
+        <div>
+          <LoadingSkeleton type="chart" count={1} />
+        </div>
       </div>
     );
   }
@@ -160,12 +182,17 @@ const EfficiencyApp = () => {
 
   return (
     <div className="eff-page">
-      <div className="eff-header">
+      <div className="eff-header page-header">
         <div>
-          <h1>{CONFIG.title || 'Efficiency Analysis'}</h1>
-          <p>Track aerobic efficiency (NP / HR) across your endurance training</p>
+          <h1 className="page-title">{CONFIG.title || 'Efficiency Analysis'}</h1>
+          <p className="page-description">Track aerobic efficiency (NP / HR) across your endurance training.</p>
+          <div className="page-header__meta">
+            <span className="page-pill">Range {currentDays}d</span>
+            <span className="page-pill page-pill--muted">{currentFilter === 'ga1' ? 'GA1 focus' : 'All sessions'}</span>
+            <span className="page-pill page-pill--muted">{activeSeries.length} sessions</span>
+          </div>
         </div>
-        <div className="eff-range-controls">
+        <div className="eff-range-controls page-header__actions">
           {RANGE_OPTIONS.map((days) => (
             <button
               key={days}
@@ -212,10 +239,10 @@ const EfficiencyApp = () => {
       </div>
 
       <div className="eff-chart-card">
-        <div className="eff-chart-header">
+        <div className="eff-chart-header section-header">
           <div>
-            <h3>Efficiency Trend</h3>
-            <p>{activeSeries.length} session{activeSeries.length === 1 ? '' : 's'} plotted • {filterLabel}</p>
+            <h3 className="section-title">Efficiency Trend</h3>
+            <p className="section-subtitle">{activeSeries.length} session{activeSeries.length === 1 ? '' : 's'} plotted • {filterLabel}</p>
           </div>
           <div className="eff-chart-filters">
             <button
@@ -240,13 +267,15 @@ const EfficiencyApp = () => {
       </div>
 
       <div className="eff-session-card">
-        <div className="eff-session-header">
-          <h3>Recent Sessions</h3>
-          <p>
+        <div className="eff-session-header section-header">
+          <div>
+            <h3 className="section-title">Recent Sessions</h3>
+            <p className="section-subtitle">
             {recentSessions.length
               ? `Most recent ${recentSessions.length} activities with efficiency data`
               : 'No sessions with efficiency data in the selected range.'}
-          </p>
+            </p>
+          </div>
         </div>
         {recentSessions.length ? (
           <div className="eff-session-grid">
@@ -265,9 +294,12 @@ const EfficiencyApp = () => {
                   <div>{Number.isFinite(item.np) ? `${item.np.toFixed(0)} W` : '—'}</div>
                   <div>{Number.isFinite(item.hr) ? `${item.hr.toFixed(0)} bpm` : '—'}</div>
                   <div>
-                    {Number.isFinite(item.intensityFactor)
-                      ? `${item.intensityFactor.toFixed(2)}${item.ga1 ? ' • GA1' : ''}`
-                      : '—'}
+                    {Number.isFinite(item.intensityFactor) ? (
+                      <div className="eff-session-if">
+                        <span>{item.intensityFactor.toFixed(2)}</span>
+                        {item.ga1 ? <span className="eff-session-badge">GA1</span> : null}
+                      </div>
+                    ) : '—'}
                   </div>
                 </div>
               ))}
@@ -280,13 +312,17 @@ const EfficiencyApp = () => {
 
       {insights.length ? (
         <div className="eff-insights">
-          <h3>Insights & Recommendations</h3>
-          <div
-            className="insights-grid"
-            dangerouslySetInnerHTML={{
-              __html: insights.map((insight) => InsightCard(insight)).join('')
-            }}
-          />
+          <div className="section-header">
+            <div>
+              <h3 className="section-title">Insights & Recommendations</h3>
+              <p className="section-subtitle">Targeted guidance based on your recent efficiency trends.</p>
+            </div>
+          </div>
+          <div className="insights-grid">
+            {insights.map((insight, index) => (
+              <InsightCard key={index} {...insight} />
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

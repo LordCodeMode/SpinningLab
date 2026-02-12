@@ -3,9 +3,12 @@
    Critical Power Analysis Page Styles - Enhanced
    ============================================ */
 
-   .cp-section {
+.cp-section {
     display: grid;
     gap: 24px;
+    --page-accent: #7c3aed;
+    --page-accent-alt: #a855f7;
+    --page-accent-soft: rgba(124, 58, 237, 0.18);
   }
   
 .cp-header {
@@ -14,7 +17,7 @@
     position: relative;
   }
   
-.cp-header::before {
+.cp-header:not(.page-header)::before {
     content: '';
     position: absolute;
     left: 0;
@@ -24,7 +27,7 @@
     background: linear-gradient(90deg, rgba(124, 58, 237, 0.15) 0%, rgba(124, 58, 237, 0.12) 65%, rgba(124, 58, 237, 0.05) 100%);
   }
   
-  .cp-header::after {
+  .cp-header:not(.page-header)::after {
     content: '';
     position: absolute;
     left: 0;
@@ -35,7 +38,7 @@
     border-radius: 2px;
   }
   
-  .cp-header h1 {
+  .cp-header:not(.page-header) h1 {
     font-size: 32px;
     font-weight: 700;
     color: var(--text-primary);
@@ -43,11 +46,107 @@
     letter-spacing: -0.02em;
   }
   
-  .cp-header p {
+  .cp-header:not(.page-header) p {
     color: var(--text-secondary);
     font-size: 14px;
     line-height: 1.6;
     max-width: 700px;
+  }
+
+.cp-header.page-header {
+    margin-bottom: 24px;
+  }
+
+  /* ============================================
+     CARDLESS LAYOUT
+     ============================================ */
+
+  body.page-critical-power .cp-section {
+    background: var(--color-surface);
+    padding: 32px;
+    margin: -32px;
+    gap: 28px;
+    --cp-section-line-inset: 24px;
+  }
+
+  body.page-critical-power .cp-metric-card {
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    box-shadow: none;
+    padding: 18px;
+  }
+
+  body.page-critical-power .cp-metric-card:hover {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-soft);
+    box-shadow: none;
+  }
+
+  body.page-critical-power .cp-metric-card::before {
+    display: none;
+  }
+
+  body.page-critical-power .cp-metrics-grid {
+    gap: 12px;
+  }
+
+  body.page-critical-power .cp-metric-header-row {
+    margin-bottom: 12px;
+  }
+
+  body.page-critical-power .cp-metric-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  body.page-critical-power .cp-metric-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  body.page-critical-power .cp-metric-label {
+    font-size: 11px;
+  }
+
+  body.page-critical-power .cp-metric-value {
+    font-size: 32px;
+  }
+
+  body.page-critical-power .cp-metric-subtitle {
+    font-size: 12px;
+  }
+
+  body.page-critical-power .cp-chart-card,
+  body.page-critical-power .cp-data-overview,
+  body.page-critical-power .cp-dual-column,
+  body.page-critical-power .cp-reality-card,
+  body.page-critical-power .cp-info-card,
+  body.page-critical-power .cp-insight-card {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  body.page-critical-power .cp-data-card {
+    background: transparent;
+    border: 0;
+  }
+
+  body.page-critical-power .cp-section > :not(.cp-header):not(.cp-tooltip):not(.cp-metrics-grid) {
+    padding-top: 20px;
+    position: relative;
+  }
+
+  body.page-critical-power .cp-section > :not(.cp-header):not(.cp-tooltip):not(.cp-metrics-grid)::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: var(--cp-section-line-inset);
+    right: var(--cp-section-line-inset);
+    height: 1px;
+    background: rgba(148, 163, 184, 0.35);
   }
   
   /* ============================================
@@ -61,11 +160,11 @@
   }
   
 .cp-metric-card {
-    background: #ffffff;
-    border: 2px solid #d1d5db;
+    background: var(--surface-card);
+    border: 1px solid var(--border-card);
     border-radius: var(--radius, 12px);
     padding: 24px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-card-sm);
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
     position: relative;
     overflow: hidden;
@@ -73,8 +172,8 @@
   }
   
   .cp-metric-card:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    border-color: var(--border-card-hover);
+    box-shadow: var(--shadow-card-hover);
   }
   
   .cp-metric-card::before {
@@ -171,17 +270,17 @@
      ============================================ */
   
   .cp-chart-card {
-    background: #ffffff;
-    border: 2px solid #d1d5db;
+    background: var(--surface-card);
+    border: 1px solid var(--border-card);
     border-radius: var(--radius, 12px);
     padding: 28px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-card-sm);
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   
   .cp-chart-card:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    border-color: var(--border-card-hover);
+    box-shadow: var(--shadow-card-hover);
   }
   
   .cp-chart-header {
@@ -299,15 +398,15 @@
      ============================================ */
   
   .cp-info-card {
-    background: #ffffff;
-    border: 2px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
     border-radius: 12px;
     padding: 24px;
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   
   .cp-info-card:hover {
-    border-color: #cbd5e1;
+    border-color: var(--color-border-dark);
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   }
   
@@ -356,7 +455,7 @@
   
   .cp-formula-card {
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.06) 0%, rgba(168, 85, 247, 0.06) 100%);
-    border: 1.5px solid #e5e7eb;
+    border: 1.5px solid var(--color-border);
     border-radius: 12px;
     padding: 20px;
     margin-top: 20px;
@@ -382,10 +481,10 @@
     font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
     font-size: 15px;
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--color-surface);
     padding: 14px 18px;
     border-radius: 8px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     margin-bottom: 14px;
     letter-spacing: 0.3px;
   }
@@ -413,15 +512,15 @@
      ============================================ */
   
   .cp-insight-card {
-    background: #ffffff;
-    border: 2px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
     border-radius: 12px;
     padding: 18px;
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   
   .cp-insight-card:hover {
-    border-color: #cbd5e1;
+    border-color: var(--color-border-dark);
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   }
   
@@ -471,7 +570,7 @@
   }
   
   .cp-reality-card:hover {
-    border-color: #cbd5e1;
+    border-color: var(--color-border-dark);
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   }
   
@@ -534,26 +633,18 @@
      ============================================ */
   
   .cp-data-overview {
-    background: #ffffff;
-    border: 2px solid #d1d5db;
+    background: var(--surface-card);
+    border: 1px solid var(--border-card);
     border-radius: var(--radius, 12px);
     padding: 24px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-card-sm);
     display: grid;
     gap: 18px;
   }
   
-  .cp-data-header h3 {
-    margin: 0 0 6px 0;
-    font-size: 20px;
-    color: var(--text-primary);
-    font-weight: 700;
-  }
-  
+  .cp-data-header h3,
   .cp-data-header p {
     margin: 0;
-    color: var(--text-secondary);
-    font-size: 13px;
   }
   
   .cp-data-grid {
@@ -563,8 +654,8 @@
   }
   
   .cp-data-card {
-    background: rgba(139, 92, 246, 0.04);
-    border: 1px solid rgba(139, 92, 246, 0.15);
+    background: var(--surface-card-soft);
+    border: 1px solid var(--border-card-soft);
     border-radius: 10px;
     padding: 16px;
     display: grid;
@@ -685,7 +776,13 @@
      RESPONSIVE
      ============================================ */
   
-  @media (max-width: 1024px) {
+@media (max-width: 1024px) {
+    body.page-critical-power .cp-section {
+      padding: 24px;
+      margin: -24px;
+      --cp-section-line-inset: 16px;
+    }
+
     .cp-chart-header {
       flex-direction: column;
       gap: 16px;
@@ -716,6 +813,14 @@
     
     .cp-reality-card {
       flex-direction: column;
+    }
+  }
+
+  @media (max-width: 640px) {
+    body.page-critical-power .cp-section {
+      padding: 16px;
+      margin: -16px;
+      --cp-section-line-inset: 12px;
     }
   }
   

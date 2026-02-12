@@ -10,6 +10,7 @@ from .core_metrics import extract_core_metrics
 from .power_metrics import extract_power_metrics
 from .heart_rate_metrics import extract_hr_series, compute_hr_zones, compute_avg_hr
 from .zones import compute_power_zones
+from ...utils.polyline import encode_polyline
 
 class ImportResult(NamedTuple):
     success: bool
@@ -42,6 +43,7 @@ class FitImportService:
             hr_avg = compute_avg_hr(hr_series)
 
             power_metrics = extract_power_metrics(df, hr_avg, user) if not df.empty else {}
+            route_polyline = self._extract_route_polyline(df)
 
             # Create activity record
             activity = Activity(
@@ -65,7 +67,8 @@ class FitImportService:
                 avg_heart_rate=hr_avg,
                 tss=power_metrics.get("tss"),
                 intensity_factor=power_metrics.get("intensity_factor"),
-                efficiency_factor=power_metrics.get("efficiency_factor")
+                efficiency_factor=power_metrics.get("efficiency_factor"),
+                route_polyline=route_polyline
             )
 
             self.db.add(activity)
@@ -119,3 +122,16 @@ class FitImportService:
         except Exception as e:
             self.db.rollback()
             return ImportResult(False, f"Error processing file: {str(e)}")
+
+    def _extract_route_polyline(self, df: pd.DataFrame) -> str | None:
+        if df.empty or "position_lat" not in df.columns or "position_long" not in df.columns:
+            return None
+        coords = []
+        semicircle_factor = 180.0 / (2**31)
+        for lat_val, lng_val in zip(df["position_lat"].tolist(), df["position_long"].tolist()):
+            if lat_val is None or lng_val is None:
+                continue
+            lat = float(lat_val) * semicircle_factor
+            lng = float(lng_val) * semicircle_factor
+            coords.append((lat, lng))
+        return encode_polyline(coords)

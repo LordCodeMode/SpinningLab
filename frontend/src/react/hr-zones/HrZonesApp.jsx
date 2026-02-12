@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
+import Services from '../../lib/services/index.js';
+import { LoadingSkeleton } from '../components/ui';
 
 const HR_ZONES = [
   { num: 1, id: 'Z1', name: 'Recovery', range: '<60% HRmax', color: '#fee2e2', description: 'Very light spin that promotes circulation and active recovery.' },
@@ -86,7 +86,7 @@ const HrZonesApp = () => {
       rawData.zones.forEach((zone) => {
         const num = extractZoneNumber(zone.name ?? zone.zone);
         if (!num) return;
-        const seconds = Math.max(0, Number(zone.seconds ?? zone.minutes * 60) || 0);
+        const seconds = Math.max(0, (Number(zone.seconds ?? (zone.minutes * 60)) || 0));
         map.set(num, seconds);
       });
     }
@@ -187,6 +187,26 @@ const HrZonesApp = () => {
   useEffect(() => {
     loadData({ days: currentDays });
   }, [currentDays, loadData]);
+
+  useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    const pageContent = document.getElementById('pageContent');
+    const prevBodyBg = document.body.style.backgroundColor;
+    const prevMainBg = mainContent?.style.backgroundColor;
+    const prevPageBg = pageContent?.style.backgroundColor;
+
+    document.body.classList.add('page-hr-zones');
+    document.body.style.backgroundColor = 'var(--color-background)';
+    if (mainContent) mainContent.style.backgroundColor = 'var(--color-surface)';
+    if (pageContent) pageContent.style.backgroundColor = 'var(--color-surface)';
+
+    return () => {
+      document.body.classList.remove('page-hr-zones');
+      document.body.style.backgroundColor = prevBodyBg;
+      if (mainContent) mainContent.style.backgroundColor = prevMainBg || '';
+      if (pageContent) pageContent.style.backgroundColor = prevPageBg || '';
+    };
+  }, []);
 
   useEffect(() => {
     if (!metrics || !metrics.zoneDetails?.length) return;
@@ -364,7 +384,7 @@ const HrZonesApp = () => {
   if (loading) {
     return (
       <div className="hrz-dashboard">
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 2 }) }} />
+        <div><LoadingSkeleton type="chart" count={2} /></div>
       </div>
     );
   }
@@ -411,16 +431,17 @@ const HrZonesApp = () => {
 
   return (
     <div className="hrz-dashboard">
-      <div className="hrz-topbar">
-        <div className="hrz-topbar-left">
-          <h1 className="hrz-page-title">Heart Rate Zones Analysis</h1>
-          <div className="hrz-breadcrumb">
-            <span className="hrz-badge hrz-badge-primary">Max HR {metrics.maxHR} bpm</span>
-            <span className="hrz-badge hrz-badge-info">Primary: {metrics.topZone.displayName}</span>
-            <span className="hrz-badge hrz-badge-muted">{getRangeLabel()}</span>
+      <header className="hrz-topbar page-header">
+        <div>
+          <h1 className="page-title">Heart Rate Zones Analysis</h1>
+          <p className="page-description">Time distribution across heart rate zones.</p>
+          <div className="page-header__meta">
+            <span className="page-pill hrz-badge hrz-badge-primary">Max HR {metrics.maxHR} bpm</span>
+            <span className="page-pill hrz-badge hrz-badge-info">Primary: {metrics.topZone.displayName}</span>
+            <span className="page-pill hrz-badge hrz-badge-muted">{getRangeLabel()}</span>
           </div>
         </div>
-        <div className="hrz-topbar-controls">
+        <div className="hrz-topbar-controls page-header__actions">
           {RANGE_OPTIONS.map((range) => (
             <button
               key={range}
@@ -432,13 +453,13 @@ const HrZonesApp = () => {
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
       <div className="hrz-main-grid">
         <div className="hrz-left-column">
           <div className="hrz-chart-widget">
-            <div className="hrz-widget-header">
-              <h3>Zone Distribution</h3>
+            <div className="hrz-widget-header section-header">
+              <h3 className="section-title">Zone Distribution</h3>
             </div>
             <div className="hrz-chart-wrapper">
               <canvas ref={chartRef} id="hrz-distribution-chart" aria-label="Heart rate zones doughnut chart"></canvas>
@@ -479,8 +500,8 @@ const HrZonesApp = () => {
 
         <div className="hrz-right-column">
           <div className="hrz-breakdown-widget">
-            <div className="hrz-breakdown-header">
-              <h3>Zone-by-Zone Breakdown</h3>
+            <div className="hrz-breakdown-header section-header">
+              <h3 className="section-title">Zone-by-Zone Breakdown</h3>
               <div className="hrz-breakdown-meta">
                 <span>Total: {formatNumber(metrics.totalHours, 1)}h</span>
                 {metrics.averageHR ? <span>Avg HR: {formatNumber(metrics.averageHR, 0)} bpm</span> : null}
@@ -511,9 +532,9 @@ const HrZonesApp = () => {
       </div>
 
       <section className="hrz-highlights">
-        <header className="hrz-highlights-header">
-          <h3>Focus Highlights</h3>
-          <span className="hrz-pill hrz-pill--muted">{getRangeLabel()}</span>
+        <header className="hrz-highlights-header section-header">
+          <h3 className="section-title">Focus Highlights</h3>
+          <span className="page-pill hrz-pill hrz-pill--muted">{getRangeLabel()}</span>
         </header>
         <div className="hrz-highlights-grid">
           <article className="hrz-highlight-card">

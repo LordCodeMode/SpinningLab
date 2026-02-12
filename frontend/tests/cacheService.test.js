@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CacheService } from '../static/js/services/CacheService.js';
+import { CacheService } from '../src/lib/services/CacheService.js';
 
 describe('CacheService', () => {
   let cache;

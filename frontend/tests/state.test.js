@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { state } from '../static/js/core/state.js';
-import { eventBus } from '../static/js/core/eventBus.js';
+import { state } from '../src/lib/core/state.js';
+import { eventBus } from '../src/lib/core/eventBus.js';
 
 describe('AppState', () => {
   beforeEach(() => {

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
-import CONFIG from '../../../static/js/pages/zones/config.js';
+import Services from '../../lib/services/index.js';
+import { LoadingSkeleton } from '../components/ui';
+import CONFIG from '../../lib/pages/zones/config.js';
 
 const POWER_ZONES = [
   { num: 1, id: 'Z1', name: 'Recovery', range: '<55% FTP', color: '#c7d2fe', description: 'Flush fatigue with very easy spinning and active recovery rides.' },
@@ -179,6 +179,26 @@ const ZonesApp = () => {
   }, [currentDays, loadData]);
 
   useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    const pageContent = document.getElementById('pageContent');
+    const prevBodyBg = document.body.style.backgroundColor;
+    const prevMainBg = mainContent?.style.backgroundColor;
+    const prevPageBg = pageContent?.style.backgroundColor;
+
+    document.body.classList.add('page-zones');
+    document.body.style.backgroundColor = 'var(--color-background)';
+    if (mainContent) mainContent.style.backgroundColor = 'var(--color-surface)';
+    if (pageContent) pageContent.style.backgroundColor = 'var(--color-surface)';
+
+    return () => {
+      document.body.classList.remove('page-zones');
+      document.body.style.backgroundColor = prevBodyBg;
+      if (mainContent) mainContent.style.backgroundColor = prevMainBg || '';
+      if (pageContent) pageContent.style.backgroundColor = prevPageBg || '';
+    };
+  }, []);
+
+  useEffect(() => {
     if (!metrics || !metrics.zoneDetails?.length) return;
     const canvas = chartRef.current;
     const Chart = window.Chart;
@@ -271,10 +291,12 @@ const ZonesApp = () => {
 
     return (
       <section className="pz-section">
-        <header className="pz-section-header">
-          <h2 className="pz-section-title">Focus Highlights</h2>
-          <p className="pz-section-subtitle">Quick-read metrics to gauge how your intensity distribution supports performance goals.</p>
-          <span className="pz-badge pz-badge-muted">{getRangeLabel()}</span>
+        <header className="pz-section-header section-header">
+          <div>
+            <h2 className="pz-section-title section-title">Focus Highlights</h2>
+            <p className="pz-section-subtitle section-subtitle">Quick-read metrics to gauge how your intensity distribution supports performance goals.</p>
+          </div>
+          <span className="page-pill pz-badge pz-badge-muted">{getRangeLabel()}</span>
         </header>
         <div className="pz-highlight-grid">
           <article className="pz-highlight-card">
@@ -400,7 +422,7 @@ const ZonesApp = () => {
   if (loading) {
     return (
       <div className="pz-dashboard">
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 2 }) }} />
+        <div><LoadingSkeleton type="chart" count={2} /></div>
       </div>
     );
   }
@@ -429,16 +451,17 @@ const ZonesApp = () => {
 
   return (
     <div className="pz-dashboard">
-      <div className="pz-topbar">
-        <div className="pz-topbar-left">
-          <h1 className="pz-page-title">Power Zones Analysis</h1>
-          <div className="pz-breadcrumb">
-            <span className="pz-badge pz-badge-primary">FTP {metrics.ftp}W</span>
-            <span className="pz-badge pz-badge-info">Primary: {metrics.topZone.displayName}</span>
-            <span className="pz-badge pz-badge-muted">{getRangeLabel()}</span>
+      <header className="pz-topbar page-header">
+        <div>
+          <h1 className="page-title">{CONFIG.title}</h1>
+          <p className="page-description">{CONFIG.subtitle}</p>
+          <div className="page-header__meta">
+            <span className="page-pill pz-badge pz-badge-primary">FTP {metrics.ftp}W</span>
+            <span className="page-pill pz-badge pz-badge-info">Primary: {metrics.topZone.displayName}</span>
+            <span className="page-pill pz-badge pz-badge-muted">{getRangeLabel()}</span>
           </div>
         </div>
-        <div className="pz-topbar-controls">
+        <div className="pz-topbar-controls page-header__actions">
           {RANGE_OPTIONS.map((range) => (
             <button
               key={range}
@@ -450,13 +473,13 @@ const ZonesApp = () => {
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
       <div className="pz-main-grid">
         <div className="pz-left-column">
           <div className="pz-chart-widget">
-            <div className="pz-widget-header">
-              <h3>Zone Distribution</h3>
+            <div className="pz-widget-header section-header">
+              <h3 className="section-title">Zone Distribution</h3>
             </div>
             <div className="pz-chart-wrapper">
               <canvas ref={chartRef} id="pz-distribution-chart" aria-label="Power zones doughnut chart"></canvas>
@@ -497,8 +520,8 @@ const ZonesApp = () => {
 
         <div className="pz-right-column">
           <div className="pz-breakdown-widget">
-            <div className="pz-breakdown-header">
-              <h3>Zone-by-Zone Breakdown</h3>
+            <div className="pz-breakdown-header section-header">
+              <h3 className="section-title">Zone-by-Zone Breakdown</h3>
               <div className="pz-breakdown-meta">
                 <span>Total: {formatNumber(metrics.totalHours, 1)}h</span>
               </div>
@@ -530,10 +553,12 @@ const ZonesApp = () => {
       {renderHighlights()}
 
       <section className="pz-section">
-        <header className="pz-section-header">
-          <h2 className="pz-section-title">Coaching Insights</h2>
-          <p className="pz-section-subtitle">Actionable observations extracted from your power-zone distribution.</p>
-          <span className="pz-badge pz-badge-muted">{getRangeLabel()}</span>
+        <header className="pz-section-header section-header">
+          <div>
+            <h2 className="pz-section-title section-title">Coaching Insights</h2>
+            <p className="pz-section-subtitle section-subtitle">Actionable observations extracted from your power-zone distribution.</p>
+          </div>
+          <span className="page-pill pz-badge pz-badge-muted">{getRangeLabel()}</span>
         </header>
         <div className="pz-insight-grid">
           {insights.map((insight) => (

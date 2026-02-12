@@ -12,11 +12,179 @@
   gap: 32px;
 }
 
+/* ================== CARDLESS LAYOUT =================== */
+
+body.page-overview .ov-dashboard {
+  background: var(--color-surface);
+  padding: 32px;
+  margin: -32px;
+  gap: 24px;
+  --ov-radius: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+body.page-overview .ov-welcome-hero {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0 0 12px;
+}
+
+body.page-overview .ov-welcome-hero::before {
+  content: none;
+}
+
+body.page-overview .ov-welcome-title {
+  color: var(--color-text-primary);
+  font-size: 32px;
+  font-weight: 800;
+}
+
+body.page-overview .ov-welcome-subtitle {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+body.page-overview .ov-hero-underline {
+  background: rgba(148, 163, 184, 0.4);
+  height: 1px;
+}
+
+body.page-overview .ov-hero-underline span {
+  background: rgba(59, 130, 246, 0.8);
+  width: 64px;
+}
+
+body.page-overview .ov-signal-card,
+body.page-overview .ov-stat-card,
+body.page-overview .ov-metrics-panel,
+body.page-overview .ov-chart-widget,
+body.page-overview .ov-activity-card,
+body.page-overview .ov-coach-card,
+body.page-overview .ov-insights-empty,
+body.page-overview .ov-ftp-forecast {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--ov-radius);
+  box-shadow: none;
+}
+
+body.page-overview .ov-stat-card:hover,
+body.page-overview .ov-activity-card:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--color-border-dark);
+  background: var(--color-surface-soft);
+}
+
+body.page-overview .ov-chart-controls {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+body.page-overview .ov-chart-btn.active {
+  box-shadow: none;
+  background: #e0e7ff;
+  color: #1d4ed8;
+}
+
+body.page-overview .ov-customize {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+body.page-overview .ov-signal-card {
+  padding: 14px 16px;
+}
+
+body.page-overview .ov-stat-card {
+  padding: 18px;
+  border-width: 1px;
+}
+
+body.page-overview .ov-stat-icon {
+  width: 44px;
+  height: 44px;
+  box-shadow: none;
+}
+
+body.page-overview .ov-stat-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+body.page-overview .ov-stat-value {
+  font-size: 28px;
+}
+
+body.page-overview .ov-signal-value,
+body.page-overview .ov-activity-stat-value,
+body.page-overview .ov-chart-foot-value,
+body.page-overview .ov-ftp-value,
+body.page-overview .ov-ftp-delta,
+body.page-overview .ov-coach-stat strong,
+body.page-overview .ov-metric-large-value {
+  font-variant-numeric: tabular-nums;
+}
+
+body.page-overview .ov-metric-large-value {
+  font-size: 36px;
+}
+
+body.page-overview .ov-metrics-panel,
+body.page-overview .ov-chart-widget {
+  padding: 24px;
+}
+
+body.page-overview .ov-chart-footer {
+  gap: 10px;
+}
+
+body.page-overview .ov-chart-foot-card {
+  border-radius: 12px;
+  box-shadow: none;
+  background: var(--color-surface-soft);
+}
+
+body.page-overview .ov-activity-card {
+  border-width: 1px;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+body.page-overview .ov-activity-secondary-stats {
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+body.page-overview .ov-activity-badge {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border);
+}
+
+body.page-overview .ov-ftp-forecast {
+  background: var(--color-surface-soft);
+}
+
+body.page-overview .ov-coach-card {
+  border-width: 1px;
+  padding: 20px;
+}
+
+body.page-overview .ov-coach-stat {
+  background: var(--color-surface-soft);
+}
+
+body.page-overview .ov-insights-empty {
+  border-style: solid;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
 /* ================== DASHBOARD CUSTOMIZATION =================== */
 
 .ov-customize {
-  background: #ffffff;
-  border: 2px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   padding: 20px 24px;
   display: flex;
@@ -35,12 +203,12 @@
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .ov-customize__header p {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -71,7 +239,7 @@
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #475569;
+  color: var(--color-text-secondary);
 }
 
 .ov-customize-toggle input {
@@ -132,7 +300,7 @@
   border-radius: 16px;
   padding: 24px;
   text-align: center;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 /* ================== WELCOME HERO =================== */
@@ -235,8 +403,8 @@
 }
 
 .ov-signal-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 16px 18px;
   display: flex;
@@ -250,13 +418,13 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--color-text-tertiary);
 }
 
 .ov-signal-value {
   font-size: 18px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .ov-signal-value--fresh {
@@ -273,14 +441,14 @@
 
 .ov-signal-meta {
   font-size: 13px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .ov-signal-progress {
   height: 6px;
   border-radius: 999px;
-  background: #e2e8f0;
+  background: var(--color-border);
   overflow: hidden;
 }
 
@@ -312,8 +480,8 @@
 }
 
 .ov-stat-card {
-  background: white;
-  border: 2px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   padding: 24px;
   display: flex;
@@ -365,7 +533,7 @@
 .ov-stat-label {
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
@@ -374,14 +542,14 @@
 .ov-stat-value {
   font-size: 32px;
   font-weight: 900;
-  color: #111827;
+  color: var(--color-text-primary);
   line-height: 1;
   margin-bottom: 4px;
 }
 
 .ov-stat-subtitle {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-weight: 500;
 }
 
@@ -419,8 +587,8 @@
 }
 
 .ov-metrics-panel {
-  background: white;
-  border: 2px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   padding: 28px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
@@ -431,7 +599,7 @@
   font-size: 20px;
   font-weight: 700;
   margin: 0 0 24px;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .ov-metric-large {
@@ -445,7 +613,7 @@
 .ov-metric-large-label {
   font-size: 12px;
   font-weight: 700;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.6px;
   margin-bottom: 8px;
@@ -472,7 +640,7 @@
 }
 
 .ov-form-status {
-  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  background: var(--gradient-card);
   border-radius: 12px;
   padding: 16px;
   text-align: center;
@@ -509,7 +677,7 @@
 
 .ov-form-text {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
   font-weight: 500;
 }
@@ -521,8 +689,8 @@
 }
 
 .ov-chart-widget {
-  background: white;
-  border: 2px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   padding: 28px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
@@ -542,12 +710,12 @@
   font-size: 20px;
   font-weight: 700;
   margin: 0 0 4px;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .ov-chart-subtitle {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
   font-weight: 500;
 }
@@ -555,7 +723,7 @@
 .ov-chart-controls {
   display: flex;
   gap: 6px;
-  background: #f9fafb;
+  background: var(--color-surface-soft);
   padding: 4px;
   border-radius: 10px;
 }
@@ -567,13 +735,13 @@
   border: none;
   font-size: 13px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .ov-chart-btn:hover {
-  background: #ffffff;
+  background: var(--color-surface);
   color: #3b82f6;
 }
 
@@ -596,10 +764,10 @@
 }
 
 .ov-chart-foot-card {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   border-radius: 14px;
   padding: 12px 14px;
-  background: #ffffff;
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -611,13 +779,13 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--color-text-tertiary);
 }
 
 .ov-chart-foot-value {
   font-size: 18px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 @media (max-width: 900px) {
@@ -634,11 +802,11 @@
 }
 
 .ov-chart-note {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 14px;
-  background: #f8fafc;
+  background: var(--color-surface-soft);
   padding: 12px 14px;
-  color: #475569;
+  color: var(--color-text-secondary);
 }
 
 .ov-chart-note strong {
@@ -646,7 +814,7 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #1f2937;
+  color: var(--color-text-primary);
   margin-bottom: 6px;
 }
 
@@ -668,7 +836,7 @@
   font-size: 22px;
   font-weight: 700;
   margin: 0;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .ov-activities-grid {
@@ -678,13 +846,33 @@
 }
 
 .ov-activity-card {
-  background: white;
-  border: 2px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.3s;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.ov-activity-card > :not(.ov-activity-route-bg) {
+  position: relative;
+  z-index: 1;
+}
+
+.ov-activity-route-bg {
+  position: absolute;
+  inset: 14px;
+  z-index: 0;
+  opacity: 0.25;
+}
+
+.ov-activity-route-bg path {
+  fill: none;
+  stroke: rgba(59, 130, 246, 0.35);
+  stroke-width: 1.6;
 }
 
 .ov-activity-card:hover {
@@ -706,7 +894,7 @@
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .ov-activity-type svg {
@@ -718,7 +906,7 @@
 
 .ov-activity-date {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-weight: 500;
 }
 
@@ -737,12 +925,12 @@
 .ov-activity-stat-value {
   font-size: 20px;
   font-weight: 800;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .ov-activity-stat-unit {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -759,15 +947,15 @@
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: #f9fafb;
+  background: var(--color-surface-soft);
   border-radius: 6px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
 }
 
 .ov-activity-badge-label {
   font-size: 10px;
   font-weight: 700;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -775,7 +963,7 @@
 .ov-activity-badge-value {
   font-size: 12px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 /* ================== INSIGHTS SECTION =================== */
@@ -798,25 +986,25 @@
   margin-top: 24px;
   padding: 18px;
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
 }
 
 .ov-ftp-forecast--empty {
   text-align: center;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .ov-ftp-forecast h4 {
   margin: 0 0 4px;
   font-size: 14px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .ov-ftp-subtitle {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .ov-ftp-header {
@@ -850,12 +1038,12 @@
 .ov-ftp-value {
   font-size: 26px;
   font-weight: 800;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .ov-ftp-label {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.6px;
 }
@@ -897,15 +1085,15 @@
 .ov-ftp-note {
   margin-top: 10px;
   font-size: 12px;
-  color: #1f2937;
+  color: var(--color-text-primary);
   font-weight: 600;
 }
 
 /* ================== COACH SUMMARY =================== */
 
 .ov-coach-card {
-  background: white;
-  border: 2px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 18px;
   padding: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
@@ -920,7 +1108,7 @@
 
 .ov-coach-header p {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -932,7 +1120,7 @@
 }
 
 .ov-coach-stat {
-  background: #f9fafb;
+  background: var(--color-surface-soft);
   border-radius: 12px;
   padding: 12px;
   display: flex;
@@ -944,12 +1132,12 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .ov-coach-stat strong {
   font-size: 18px;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .ov-coach-recommendations {
@@ -959,7 +1147,7 @@
 .ov-coach-empty {
   padding: 12px 0;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 /* ================== LOADING STATE =================== */

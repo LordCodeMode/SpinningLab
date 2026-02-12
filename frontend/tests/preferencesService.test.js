@@ -4,7 +4,7 @@ import {
   saveDashboardPreferences,
   getDashboardPresets,
   applyDashboardPreset
-} from '../static/js/services/preferences-service.js';
+} from '../src/lib/services/preferences-service.js';
 
 describe('preferences-service', () => {
   beforeEach(() => {

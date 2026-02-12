@@ -1,4 +1,7 @@
+import os
+from pathlib import Path
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 import logging
@@ -6,7 +9,20 @@ from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
-engine = create_engine(settings.DATABASE_URL)
+url = make_url(settings.DATABASE_URL)
+connect_args = {}
+
+if url.drivername.startswith("postgresql"):
+    connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
+    connect_args["connect_timeout"] = connect_timeout
+elif url.drivername.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
+
+engine = create_engine(
+    settings.DATABASE_URL,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

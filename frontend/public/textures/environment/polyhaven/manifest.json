@@ -1,0 +1,162 @@
+{
+  "generatedAt": "2026-02-11T19:17:26.003Z",
+  "source": "polyhaven",
+  "resolution": "2k",
+  "textures": [
+    {
+      "slot": "road",
+      "assetId": "worn_asphalt",
+      "resolution": "2k",
+      "files": {
+        "Diffuse": {
+          "output": "road_albedo.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/worn_asphalt/worn_asphalt_diff_2k.jpg",
+          "md5": "7bd15211eea2137bfcc6af510e17cd3d",
+          "size": 3573942
+        },
+        "nor_gl": {
+          "output": "road_normal.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/worn_asphalt/worn_asphalt_nor_gl_2k.jpg",
+          "md5": "e5e67ff8533fba07858b7efaa0bf29f0",
+          "size": 5863366
+        },
+        "Rough": {
+          "output": "road_roughness.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/worn_asphalt/worn_asphalt_rough_2k.jpg",
+          "md5": "38ef204748fd27be2a256e61d265f2ca",
+          "size": 1823718
+        },
+        "AO": {
+          "output": "road_ao.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/worn_asphalt/worn_asphalt_ao_2k.jpg",
+          "md5": "9adb2bf9ee3df188bfe786c864b94f69",
+          "size": 4367024
+        }
+      }
+    },
+    {
+      "slot": "grass",
+      "assetId": "forest_ground_04",
+      "resolution": "2k",
+      "files": {
+        "Diffuse": {
+          "output": "grass_albedo.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forest_ground_04/forest_ground_04_diff_2k.jpg",
+          "md5": "f6ce9c8af4316c2627a4b3fbab8ad944",
+          "size": 4529321
+        },
+        "nor_gl": {
+          "output": "grass_normal.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forest_ground_04/forest_ground_04_nor_gl_2k.jpg",
+          "md5": "5fa9256955e7bfa40a0269b4965ce646",
+          "size": 5288849
+        },
+        "Rough": {
+          "output": "grass_roughness.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forest_ground_04/forest_ground_04_rough_2k.jpg",
+          "md5": "81daa9a1d8b35dd9ffdff3aa7a74fbd9",
+          "size": 2509805
+        },
+        "AO": {
+          "output": "grass_ao.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forest_ground_04/forest_ground_04_ao_2k.jpg",
+          "md5": "c86e235729064b28e2354bf4bdcd4465",
+          "size": 2950026
+        }
+      }
+    },
+    {
+      "slot": "dirt",
+      "assetId": "dirt_floor",
+      "resolution": "2k",
+      "files": {
+        "Diffuse": {
+          "output": "dirt_albedo.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/dirt_floor/dirt_floor_diff_2k.jpg",
+          "md5": "dace6e0d469e7b99f0794b941f06bab8",
+          "size": 3944426
+        },
+        "nor_gl": {
+          "output": "dirt_normal.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/dirt_floor/dirt_floor_nor_gl_2k.jpg",
+          "md5": "f47bd35ce5a09771aba4ce85e22d5e36",
+          "size": 4977831
+        },
+        "Rough": {
+          "output": "dirt_roughness.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/dirt_floor/dirt_floor_rough_2k.jpg",
+          "md5": "c987eada3ef1492be2843f974e2d9a84",
+          "size": 1808214
+        },
+        "AO": {
+          "output": "dirt_ao.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/dirt_floor/dirt_floor_ao_2k.jpg",
+          "md5": "27bdc648d1528d18cd29394859ef67ad",
+          "size": 2781172
+        }
+      }
+    },
+    {
+      "slot": "rock",
+      "assetId": "cliff_side",
+      "resolution": "2k",
+      "files": {
+        "Diffuse": {
+          "output": "rock_albedo.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/cliff_side/cliff_side_diff_2k.jpg",
+          "md5": "6d129836144e271b30071281241e237d",
+          "size": 3387348
+        },
+        "nor_gl": {
+          "output": "rock_normal.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/cliff_side/cliff_side_nor_gl_2k.jpg",
+          "md5": "8209033c3ad15185977d91c92cf5866f",
+          "size": 3585856
+        },
+        "Rough": {
+          "output": "rock_roughness.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/cliff_side/cliff_side_rough_2k.jpg",
+          "md5": "44abb195b6c4c7b6da902e97e5bbbef2",
+          "size": 1765122
+        },
+        "AO": {
+          "output": "rock_ao.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/cliff_side/cliff_side_ao_2k.jpg",
+          "md5": "2872dca209647f5723418eddbf63e059",
+          "size": 1248581
+        }
+      }
+    },
+    {
+      "slot": "gravel",
+      "assetId": "rocky_gravel",
+      "resolution": "2k",
+      "files": {
+        "Diffuse": {
+          "output": "gravel_albedo.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_gravel/rocky_gravel_diff_2k.jpg",
+          "md5": "b78a49ef675dff9dcc62f4668854db23",
+          "size": 4832644
+        },
+        "nor_gl": {
+          "output": "gravel_normal.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_gravel/rocky_gravel_nor_gl_2k.jpg",
+          "md5": "11de3f8b3a18e4211a46b55ef341bf82",
+          "size": 5922074
+        },
+        "Rough": {
+          "output": "gravel_roughness.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_gravel/rocky_gravel_rough_2k.jpg",
+          "md5": "bd3d01e357a4d2c0ad0d7e3481505bdd",
+          "size": 2007455
+        },
+        "AO": {
+          "output": "gravel_ao.jpg",
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_gravel/rocky_gravel_ao_2k.jpg",
+          "md5": "dd158aebb353ed21f6e9fadaf9cc088e",
+          "size": 4272482
+        }
+      }
+    }
+  ]
+}

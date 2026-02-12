@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Badge } from '../static/js/components/ui/Badge.js';
-import { Button, ButtonGroup, IconButton, FAB, LinkButton } from '../static/js/components/ui/Button.js';
-import { Card, CardHeader, CardBody, CardFooter, ActivitiesCard, AnalysisCard, CompactCard } from '../static/js/components/ui/Card.js';
+import { Badge } from '../src/lib/components/ui/Badge.js';
+import { Button, ButtonGroup, IconButton, FAB, LinkButton } from '../src/lib/components/ui/Button.js';
+import { Card, CardHeader, CardBody, CardFooter, ActivitiesCard, AnalysisCard, CompactCard } from '../src/lib/components/ui/Card.js';
 import {
   ChartCard,
   ChartControls,
@@ -13,8 +13,8 @@ import {
   ChartZoomControls,
   ChartContainer,
   ChartGrid
-} from '../static/js/components/ui/ChartCard.js';
-import { InsightCard } from '../static/js/components/ui/InsightCard.js';
+} from '../src/lib/components/ui/ChartCard.js';
+import { InsightCard } from '../src/lib/components/ui/InsightCard.js';
 import {
   MetricCard,
   MetricGrid,
@@ -23,13 +23,13 @@ import {
   ProgressMetric,
   ComparisonMetric,
   MiniMetric
-} from '../static/js/components/ui/MetricCard.js';
+} from '../src/lib/components/ui/MetricCard.js';
 import {
   SkeletonLoader,
   showLoading,
   hideLoading,
   withLoading
-} from '../static/js/components/ui/SkeletonLoader.js';
+} from '../src/lib/components/ui/SkeletonLoader.js';
 import {
   LoadingSkeleton,
   LoadingSpinner,
@@ -41,9 +41,9 @@ import {
   OfflineState,
   PermissionDeniedState,
   ComingSoonState
-} from '../static/js/components/ui/States.js';
-import { WorkoutCard, CompactWorkoutCard, generateIntervalPreview } from '../static/js/components/ui/WorkoutCard.js';
-import UI from '../static/js/components/ui/index.js';
+} from '../src/lib/components/ui/States.js';
+import { WorkoutCard, CompactWorkoutCard, generateIntervalPreview } from '../src/lib/components/ui/WorkoutCard.js';
+import UI from '../src/lib/components/ui/index.js';
 
 describe('UI component builders', () => {
   it('renders badges and buttons with variants and escaping', () => {

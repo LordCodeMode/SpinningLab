@@ -14,6 +14,39 @@ class WorkoutService:
     """Service for managing workouts and calculating training metrics"""
 
     @staticmethod
+    def normalize_interval_target(interval_data: Dict) -> Dict:
+        """
+        Normalize interval power targets to a single exact value.
+        If a range is provided, collapse it to the midpoint.
+        """
+        normalized = dict(interval_data or {})
+
+        low = normalized.get("target_power_low")
+        high = normalized.get("target_power_high")
+
+        if low is None and high is None:
+            return normalized
+
+        if low is None and high is not None:
+            low = high
+        if high is None and low is not None:
+            high = low
+
+        if low is None or high is None:
+            return normalized
+
+        try:
+            low_value = float(low)
+            high_value = float(high)
+        except (TypeError, ValueError):
+            return normalized
+
+        exact_value = round((low_value + high_value) / 2.0, 1)
+        normalized["target_power_low"] = exact_value
+        normalized["target_power_high"] = exact_value
+        return normalized
+
+    @staticmethod
     def calculate_interval_tss(
         duration_seconds: int,
         target_power_low: float,
@@ -158,7 +191,8 @@ class WorkoutService:
 
         # Create intervals
         intervals = []
-        for idx, interval_data in enumerate(intervals_data):
+        for idx, raw_interval_data in enumerate(intervals_data):
+            interval_data = WorkoutService.normalize_interval_target(raw_interval_data)
             interval = WorkoutInterval(
                 workout_id=workout.id,
                 order=idx,
@@ -235,7 +269,8 @@ class WorkoutService:
 
             # Create new intervals
             intervals = []
-            for idx, interval_data in enumerate(intervals_data):
+            for idx, raw_interval_data in enumerate(intervals_data):
+                interval_data = WorkoutService.normalize_interval_target(raw_interval_data)
                 interval = WorkoutInterval(
                     workout_id=workout.id,
                     order=idx,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ChartService } from '../static/js/services/ChartService.js';
+import { ChartService } from '../src/lib/services/ChartService.js';
 
 const service = new ChartService();
 

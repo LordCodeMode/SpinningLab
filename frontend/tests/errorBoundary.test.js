@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { errorBoundary, renderError, createPageBoundary } from '../static/js/core/errorBoundary.js';
+import { errorBoundary, renderError, createPageBoundary } from '../src/lib/core/errorBoundary.js';
 
 describe('ErrorBoundary', () => {
   beforeEach(() => {

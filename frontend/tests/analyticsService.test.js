@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AnalyticsService } from '../static/js/services/AnalyticsService.js';
-import { eventBus, EVENTS } from '../static/js/core/eventBus.js';
+import { AnalyticsService } from '../src/lib/services/AnalyticsService.js';
+import { eventBus, EVENTS } from '../src/lib/core/eventBus.js';
 
 describe('AnalyticsService', () => {
   beforeEach(() => {

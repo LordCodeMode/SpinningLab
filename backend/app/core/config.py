@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     POWER_CURVE_CACHE_MAX_AGE_HOURS: int = 168
     POWER_CURVE_MAX_DURATION_SECONDS: int = 43200
     POWER_CURVE_EXTENDED_STEP_SECONDS: int = 300
+    RQ_QUEUE_NAME: str = "default"
+    RQ_DEFAULT_TIMEOUT: int = 3600
+    RQ_RETRY_DELAYS: list[int] = [60, 300, 900]
+    PERF_LOG_SLOW_SECONDS: float = 1.0
+    PERF_LOG_ALL: bool = False
 
     # Strava API
     STRAVA_CLIENT_ID: str = ""

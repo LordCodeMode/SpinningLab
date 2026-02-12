@@ -7,7 +7,7 @@ import Services, {
   insightService,
   analyticsService,
   uploadService
-} from '../static/js/services/index.js';
+} from '../src/lib/services/index.js';
 
 describe('services index', () => {
   it('exports singleton services and registers window.Services', () => {

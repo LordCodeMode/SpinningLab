@@ -1,25 +1,9 @@
-/* =========================
-   MAIN.CSS - Master CSS Import File
-   Imports all stylesheets in correct order
-   ========================= */
-
-/* ========== 1. DESIGN SYSTEM FOUNDATION ========== */
-/* Reset must come first to clear browser defaults */
 @import 'design-system/reset.css';
-
-/* Design tokens define all CSS variables */
 @import 'design-system/tokens.css';
-
-/* Utility classes for quick styling */
 @import 'design-system/utilities.css';
-
-/* ========== 2. LAYOUT & APP SHELL ========== */
-/* Dashboard layout, sidebar, header, main content area */
 @import 'dashboard.css';
-
-/* ========== 3. REUSABLE COMPONENTS ========== */
-/* Import components in order of dependency */
 @import 'components/card.css';
+@import 'components/glass-card.css';
 @import 'components/button.css';
 @import 'components/badge.css';
 @import 'components/chart.css';
@@ -29,9 +13,6 @@
 @import 'components/skeleton.css';
 @import 'components/optimistic.css';
 @import 'components/workout-card.css';
-
-/* ========== 4. PAGE-SPECIFIC STYLES ========== */
-/* Page styles that override or extend components */
 @import 'pages/overview.css';
 @import 'pages/training-load.css';
 @import 'pages/comparisons.css';
@@ -50,10 +31,32 @@
 @import 'pages/workout-library.css';
 @import 'pages/workout-builder.css';
 @import 'pages/training-plans.css';
+@import 'pages/live-training.css';
+@import 'global-color-overrides.css';
+
+/* =========================
+   MAIN.CSS - Master CSS Import File
+   Imports all stylesheets in correct order
+   ========================= */
+
+/* ========== 1. DESIGN SYSTEM FOUNDATION ========== */
+/* Reset must come first to clear browser defaults */
+
+/* Design tokens define all CSS variables */
+
+/* Utility classes for quick styling */
+
+/* ========== 2. LAYOUT & APP SHELL ========== */
+/* Dashboard layout, sidebar, header, main content area */
+
+/* ========== 3. REUSABLE COMPONENTS ========== */
+/* Import components in order of dependency */
+
+/* ========== 4. PAGE-SPECIFIC STYLES ========== */
+/* Page styles that override or extend components */
 
 /* ========== 5. GLOBAL COLOR OVERRIDES ========== */
 /* MUST come last to ensure new design system colors apply everywhere */
-@import 'global-color-overrides.css';
 
 /* ========== NOTES ========== */
 /*

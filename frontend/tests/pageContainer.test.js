@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getPageContainer } from '../static/js/utils/page-container.js';
+import { getPageContainer } from '../src/lib/utils/page-container.js';
 
 describe('page container lookup', () => {
   it('returns the first matching container', () => {

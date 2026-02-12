@@ -48,6 +48,11 @@ class Activity(Base):
     __tablename__ = "activities"
     __table_args__ = (
         Index('idx_activity_user_time', 'user_id', 'start_time'),
+        Index('idx_activity_user_time_id', 'user_id', 'start_time', 'id'),
+        Index('idx_activity_user_strava', 'user_id', 'strava_activity_id'),
+        Index('idx_activity_user_file_hash', 'user_id', 'file_hash'),
+        Index('idx_activity_user_tss', 'user_id', 'tss'),
+        Index('idx_activity_user_avg_power', 'user_id', 'avg_power'),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -62,6 +67,8 @@ class Activity(Base):
     duration = Column(Float)  # seconds
     distance = Column(Float)  # km
     strava_activity_id = Column(BigInteger, nullable=True, index=True)  # For Strava-imported activities
+    strava_upload_id = Column(BigInteger, nullable=True, index=True)  # For uploads initiated by dashboard
+    strava_uploaded_at = Column(DateTime(timezone=True), nullable=True)
     
     # Power metrics
     avg_power = Column(Float)
@@ -88,6 +95,7 @@ class Activity(Base):
     # User annotations
     notes = Column(Text, nullable=True)
     rpe = Column(Integer, nullable=True)  # 1-10 subjective effort
+    route_polyline = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -160,6 +168,10 @@ class ActivityTag(Base):
 
 class Workout(Base):
     __tablename__ = "workouts"
+    __table_args__ = (
+        Index('idx_workout_user_created', 'user_id', 'created_at'),
+        Index('idx_workout_user_template_type', 'user_id', 'is_template', 'workout_type'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -198,6 +210,7 @@ class PlannedWorkout(Base):
     __tablename__ = "planned_workouts"
     __table_args__ = (
         Index('idx_plannedworkout_user_date', 'user_id', 'scheduled_date'),
+        Index('idx_plannedworkout_user_date_order', 'user_id', 'scheduled_date', 'sort_order', 'created_at'),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -218,6 +231,9 @@ class PlannedWorkout(Base):
 
 class TrainingPlan(Base):
     __tablename__ = "training_plans"
+    __table_args__ = (
+        Index('idx_trainingplan_user_created', 'user_id', 'created_at'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

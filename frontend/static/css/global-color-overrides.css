@@ -97,6 +97,7 @@
 
 .chart-tooltip,
 [class*="tooltip"] {
-  background: rgba(15, 23, 42, 0.95);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: var(--chart-tooltip-bg, rgba(15, 23, 42, 0.95));
+  border-color: var(--chart-tooltip-border, rgba(59, 130, 246, 0.3));
+  color: var(--chart-tooltip-body, #e2e8f0);
 }

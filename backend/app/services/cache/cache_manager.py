@@ -175,6 +175,32 @@ class CacheManager:
             logger.warning("Error clearing cache for user %s: %s", user_id, exc)
             return False
 
+    def clear_user_cache_by_prefixes(self, user_id: int, prefixes: list[str]) -> bool:
+        """Clear cache entries for a user matching the provided key prefixes."""
+        if not self.redis:
+            return True
+        if not prefixes:
+            return True
+
+        try:
+            keys = []
+            for prefix in prefixes:
+                pattern = f"{self.key_prefix}:user:{user_id}:{prefix}*"
+                cursor = 0
+                while True:
+                    cursor, batch = self.redis.scan(cursor=cursor, match=pattern, count=500)
+                    if batch:
+                        keys.extend(batch)
+                    if cursor == 0:
+                        break
+
+            if keys:
+                self.redis.delete(*keys)
+            return True
+        except Exception as exc:
+            logger.warning("Error clearing cache prefixes for user %s: %s", user_id, exc)
+            return False
+
     def get_cache_info(self, user_id: int) -> Dict[str, Any]:
         """Get information about cached data for a user."""
         if not self.redis:

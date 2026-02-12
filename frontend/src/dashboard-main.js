@@ -6,40 +6,31 @@
  */
 
 // Import core modules in dependency order
-import '../static/js/core/config.js';
-import '../static/js/core/eventBus.js';
-import '../static/js/core/state.js';
-import '../static/js/core/utils.js';
-import '../static/js/core/api.js';
-import errorBoundary from '../static/js/core/errorBoundary.js';
-import '../static/js/core/router.js';
+import './lib/core/config.js';
+import './lib/core/eventBus.js';
+import './lib/core/state.js';
+import './lib/core/api.js';
+import errorBoundary from './lib/core/errorBoundary.js';
+import { notify } from './lib/core/utils.js';
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import DashboardShell from './react/shell/DashboardShell.jsx';
+import DashboardApp from './react/app/DashboardApp.jsx';
 
-window.__DASHBOARD_MANUAL_INIT__ = true;
+window.notify = notify;
 
-const mountDashboardShell = () => {
+const mountDashboardApp = () => {
   const rootElement = document.getElementById('dashboard-root');
   if (!rootElement) {
-    console.error('[Dashboard] Missing #dashboard-root for React shell');
+    console.error('[Dashboard] Missing #dashboard-root for React app');
     return null;
   }
   const root = createRoot(rootElement);
-  root.render(React.createElement(DashboardShell));
+  root.render(React.createElement(DashboardApp));
   return root;
 };
 
-const waitForShell = () => new Promise((resolve) => {
-  if (document.getElementById('pageContent')) {
-    resolve();
-    return;
-  }
-  window.addEventListener('dashboard:shell-ready', () => resolve(), { once: true });
-});
-
-mountDashboardShell();
+mountDashboardApp();
 
 // Initialize Feather Icons
 document.addEventListener('DOMContentLoaded', () => {
@@ -47,16 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
     feather.replace();
   }
 });
-
-const bootDashboard = async () => {
-  await waitForShell();
-  const module = await import('../static/js/core/dashboard.js');
-  if (module?.initDashboard) {
-    await module.initDashboard();
-  }
-};
-
-bootDashboard();
 
 // Setup global error handler with user-friendly messages
 errorBoundary.setGlobalHandler((error, errorInfo) => {

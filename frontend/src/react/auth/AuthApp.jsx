@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { notify } from '../../../static/js/utils/notifications.js';
-import CONFIG, { API_BASE_URL } from '../../../static/js/core/config.js';
+import { notify } from '../../lib/utils/notifications.js';
+import CONFIG, { API_BASE_URL } from '../../lib/core/config.js';
 
 const AuthApp = () => {
   const [showAuth, setShowAuth] = useState(false);

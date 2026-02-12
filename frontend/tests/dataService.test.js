@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { eventBus, EVENTS } from '../static/js/core/eventBus.js';
+import { eventBus, EVENTS } from '../src/lib/core/eventBus.js';
 
 const apiMocks = vi.hoisted(() => ({
   API: {
@@ -19,9 +19,9 @@ const apiMocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock('../static/js/core/api.js', () => apiMocks);
+vi.mock('../src/lib/core/api.js', () => apiMocks);
 
-import { DataService } from '../static/js/services/DataService.js';
+import { DataService } from '../src/lib/services/DataService.js';
 
 describe('DataService', () => {
   let service;

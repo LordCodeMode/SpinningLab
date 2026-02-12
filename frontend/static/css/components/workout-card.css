@@ -46,12 +46,28 @@
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
 }
 
+.workout-card__icon--tempo {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
 .workout-card__icon--recovery {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
 .workout-card__icon--anaerobic {
   background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.workout-card__icon--sprint {
+  background: linear-gradient(135deg, #9333ea 0%, #6d28d9 100%);
+}
+
+.workout-card__icon--race-prep {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+}
+
+.workout-card__icon--ramp-test {
+  background: linear-gradient(135deg, #64748b 0%, #334155 100%);
 }
 
 .workout-card__icon--default {
@@ -213,8 +229,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: var(--gradient-card);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
   cursor: pointer;
@@ -263,12 +279,28 @@
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
 }
 
+.compact-workout-card__icon.workout-card__icon--tempo {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
 .compact-workout-card__icon.workout-card__icon--recovery {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
 .compact-workout-card__icon.workout-card__icon--anaerobic {
   background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.compact-workout-card__icon.workout-card__icon--sprint {
+  background: linear-gradient(135deg, #9333ea 0%, #6d28d9 100%);
+}
+
+.compact-workout-card__icon.workout-card__icon--race-prep {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+}
+
+.compact-workout-card__icon.workout-card__icon--ramp-test {
+  background: linear-gradient(135deg, #64748b 0%, #334155 100%);
 }
 
 .compact-workout-card__icon.workout-card__icon--default {

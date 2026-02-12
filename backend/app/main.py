@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
+from starlette.responses import StreamingResponse
+import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -79,19 +81,26 @@ class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         process_time = time.time() - start_time
-        response.headers["X-Process-Time"] = str(process_time)
+        response.headers["X-Process-Time"] = f"{process_time:.3f}"
 
         # Log slow requests (> 1 second)
-        if process_time > 1.0:
+        slow_threshold = getattr(settings, "PERF_LOG_SLOW_SECONDS", 1.0)
+        if process_time >= slow_threshold:
             logger.warning(
-                f"Slow request: {request.method} {request.url.path} "
-                f"took {process_time:.2f}s"
+                "Slow request: %s %s status=%s duration=%.3fs",
+                request.method,
+                request.url.path,
+                getattr(response, "status_code", "?"),
+                process_time,
             )
         # Log all requests in debug mode
-        elif logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                f"{request.method} {request.url.path} "
-                f"completed in {process_time:.3f}s"
+        elif getattr(settings, "PERF_LOG_ALL", False) or logger.isEnabledFor(logging.DEBUG):
+            logger.info(
+                "Request: %s %s status=%s duration=%.3fs",
+                request.method,
+                request.url.path,
+                getattr(response, "status_code", "?"),
+                process_time,
             )
 
         return response
@@ -265,6 +274,33 @@ async def root():
 async def health_check():
     return {"status": "healthy", "version": settings.VERSION}
 
+@app.get("/api/assets/rpm-avatar")
+async def rpm_avatar_proxy():
+    """Proxy a default avatar (RPM first, then fallback) to avoid browser CORS issues."""
+    candidate_urls = [
+        "https://models.readyplayer.me/64f1b9e005b410c1b9f8a6b7.glb",
+        "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/RiggedSimple/glTF-Binary/RiggedSimple.glb"
+    ]
+
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+        last_error = None
+        for url in candidate_urls:
+            try:
+                response = await client.get(url)
+                response.raise_for_status()
+                media_type = response.headers.get("content-type", "model/gltf-binary")
+                return StreamingResponse(
+                    content=response.aiter_bytes(),
+                    media_type=media_type,
+                    headers={"Cache-Control": "public, max-age=3600"}
+                )
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                continue
+
+    # If all candidates failed, surface a helpful error
+    raise HTTPException(status_code=502, detail=f"Avatar fetch failed: {last_error}")
+
 if __name__ == "__main__":
     import uvicorn
 
@@ -277,7 +313,18 @@ if __name__ == "__main__":
 
     if reload_enabled:
         uvicorn_kwargs["reload_dirs"] = ["app"]
-        uvicorn_kwargs["reload_excludes"] = ["data", "cache", "trainings.db", "*.db"]
+        uvicorn_kwargs["reload_excludes"] = [
+            "data",
+            "cache",
+            "trainings.db",
+            "*.db",
+            "venv",
+            ".venv",
+            "node_modules",
+            "tests",
+            "scripts",
+            "alembic",
+        ]
         uvicorn_app = "app.main:app"
     else:
         uvicorn_app = app

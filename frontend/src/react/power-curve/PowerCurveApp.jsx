@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Services from '../../../static/js/services/index.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
-import { eventBus, EVENTS } from '../../../static/js/core/eventBus.js';
+import Services from '../../lib/services/index.js';
+import { LoadingSkeleton } from '../components/ui';
+import { eventBus, EVENTS } from '../../lib/core/eventBus.js';
 
 const QUICK_RANGES = [
   { key: '30', label: '30d' },
@@ -424,6 +424,26 @@ const PowerCurveApp = () => {
     Services.analytics.trackPageView('power-curve');
   }, []);
 
+  useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    const pageContent = document.getElementById('pageContent');
+    const prevBodyBg = document.body.style.backgroundColor;
+    const prevMainBg = mainContent?.style.backgroundColor;
+    const prevPageBg = pageContent?.style.backgroundColor;
+
+    document.body.classList.add('page-power-curve');
+    document.body.style.backgroundColor = 'var(--color-background)';
+    if (mainContent) mainContent.style.backgroundColor = 'var(--color-surface)';
+    if (pageContent) pageContent.style.backgroundColor = 'var(--color-surface)';
+
+    return () => {
+      document.body.classList.remove('page-power-curve');
+      document.body.style.backgroundColor = prevBodyBg;
+      if (mainContent) mainContent.style.backgroundColor = prevMainBg || '';
+      if (pageContent) pageContent.style.backgroundColor = prevPageBg || '';
+    };
+  }, []);
+
   const applyRange = useCallback((nextRange) => {
     const endDate = new Date();
     let startDate = null;
@@ -704,13 +724,17 @@ const PowerCurveApp = () => {
     };
   }, [loadData]);
 
+  const rangeLabel = useMemo(() => {
+    if (range === 'custom') {
+      return `${formatDateForApi(start) || '...'} - ${formatDateForApi(end) || '...'}`;
+    }
+    return ({ '30': 'Last 30 days', '90': 'Last 90 days', '180': 'Last 180 days', '365': 'Last 365 days', 'all': 'All time' }[range] || 'Range');
+  }, [end, range, start]);
+
   const metaText = useMemo(() => {
-    const rangeLabel = range === 'custom'
-      ? `${formatDateForApi(start) || '...'} - ${formatDateForApi(end) || '...'}`
-      : ({ '30': 'Last 30 days', '90': 'Last 90 days', '180': 'Last 180 days', '365': 'Last 365 days', 'all': 'All time' }[range] || 'Range');
     const unit = weighted ? 'W/kg' : 'W';
     return `${rangeLabel} - ${data?.durations?.length || 0} data points - ${unit}`;
-  }, [data, end, range, start, weighted]);
+  }, [data, rangeLabel, weighted]);
 
   const findPowerAt = useCallback((targetDuration, payload) => {
     if (!payload || !payload.durations || !payload.powers) return null;
@@ -839,8 +863,50 @@ const PowerCurveApp = () => {
 
   const chartData = useMemo(() => {
     if (!data || !data.durations || !data.powers) return null;
-    const xValues = data.durations;
-    const yValues = data.powers;
+    const systemColors = {
+      sprint: '#3b82f6',
+      anaerobic: '#8b5cf6',
+      vo2max: '#10b981',
+      threshold: '#f59e0b',
+      endurance: '#6366f1'
+    };
+    const getPointColor = (duration) => {
+      if (duration <= 5) return systemColors.sprint;
+      if (duration <= 60) return systemColors.anaerobic;
+      if (duration <= 300) return systemColors.vo2max;
+      if (duration <= 1200) return systemColors.threshold;
+      return systemColors.endurance;
+    };
+    const getSegmentColor = (duration) => {
+      if (duration <= 5) return systemColors.sprint;
+      if (duration <= 60) return systemColors.anaerobic;
+      if (duration <= 300) return systemColors.vo2max;
+      if (duration <= 1200) return systemColors.threshold;
+      return systemColors.endurance;
+    };
+    const basePoints = data.durations
+      .map((x, i) => ({ x, y: data.powers[i] }))
+      .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+      .sort((a, b) => a.x - b.x);
+    if (!basePoints.length) return null;
+    const boundaries = [5, 60, 300, 1200];
+    const minX = basePoints[0].x;
+    const maxX = basePoints[basePoints.length - 1].x;
+    const inserted = [...basePoints];
+    boundaries.forEach((boundary) => {
+      if (boundary <= minX || boundary >= maxX) return;
+      const idx = inserted.findIndex((point) => point.x >= boundary);
+      if (idx === -1) return;
+      const match = inserted[idx];
+      if (match && match.x === boundary) return;
+      const prev = inserted[idx - 1];
+      if (!prev) return;
+      const t = (boundary - prev.x) / (match.x - prev.x);
+      const y = prev.y + (match.y - prev.y) * t;
+      inserted.splice(idx, 0, { x: boundary, y });
+    });
+    const xValues = inserted.map((point) => point.x);
+    const yValues = inserted.map((point) => point.y);
     const keyDurations = [5, 60, 300, 1200];
     const keyPoints = keyDurations.map((duration) => {
       const idx = xValues.findIndex((d) => d >= duration);
@@ -860,14 +926,14 @@ const PowerCurveApp = () => {
         {
           label: 'Power Curve',
           data: xValues.map((x, i) => ({ x, y: yValues[i] })),
-          borderColor: '#3b82f6',
+          borderColor: systemColors.sprint,
           backgroundColor: (context) => {
             const { chart } = context;
             const { ctx, chartArea } = chart;
-            if (!chartArea) return 'rgba(59, 130, 246, 0.15)';
+            if (!chartArea) return 'rgba(15, 23, 42, 0.12)';
             const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.35)');
-            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.04)');
+            gradient.addColorStop(0, 'rgba(15, 23, 42, 0.12)');
+            gradient.addColorStop(1, 'rgba(15, 23, 42, 0.02)');
             return gradient;
           },
           borderWidth: 3,
@@ -875,12 +941,18 @@ const PowerCurveApp = () => {
           tension: 0.4,
           pointRadius: 0,
           pointHoverRadius: 8,
-          pointBackgroundColor: '#3b82f6',
+          pointBackgroundColor: (ctx) => getPointColor(ctx.parsed?.x || 0),
           pointBorderColor: '#ffffff',
           pointBorderWidth: 2,
-          pointHoverBackgroundColor: '#3b82f6',
+          pointHoverBackgroundColor: (ctx) => getPointColor(ctx.parsed?.x || 0),
           pointHoverBorderColor: '#ffffff',
           pointHoverBorderWidth: 3,
+          segment: {
+            borderColor: (ctx) => {
+              const end = ctx.p1?.parsed?.x ?? 0;
+              return getSegmentColor(end);
+            }
+          },
           order: 2
         },
         {
@@ -900,11 +972,15 @@ const PowerCurveApp = () => {
     };
   }, [data]);
 
-  const chartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'nearest',
+  const chartOptions = useMemo(() => {
+    const theme = Services.chart.getThemeTokens();
+    const majorTicks = [5, 60, 300, 1200, 3600, 7200, 14400];
+    const axisColor = theme.axis || theme.gridStrong || '#94a3b8';
+    return ({
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'nearest',
       intersect: false
     },
     plugins: {
@@ -916,21 +992,21 @@ const PowerCurveApp = () => {
           usePointStyle: true,
           padding: 15,
           font: { size: 12, weight: '600', family: 'Inter' },
-          color: '#475569',
+            color: theme.legend,
           generateLabels: () => ([
-            { text: '5s Sprint', fillStyle: '#3b82f6', strokeStyle: '#ffffff', lineWidth: 2, pointStyle: 'circle' },
-            { text: '1m Anaerobic', fillStyle: '#8b5cf6', strokeStyle: '#ffffff', lineWidth: 2, pointStyle: 'circle' },
-            { text: '5m VO2max', fillStyle: '#10b981', strokeStyle: '#ffffff', lineWidth: 2, pointStyle: 'circle' },
-            { text: '20m Threshold', fillStyle: '#f59e0b', strokeStyle: '#ffffff', lineWidth: 2, pointStyle: 'circle' }
+            { text: '5s Sprint', fillStyle: '#3b82f6', strokeStyle: '#ffffff', lineWidth: 2, pointStyle: 'circle', fontColor: theme.legend, color: theme.legend },
+            { text: '1m Anaerobic', fillStyle: '#8b5cf6', strokeStyle: '#ffffff', lineWidth: 2, pointStyle: 'circle', fontColor: theme.legend, color: theme.legend },
+            { text: '5m VO2max', fillStyle: '#10b981', strokeStyle: '#ffffff', lineWidth: 2, pointStyle: 'circle', fontColor: theme.legend, color: theme.legend },
+            { text: '20m Threshold', fillStyle: '#f59e0b', strokeStyle: '#ffffff', lineWidth: 2, pointStyle: 'circle', fontColor: theme.legend, color: theme.legend }
           ])
         }
       },
       tooltip: {
         enabled: true,
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        titleColor: '#ffffff',
-        bodyColor: '#e2e8f0',
-        borderColor: '#3b82f6',
+        backgroundColor: theme.tooltipBg,
+        titleColor: theme.tooltipTitle,
+        bodyColor: theme.tooltipBody,
+        borderColor: theme.tooltipBorder,
         borderWidth: 2,
         padding: 16,
         displayColors: true,
@@ -985,7 +1061,7 @@ const PowerCurveApp = () => {
           display: true,
           text: 'Duration (Energy Systems ->)',
           font: { size: 13, weight: '700', family: 'Inter' },
-          color: '#1e293b',
+          color: theme.title,
           padding: { top: 10 }
         },
         ticks: {
@@ -1002,7 +1078,7 @@ const PowerCurveApp = () => {
             return `${value}s`;
           },
           font: { size: 11, weight: '600', family: 'Inter' },
-          color: '#475569',
+          color: theme.label,
           padding: 8
         },
         afterBuildTicks: (scale) => {
@@ -1010,18 +1086,13 @@ const PowerCurveApp = () => {
           scale.ticks = durationTicks.map((value) => ({ value }));
         },
         grid: {
-          color: (context) => {
-            const value = context.tick.value;
-            if ([5, 60, 300, 1200, 3600, 7200, 14400].includes(value)) {
-              return 'rgba(59, 130, 246, 0.25)';
-            }
-            return 'rgba(148, 163, 184, 0.1)';
-          },
-          lineWidth: (context) => {
-            const value = context.tick.value;
-            return [5, 60, 300, 1200, 3600, 7200, 14400].includes(value) ? 2 : 1;
-          },
+          display: false,
           drawBorder: false
+        },
+        border: {
+          display: true,
+          color: axisColor,
+          width: 1.5
         }
       },
       y: {
@@ -1031,27 +1102,32 @@ const PowerCurveApp = () => {
           display: true,
           text: `Power Output (${weighted ? 'W/kg' : 'Watts'})`,
           font: { size: 13, weight: '700', family: 'Inter' },
-          color: '#1e293b',
+          color: theme.title,
           padding: { bottom: 10 }
         },
         beginAtZero: false,
         ticks: {
           font: { size: 11, weight: '600', family: 'Inter' },
-          color: '#475569',
+          color: theme.label,
           padding: 8,
           callback: (value) => Math.round(value)
         },
         grid: {
-          color: 'rgba(148, 163, 184, 0.15)',
-          lineWidth: 1,
+          display: false,
           drawBorder: false
+        },
+        border: {
+          display: true,
+          color: axisColor,
+          width: 1.5
         }
       }
     },
     onClick: () => {
       Services.analytics.trackChartInteraction('power-curve', 'click');
     }
-  }), [durationTicks, maxDuration, weighted]);
+    });
+  }, [durationTicks, maxDuration, weighted]);
 
   useEffect(() => {
     const Chart = typeof window !== 'undefined' ? window.Chart : null;
@@ -1104,8 +1180,10 @@ const PowerCurveApp = () => {
     }
   }), []);
 
-  const timelineChartOptions = useMemo(() => ({
-    responsive: true,
+  const timelineChartOptions = useMemo(() => {
+    const theme = Services.chart.getThemeTokens();
+    return ({
+      responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
@@ -1117,15 +1195,15 @@ const PowerCurveApp = () => {
           usePointStyle: true,
           padding: 14,
           font: { size: 12, weight: '600', family: 'Inter' },
-          color: '#475569'
+          color: theme.legend
         }
       },
       tooltip: {
         enabled: true,
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        titleColor: '#ffffff',
-        bodyColor: '#e2e8f0',
-        borderColor: '#2563eb',
+        backgroundColor: theme.tooltipBg,
+        titleColor: theme.tooltipTitle,
+        bodyColor: theme.tooltipBody,
+        borderColor: theme.tooltipBorder,
         borderWidth: 2,
         padding: 12,
         callbacks: {
@@ -1145,14 +1223,14 @@ const PowerCurveApp = () => {
           display: true,
           text: 'Time (minutes)',
           font: { size: 12, weight: '700', family: 'Inter' },
-          color: '#1e293b'
+          color: theme.title
         },
         ticks: {
           font: { size: 11, weight: '600', family: 'Inter' },
-          color: '#475569'
+          color: theme.label
         },
         grid: {
-          color: 'rgba(148, 163, 184, 0.15)',
+          color: theme.grid,
           drawBorder: false
         }
       },
@@ -1161,14 +1239,14 @@ const PowerCurveApp = () => {
           display: true,
           text: 'Power (W)',
           font: { size: 12, weight: '700', family: 'Inter' },
-          color: '#1e293b'
+          color: theme.title
         },
         ticks: {
           font: { size: 11, weight: '600', family: 'Inter' },
-          color: '#475569'
+          color: theme.label
         },
         grid: {
-          color: 'rgba(148, 163, 184, 0.15)',
+          color: theme.grid,
           drawBorder: false
         }
       },
@@ -1178,18 +1256,19 @@ const PowerCurveApp = () => {
           display: true,
           text: 'Heart Rate',
           font: { size: 12, weight: '700', family: 'Inter' },
-          color: '#1e293b'
+          color: theme.title
         },
         ticks: {
           font: { size: 11, weight: '600', family: 'Inter' },
-          color: '#475569'
+          color: theme.label
         },
         grid: {
           drawOnChartArea: false
         }
       }
     }
-  }), []);
+    });
+  }, []);
 
   const activityChartData = useMemo(
     () => buildTimelineChartData(activityModal.streams),
@@ -1298,8 +1377,12 @@ const PowerCurveApp = () => {
   if (loading) {
     return (
       <div className="pc-section">
-        <div className="metrics-grid" dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'metric', count: 4 }) }} />
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ type: 'chart', count: 1 }) }} />
+        <div className="metrics-grid">
+          <LoadingSkeleton type="metric" count={4} />
+        </div>
+        <div>
+          <LoadingSkeleton type="chart" count={1} />
+        </div>
       </div>
     );
   }
@@ -1321,9 +1404,16 @@ const PowerCurveApp = () => {
 
   return (
     <div className="pc-section">
-      <div className="pc-header">
-        <h1>Power Curve</h1>
-        <p>Analyze your best power outputs across all durations</p>
+      <div className="pc-header page-header">
+        <div>
+          <h1 className="page-title">Power Curve</h1>
+          <p className="page-description">Analyze your best power outputs across all durations.</p>
+          <div className="page-header__meta">
+            <span className="page-pill">Range {rangeLabel}</span>
+            <span className="page-pill page-pill--muted">{weighted ? 'W/kg view' : 'Watts view'}</span>
+            <span className="page-pill page-pill--muted">{data?.durations?.length || 0} points</span>
+          </div>
+        </div>
       </div>
 
       <div className="pc-toolbar">
@@ -1356,7 +1446,7 @@ const PowerCurveApp = () => {
         </div>
       </div>
 
-      <div className="metrics-grid" id="pc-stats-cards" style={{ display: data ? 'grid' : 'none' }}>
+      <div className="metrics-grid pc-section-block pc-section-block--soft" id="pc-stats-cards" style={{ display: data ? 'grid' : 'none' }}>
         <div className="metric-card">
           <div className="metric-header-row">
             <div className="metric-icon primary">
@@ -1411,12 +1501,12 @@ const PowerCurveApp = () => {
       </div>
 
       <div className="pc-main-content">
-        <div className="pc-chart-card">
-          <div className="pc-chart-header">
+        <div className="pc-chart-card pc-section-block">
+          <div className="pc-chart-header section-header">
             <div className="pc-chart-header-content">
               <div>
-                <h3 className="pc-chart-title">Power Duration Curve</h3>
-                <p className="pc-chart-subtitle" id="pc-meta">{metaText}</p>
+                <h3 className="pc-chart-title section-title">Power Duration Curve</h3>
+                <p className="pc-chart-subtitle section-subtitle" id="pc-meta">{metaText}</p>
               </div>
             </div>
           </div>
@@ -1484,31 +1574,34 @@ const PowerCurveApp = () => {
       </div>
 
       {profile ? (
-        <div className="pc-profile-section" id="pc-profile-section">
-          <h3 className="pc-section-title">Power Profile</h3>
-          <div className="pc-profile-grid" id="pc-profile-grid">
-            <div className="pc-profile-card" data-type="sprinter">
-              <div className="pc-profile-card-label">Sprinter</div>
-              <div className="pc-profile-card-value">{profile.sprinterScore}</div>
-              <div className="pc-profile-card-desc">5-30 second power</div>
-            </div>
-            <div className="pc-profile-card" data-type="pursuit">
-              <div className="pc-profile-card-label">Pursuit</div>
-              <div className="pc-profile-card-value">{profile.pursuitScore}</div>
-              <div className="pc-profile-card-desc">1-5 minute power</div>
-            </div>
-            <div className="pc-profile-card" data-type="endurance">
-              <div className="pc-profile-card-label">Endurance</div>
-              <div className="pc-profile-card-value">{profile.enduranceScore}</div>
-              <div className="pc-profile-card-desc">20+ minute power</div>
-            </div>
+        <div className="pc-profile-section pc-section-block pc-section-block--soft" id="pc-profile-section">
+          <h3 className="pc-section-title section-title">Power Profile</h3>
+        <div className="pc-profile-grid" id="pc-profile-grid">
+          <div className="pc-profile-card" data-type="sprinter">
+            <div className="pc-profile-card-label">Sprinter</div>
+            <div className="pc-profile-card-value">{profile.sprinterScore}</div>
+            <div className="pc-profile-card-desc">5-30 second power</div>
+            <div className="pc-profile-card-note">Score = best 5s ÷ best 20m (relative)</div>
+          </div>
+          <div className="pc-profile-card" data-type="pursuit">
+            <div className="pc-profile-card-label">Pursuit</div>
+            <div className="pc-profile-card-value">{profile.pursuitScore}</div>
+            <div className="pc-profile-card-desc">1-5 minute power</div>
+            <div className="pc-profile-card-note">Score = best 1m ÷ best 20m (relative)</div>
+          </div>
+          <div className="pc-profile-card" data-type="endurance">
+            <div className="pc-profile-card-label">Endurance</div>
+            <div className="pc-profile-card-value">{profile.enduranceScore}</div>
+            <div className="pc-profile-card-desc">20+ minute power</div>
+            <div className="pc-profile-card-note">20m power is the reference anchor (10.0)</div>
           </div>
         </div>
+      </div>
       ) : null}
 
       {bestEfforts.length ? (
-        <div className="pc-efforts-section" id="pc-efforts-section">
-          <h3 className="pc-section-title">Best Efforts</h3>
+        <div className="pc-efforts-section pc-section-block" id="pc-efforts-section">
+          <h3 className="pc-section-title section-title">Best Efforts</h3>
           <div className="pc-efforts-grid" id="pc-efforts-tbody">
             {bestEfforts.map((effort) => (
               <button
@@ -1517,11 +1610,15 @@ const PowerCurveApp = () => {
                 key={effort.durationLabel}
                 onClick={() => openEffortModal(effort)}
               >
-                <div className="pc-effort-duration">{effort.durationLabel}</div>
-                <div className="pc-effort-power">{effort.powerLabel}</div>
-                <div className="pc-effort-action">Click to inspect workout</div>
-                <div className="pc-effort-badge-container">
-                  <span className="pc-effort-badge recent">Best</span>
+                <div className="pc-effort-highlight">
+                  <div className="pc-effort-duration">{effort.durationLabel}</div>
+                  <div className="pc-effort-power">
+                    <span className="pc-effort-power-value">{effort.powerLabel}</span>
+                  </div>
+                  <div className="pc-effort-action">Click to inspect workout</div>
+                  <div className="pc-effort-badge-container">
+                    <span className="pc-effort-badge recent">Best</span>
+                  </div>
                 </div>
               </button>
             ))}
@@ -1530,8 +1627,8 @@ const PowerCurveApp = () => {
       ) : null}
 
       {insights.length ? (
-        <div className="pc-ai-insights" id="pc-ai-insights">
-          <h3 className="pc-section-title">Insights</h3>
+        <div className="pc-ai-insights pc-section-block pc-section-block--soft" id="pc-ai-insights">
+          <h3 className="pc-section-title section-title">Insights</h3>
           {focusedInsight ? (
             <div className="pc-ai-focus-banner">
               <div>
@@ -1596,7 +1693,7 @@ const PowerCurveApp = () => {
         </div>
       ) : null}
 
-      <div className="pc-info-grid">
+      <div className="pc-info-grid pc-section-block">
         <div className="pc-info-card">
           <div className="pc-info-card-header">
             <div className="pc-info-card-icon">
@@ -1604,7 +1701,7 @@ const PowerCurveApp = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
-            <div className="pc-info-card-title">Understanding Power Curve</div>
+            <div className="pc-info-card-title section-title">Understanding Power Curve</div>
           </div>
           <div className="pc-factor-list">
             <div className="pc-factor-item">
@@ -1662,7 +1759,7 @@ const PowerCurveApp = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
               </svg>
             </div>
-            <div className="pc-info-card-title">Training Applications</div>
+            <div className="pc-info-card-title section-title">Training Applications</div>
           </div>
           <div className="pc-factor-list">
             <div className="pc-factor-item">

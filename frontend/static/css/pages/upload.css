@@ -8,14 +8,16 @@
     gap: 24px;
     max-width: 900px;
     margin: 0 auto;
+    --page-accent: #3b82f6;
+    --page-accent-alt: #8b5cf6;
+    --page-accent-soft: rgba(59, 130, 246, 0.2);
   }
   
   .upload-header {
-    text-align: center;
     margin-bottom: 8px;
   }
   
-  .upload-header h1 {
+  .upload-header h1:not(.page-title) {
     font-size: 32px;
     font-weight: 700;
     color: var(--text-primary);
@@ -23,7 +25,7 @@
     letter-spacing: -0.02em;
   }
   
-  .upload-header p {
+  .upload-header p:not(.page-description) {
     color: var(--text-secondary);
     font-size: 14px;
     line-height: 1.6;
@@ -35,7 +37,7 @@
   
   .upload-zone {
     background: linear-gradient(135deg, rgba(59, 130, 246, 0.03) 0%, rgba(139, 92, 246, 0.03) 100%);
-    border: 2px dashed #d1d5db;
+    border: 2px dashed var(--color-border-dark);
     border-radius: 16px;
     padding: 60px 40px;
     text-align: center;
@@ -196,8 +198,8 @@
      ============================================ */
   
   .upload-files-card {
-    background: #ffffff;
-    border: 2px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
     border-radius: 14px;
     padding: 24px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -206,7 +208,7 @@
   
   .upload-files-card:hover {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    border-color: #d1d5db;
+    border-color: var(--color-border-dark);
   }
   
   .upload-files-header {
@@ -365,14 +367,14 @@
   }
   
   .upload-actions .btn--secondary {
-    background: #ffffff;
+    background: var(--color-surface);
     color: var(--text-secondary);
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--color-border);
   }
   
   .upload-actions .btn--secondary:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
+    background: var(--color-surface-soft);
+    border-color: var(--color-border-dark);
   }
   
   .upload-actions .btn svg {
@@ -465,8 +467,8 @@
      ============================================ */
   
   .upload-results-card {
-    background: #ffffff;
-    border: 2px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
     border-radius: 14px;
     padding: 24px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);

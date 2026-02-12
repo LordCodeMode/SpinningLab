@@ -1,10 +1,13 @@
 """Training load (CTL/ATL/TSB) analysis endpoints."""
 
+from datetime import timezone
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from ....database.connection import get_db
-from ....database.models import User
+from ....database.models import User, Activity
 from ....api.dependencies import get_current_active_user
 from ....services.analysis.training_load import TrainingLoadService
 
@@ -27,9 +30,25 @@ async def get_training_load(
         cache_manager = CacheManager()
         cache_key = f"training_load_{days}d"
 
-        cached_data = cache_manager.get(cache_key, current_user.id, max_age_hours=24)
+        cached_data, cached_at = cache_manager.get_with_meta(cache_key, current_user.id)
 
-        if cached_data:
+        cache_is_stale = False
+        if cached_data and cached_at is not None:
+            latest_activity_time = db.query(func.max(Activity.start_time)).filter(
+                Activity.user_id == current_user.id,
+                Activity.tss.isnot(None),
+                Activity.tss > 0
+            ).scalar()
+
+            if latest_activity_time is not None:
+                if latest_activity_time.tzinfo is None:
+                    latest_activity_ts = latest_activity_time.replace(tzinfo=timezone.utc).timestamp()
+                else:
+                    latest_activity_ts = latest_activity_time.astimezone(timezone.utc).timestamp()
+
+                cache_is_stale = latest_activity_ts > cached_at
+
+        if cached_data and not cache_is_stale:
             # Cache contains TrainingLoadResponse objects, convert to dicts
             return [
                 {
@@ -41,6 +60,9 @@ async def get_training_load(
                 }
                 for item in cached_data
             ]
+
+        if cache_is_stale:
+            cache_manager.delete(cache_key, current_user.id)
 
         # Cache miss - calculate and return
         service = TrainingLoadService(db)

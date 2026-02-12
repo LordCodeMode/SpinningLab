@@ -1,25 +1,39 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import API from '../../../static/js/core/api.js';
-import { LoadingSkeleton } from '../../../static/js/components/ui/index.js';
-import { notify } from '../../../static/js/utils/notifications.js';
-import CONFIG from '../../../static/js/pages/workout-library/config.js';
-import { getIntervalColorClass, getIntervalPowerPercent } from '../../../static/js/utils/workout-colors.js';
-import { POWER_ZONES } from '../../../static/js/pages/workout-builder/zones.js';
+import API from '../../lib/core/api.js';
+import { LoadingSkeleton } from '../components/ui';
+import { notify } from '../../lib/utils/notifications.js';
+import CONFIG from '../../lib/pages/workout-library/config.js';
+import { getIntervalColorClass, getIntervalPowerPercent } from '../../lib/utils/workout-colors.js';
+import { POWER_ZONES } from '../../lib/pages/workout-builder/zones.js';
 
 const DEFAULT_FTP = 250;
 const MAX_POWER_PERCENT = 200;
 const PREVIEW_HEIGHT = 120;
 
-const TYPE_OPTIONS = [
+const BASE_TYPE_OPTIONS = [
   'Sweet Spot',
   'VO2max',
   'Threshold',
   'Endurance',
+  'Tempo',
   'Recovery',
-  'Anaerobic'
+  'Sprint',
+  'Anaerobic Capacity',
+  'Race Prep',
+  'Ramp Test'
 ];
 
 const formatMinutes = (seconds) => Math.round((seconds || 0) / 60);
+
+const formatIntervalDuration = (seconds) => {
+  const totalSeconds = Math.max(0, Math.round(seconds || 0));
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+
+  if (minutes <= 0) return `${totalSeconds}s`;
+  if (!remainder) return `${minutes} min`;
+  return `${minutes}m ${remainder}s`;
+};
 
 const normalizeFilter = (value) => String(value || '')
   .trim()
@@ -43,8 +57,13 @@ const getWorkoutTypeClass = (type) => {
     'VO2max': 'workout-card__icon--vo2max',
     'Threshold': 'workout-card__icon--threshold',
     'Endurance': 'workout-card__icon--endurance',
+    'Tempo': 'workout-card__icon--tempo',
     'Recovery': 'workout-card__icon--recovery',
-    'Anaerobic': 'workout-card__icon--anaerobic'
+    'Anaerobic': 'workout-card__icon--anaerobic',
+    'Anaerobic Capacity': 'workout-card__icon--anaerobic',
+    'Sprint': 'workout-card__icon--sprint',
+    'Race Prep': 'workout-card__icon--race-prep',
+    'Ramp Test': 'workout-card__icon--ramp-test'
   };
 
   return classes[type] || 'workout-card__icon--default';
@@ -72,6 +91,11 @@ const getWorkoutTypeIcon = (type) => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
+    'Tempo': (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
     'Recovery': (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -80,6 +104,26 @@ const getWorkoutTypeIcon = (type) => {
     'Anaerobic': (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+    'Anaerobic Capacity': (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+    'Sprint': (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+    'Race Prep': (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v18m0-18h10l-2 4 2 4H5" />
+      </svg>
+    ),
+    'Ramp Test': (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 19h16M7 16l3-3 3 2 4-6" />
       </svg>
     )
   };
@@ -203,30 +247,31 @@ const buildIntervalPreview = (intervals, ftp) => {
 const buildStructurePreview = (intervals, ftp) => {
   if (!intervals.length) return null;
 
-  const totalDuration = intervals.reduce((sum, interval) => sum + (interval.duration || 0), 0);
+  const orderedIntervals = [...intervals]
+    .sort((a, b) => (a?.order ?? 0) - (b?.order ?? 0))
+    .filter((interval) => Number(interval?.duration) > 0);
+
+  if (!orderedIntervals.length) return null;
+
+  const totalDuration = orderedIntervals.reduce((sum, interval) => sum + (interval.duration || 0), 0);
   if (!totalDuration) return null;
 
-  let currentTime = 0;
-  const blocks = intervals.map((interval, index) => {
+  const blocks = orderedIntervals.map((interval, index) => {
     const duration = interval.duration || 0;
     if (!duration) return null;
 
-    const widthPercent = (duration / totalDuration) * 100;
     const powerPercent = getIntervalPowerPercent(interval, ftp);
     const clampedPower = Math.min(MAX_POWER_PERCENT, Math.max(30, powerPercent));
     const height = Math.max(18, (clampedPower / MAX_POWER_PERCENT) * PREVIEW_HEIGHT);
     const colorClass = getIntervalColorClass(interval, clampedPower);
-    const left = (currentTime / totalDuration) * 100;
-    currentTime += duration;
 
     return (
       <div
         key={`chart-${index}`}
-        className={`wb-preview__block ${colorClass}`}
+        className={`wl-preview__block ${colorClass}`}
         style={{
-          left: `${left}%`,
-          width: `${widthPercent}%`,
-          height: `${height}px`
+          height: `${height}px`,
+          flex: `${duration} 1 0`
         }}
         title={`${formatIntervalType(interval.interval_type)} • ${getIntervalPowerDetail(interval, ftp)}`}
       ></div>
@@ -254,7 +299,9 @@ const buildStructurePreview = (intervals, ftp) => {
           );
         })}
       </div>
-      {blocks}
+      <div className="wl-preview__bars">
+        {blocks}
+      </div>
     </div>
   );
 };
@@ -322,6 +369,18 @@ const WorkoutLibraryApp = () => {
   useEffect(() => {
     loadWorkouts();
   }, [loadWorkouts]);
+
+  const typeOptions = useMemo(() => {
+    const extras = Array.from(new Set(
+      workouts
+        .map((workout) => String(workout?.workout_type || '').trim())
+        .filter(Boolean)
+    ))
+      .filter((type) => !BASE_TYPE_OPTIONS.includes(type))
+      .sort((a, b) => a.localeCompare(b));
+
+    return [...BASE_TYPE_OPTIONS, ...extras];
+  }, [workouts]);
 
   const filteredWorkouts = useMemo(() => {
     const normalizedType = normalizeFilter(selectedType);
@@ -413,27 +472,32 @@ const WorkoutLibraryApp = () => {
     }
   };
 
+  useEffect(() => {
+    document.body.classList.add('page-workout-library');
+    return () => {
+      document.body.classList.remove('page-workout-library');
+    };
+  }, []);
+
   if (loading) {
     return (
-      <div>
-        <div className="page-header workout-library-hero">
+      <div className="workout-library-page">
+        <div className="page-header workout-library-header">
           <div>
             <h1 className="page-title">{CONFIG.PAGE_TITLE}</h1>
-            <div className="workout-library-hero__underline"></div>
             <p className="page-description">{CONFIG.PAGE_DESCRIPTION}</p>
           </div>
         </div>
-        <div dangerouslySetInnerHTML={{ __html: LoadingSkeleton({ height: '400px' }) }} />
+        <div><LoadingSkeleton height="400px" /></div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="page-header workout-library-hero">
+    <div className="workout-library-page">
+      <div className="page-header workout-library-header">
         <div>
           <h1 className="page-title">{CONFIG.PAGE_TITLE}</h1>
-          <div className="workout-library-hero__underline"></div>
           <p className="page-description">{CONFIG.PAGE_DESCRIPTION}</p>
         </div>
         <div className="page-header__actions">
@@ -460,7 +524,7 @@ const WorkoutLibraryApp = () => {
           onChange={(event) => setSelectedType(event.target.value)}
         >
           <option value="">All Types</option>
-          {TYPE_OPTIONS.map((type) => (
+          {typeOptions.map((type) => (
             <option key={type} value={type}>{type}</option>
           ))}
         </select>
@@ -653,7 +717,7 @@ const WorkoutLibraryApp = () => {
                         {intervals.map((interval, index) => (
                           <div key={`interval-${index}`} className="calendar-modal__interval">
                             <span className="calendar-modal__interval-type">{formatIntervalType(interval.interval_type)}</span>
-                            <span>{Math.round(interval.duration / 60)} min</span>
+                            <span>{formatIntervalDuration(interval.duration)}</span>
                             <span>{getIntervalPowerDetail(interval, userFtp)}</span>
                             {interval.description && (
                               <span className="calendar-modal__interval-desc">{interval.description}</span>
