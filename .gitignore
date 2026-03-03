@@ -86,3 +86,8 @@ backend/ml_models/*.pkl
 *.temp
 temp/
 tmp/
+
+# Local external source packs / scratch repos
+external/
+Auuki-master/
+frontend/third_party_assets/quaternius/

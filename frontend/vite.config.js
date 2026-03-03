@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import react from '@vitejs/plugin-react';
+import autoprefixer from 'autoprefixer';
 
 export default defineConfig({
   plugins: [react()],
@@ -16,8 +17,8 @@ export default defineConfig({
   // Development server configuration
   server: {
     port: 8080,
-    host: true,
-    open: true,
+    host: '127.0.0.1',
+    open: false,
 
     // Proxy API requests to backend
     proxy: {
@@ -34,6 +35,7 @@ export default defineConfig({
     // Watch options
     watch: {
       usePolling: false,
+      ignored: [],
     }
   },
 
@@ -47,7 +49,6 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         dashboard: resolve(__dirname, 'dashboard.html'),
-        virtualRide: resolve(__dirname, 'virtual-ride.html'),
       },
 
       output: {
@@ -120,21 +121,25 @@ export default defineConfig({
 
   // Optimization
   optimizeDeps: {
-    include: [
-      // Add any dependencies that should be pre-bundled
-    ],
+    // Keep discovery off, but force-prebundle core React deps so browser
+    // never receives raw CJS files such as react-dom/client.js.
+    noDiscovery: true,
+    include: ['react', 'react-dom', 'react-dom/client', '@mapbox/polyline', 'mapbox-gl'],
   },
 
   // CSS configuration
   css: {
     devSourcemap: true,
+    postcss: {
+      plugins: [autoprefixer()]
+    }
   },
 
   // Preview server (for testing production build)
   preview: {
     port: 8080,
-    host: true,
-    open: true,
+    host: '127.0.0.1',
+    open: false,
   },
 
   // Define global constants

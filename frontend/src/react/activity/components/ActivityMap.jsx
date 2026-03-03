@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo } from 'react';
-import mapboxgl from 'mapbox-gl';
+import * as mapboxglModule from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Map as MapIcon } from 'lucide-react';
 import AppConfig from '../../../lib/core/config.js';
@@ -10,6 +10,8 @@ import {
   MAP_HR_COLORS,
   MAP_POWER_COLORS
 } from '../activityUtils';
+
+const mapboxgl = mapboxglModule.default || mapboxglModule;
 
 const ActivityMap = ({ 
   activity, 

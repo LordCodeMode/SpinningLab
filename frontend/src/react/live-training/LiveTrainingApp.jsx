@@ -12,6 +12,8 @@ import {
   Globe
 } from 'lucide-react';
 import { useVirtualWorld } from '../../virtual-world/useVirtualWorld.js';
+import { RouteManager } from '../../virtual-world/routes.js';
+import { RidePhysicsEngine, ridePhysicsDefaults } from '../../virtual-world/physics/RidePhysicsEngine.js';
 import Services from '../../lib/services/index.js';
 import API from '../../lib/core/api.js';
 import { eventBus, EVENTS } from '../../lib/core/eventBus.js';
@@ -35,6 +37,42 @@ const CADENCE_TRANSITION_CONFIRM_TICKS = 2;
 const FEC_SERVICE_UUID = '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e';
 const FEC_NOTIFY_UUID = '6e40fec2-b5a3-f393-e0a9-e50e24dcca9e';
 const FEC_WRITE_UUID = '6e40fec3-b5a3-f393-e0a9-e50e24dcca9e';
+const DEFAULT_ROUTE_ID = 'hilly-route';
+const UNITY_RUNTIME_STORAGE_KEY = 'liveTraining:virtualWorldRuntime';
+const GRADE_DEADBAND = 0.0015;
+const PHYSICS_V2_ENABLED = (typeof globalThis === 'undefined')
+  ? true
+  : globalThis?.__VW_FLAGS?.physicsV2Enabled !== false;
+const UNITY_RUNTIME_ENABLED = (typeof globalThis === 'undefined')
+  ? true
+  : globalThis?.__VW_FLAGS?.unityRuntimeEnabled !== false;
+const UNITY_MOUNTAINS_ENABLED = (typeof globalThis === 'undefined')
+  ? true
+  : globalThis?.__VW_FLAGS?.unityMountainsEnabled !== false;
+const UNITY_ONLY_MODE = (typeof globalThis === 'undefined')
+  ? true
+  : globalThis?.__VW_FLAGS?.unityOnlyMode !== false;
+
+const parseUnityRouteScope = (scopeValue) => {
+  if (Array.isArray(scopeValue)) {
+    return scopeValue
+      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+      .filter(Boolean);
+  }
+  if (typeof scopeValue === 'string') {
+    const trimmed = scopeValue.trim();
+    if (!trimmed) return [];
+    if (trimmed.toLowerCase() === 'all') return ['*'];
+    return [trimmed];
+  }
+  return ['*'];
+};
+
+const UNITY_ROUTE_SCOPE = (typeof globalThis === 'undefined')
+  ? ['*']
+  : (UNITY_ONLY_MODE
+    ? ['*']
+    : parseUnityRouteScope(globalThis?.__VW_FLAGS?.unityRouteScope ?? ['*']));
 
 const formatDuration = (seconds) => {
   const totalSeconds = Math.max(0, Math.round(seconds || 0));
@@ -256,62 +294,10 @@ const parseCyclingPowerMeasurement = (dataView, cadenceRef) => {
   return { power, cadence };
 };
 
-const DEFAULT_VIRTUAL_PARAMS = {
-  riderWeightKg: 75,
-  bikeWeightKg: 8,
-  crr: 0.004,
-  cda: 0.32,
-  airDensity: 1.226,
-  drivetrainEfficiency: 0.97,
-  grade: 0
-};
-
-const MAX_VIRTUAL_SPEED_MPS = 25;
-
-const computeVirtualSpeedKph = (powerW, params = DEFAULT_VIRTUAL_PARAMS) => {
-  if (!Number.isFinite(powerW) || powerW <= 0) return 0;
-  const totalMass = Math.max(1, (params.riderWeightKg || 0) + (params.bikeWeightKg || 0));
-  const crr = Math.max(0, params.crr ?? 0.004);
-  const cda = Math.max(0.05, params.cda ?? 0.32);
-  const rho = Math.max(0.5, params.airDensity ?? 1.226);
-  const grade = params.grade ?? 0;
-  const efficiency = Math.min(1, Math.max(0.7, params.drivetrainEfficiency ?? 0.97));
-
-  const g = 9.80665;
-  const targetPower = powerW * efficiency;
-  const rollingForce = totalMass * g * crr;
-  const gravityForce = totalMass * g * grade;
-  const linearForce = rollingForce + gravityForce;
-  const aeroCoeff = 0.5 * rho * cda;
-
-  let low = 0;
-  let high = MAX_VIRTUAL_SPEED_MPS;
-  const powerAtHigh = (v) => (aeroCoeff * v * v * v) + (linearForce * v);
-  while (powerAtHigh(high) < targetPower && high < 40) {
-    high *= 1.5;
-  }
-
-  for (let i = 0; i < 30; i += 1) {
-    const mid = (low + high) / 2;
-    if (powerAtHigh(mid) > targetPower) {
-      high = mid;
-    } else {
-      low = mid;
-    }
-  }
-
-  const speedMps = (low + high) / 2;
-  return Number((speedMps * 3.6).toFixed(1));
-};
-
-const resolveVirtualSpeed = (incomingSpeed, power, fallbackSpeed) => {
-  if (Number.isFinite(incomingSpeed) && incomingSpeed > 0.1) return incomingSpeed;
-  if (Number.isFinite(power) && power > 0) return computeVirtualSpeedKph(power);
-  // When power is 0 or not available, return 0 instead of persisting old speed
-  // This ensures speed/distance stop when not pedaling
-  if (Number.isFinite(power) && power === 0) return 0;
-  if (Number.isFinite(fallbackSpeed)) return fallbackSpeed;
-  return 0;
+const clampRealisticGrade = (grade) => {
+  const maxGrade = ridePhysicsDefaults.maxGrade || 0.12;
+  const clamped = Math.max(-maxGrade, Math.min(maxGrade, grade || 0));
+  return Math.abs(clamped) < GRADE_DEADBAND ? 0 : clamped;
 };
 
 const buildControlCommand = (opcode, params = []) => new Uint8Array([opcode, ...params]);
@@ -361,7 +347,11 @@ const LiveTrainingApp = () => {
     power: null,
     cadence: null,
     speed: null,
-    heartRate: null
+    heartRate: null,
+    trainerSpeedKph: null,
+    virtualSpeedKph: null,
+    routeGradePct: 0,
+    routeAltitudeM: 0
   });
   const [externalHr, setExternalHr] = useState(null);
   const [sessionState, setSessionState] = useState('idle');
@@ -379,6 +369,17 @@ const LiveTrainingApp = () => {
   const [workoutsError, setWorkoutsError] = useState('');
   const [selectedWorkoutId, setSelectedWorkoutId] = useState('');
   const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [activeRouteId, setActiveRouteId] = useState(DEFAULT_ROUTE_ID);
+  const [virtualWorldRuntimePreference, setVirtualWorldRuntimePreference] = useState(() => {
+    if (UNITY_ONLY_MODE && UNITY_RUNTIME_ENABLED && UNITY_MOUNTAINS_ENABLED) return 'unity';
+    if (UNITY_RUNTIME_ENABLED && UNITY_MOUNTAINS_ENABLED) return 'unity';
+    if (typeof window === 'undefined') return 'three';
+    try {
+      return localStorage.getItem(UNITY_RUNTIME_STORAGE_KEY) === 'unity' ? 'unity' : 'three';
+    } catch (error) {
+      return 'three';
+    }
+  });
   const [userFtp, setUserFtp] = useState(DEFAULT_FTP);
   const [view, setView] = useState(() => parseLiveTrainingView());
 
@@ -388,11 +389,20 @@ const LiveTrainingApp = () => {
   const chartStartRef = useRef(null);
   const lastSampleRef = useRef(0);
   const liveMetricsRef = useRef(liveMetrics);
+  const physicsEngineRef = useRef(new RidePhysicsEngine());
+  const physicsRouteManagerRef = useRef(new RouteManager());
+  const physicsTickRef = useRef({
+    timestampMs: Date.now(),
+    speedKph: 0,
+    grade: 0,
+    altitude: 0
+  });
   const sessionSamplesRef = useRef([]);
   const sessionStartRef = useRef(null);
   const sessionFinalizedRef = useRef(false);
   const cadenceRef = useRef(null);
   const distanceMetersRef = useRef(0);
+  const physicsDistanceRef = useRef(0);
   const reconnectTimerRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectResumeRef = useRef(false);
@@ -425,6 +435,27 @@ const LiveTrainingApp = () => {
       return String(a?.name || '').localeCompare(String(b?.name || ''));
     });
   }, [workouts]);
+  const routeOptions = useMemo(() => {
+    return physicsRouteManagerRef.current
+      .getRoutes()
+      .map((route) => ({
+        id: route?.id || '',
+        name: route?.name || route?.id || 'Route'
+      }))
+      .filter((route) => route.id);
+  }, []);
+  const unityRuntimeAvailable = UNITY_RUNTIME_ENABLED && UNITY_MOUNTAINS_ENABLED;
+  const unityRouteAllowed = useMemo(() => {
+    if (!unityRuntimeAvailable) return false;
+    if (UNITY_ONLY_MODE) return true;
+    return UNITY_ROUTE_SCOPE.includes('*') || UNITY_ROUTE_SCOPE.includes(activeRouteId);
+  }, [activeRouteId, unityRuntimeAvailable]);
+  const resolvedVirtualWorldRuntime = (UNITY_ONLY_MODE && unityRuntimeAvailable)
+    ? 'unity'
+    : ((virtualWorldRuntimePreference === 'unity' && unityRouteAllowed) ? 'unity' : 'three');
+  const runtimeScopeLabel = UNITY_ROUTE_SCOPE.includes('*')
+    ? 'all routes'
+    : UNITY_ROUTE_SCOPE.join(', ');
   const stepDuration = currentStep?.durationSec || 0;
   const remainingStep = Math.max(0, stepDuration - stepElapsed);
   const totalProgress = totalDuration ? Math.min(1, totalElapsed / totalDuration) : 0;
@@ -440,9 +471,18 @@ const LiveTrainingApp = () => {
   const recordSessionSample = useCallback(() => {
     const metrics = liveMetricsRef.current || {};
     const hrValue = Number.isFinite(externalHrRef.current) ? externalHrRef.current : metrics.heartRate;
-    const speedValue = Number.isFinite(metrics.speed) ? metrics.speed : null;
+    const speedValue = Number.isFinite(metrics.virtualSpeedKph)
+      ? metrics.virtualSpeedKph
+      : Number.isFinite(metrics.speed)
+        ? metrics.speed
+        : null;
+    const trainerSpeedValue = Number.isFinite(metrics.trainerSpeedKph) ? metrics.trainerSpeedKph : null;
     const speedMps = Number.isFinite(speedValue) ? speedValue * 1000 / 3600 : 0;
-    distanceMetersRef.current += speedMps;
+    if (Number.isFinite(physicsDistanceRef.current) && physicsDistanceRef.current >= 0) {
+      distanceMetersRef.current = physicsDistanceRef.current;
+    } else {
+      distanceMetersRef.current += speedMps;
+    }
     const elapsedSec = sessionSamplesRef.current.length + 1;
     const timestamp = sessionStartRef.current
       ? sessionStartRef.current + elapsedSec * 1000
@@ -453,6 +493,7 @@ const LiveTrainingApp = () => {
       power: Number.isFinite(metrics.power) ? metrics.power : null,
       cadence: Number.isFinite(metrics.cadence) ? metrics.cadence : null,
       speed: speedValue,
+      trainerSpeed: trainerSpeedValue,
       distanceMeters: distanceMetersRef.current,
       heartRate: Number.isFinite(hrValue) ? hrValue : null
     });
@@ -619,6 +660,55 @@ const LiveTrainingApp = () => {
   }, [liveMetrics]);
 
   useEffect(() => {
+    const routeManager = physicsRouteManagerRef.current;
+    const changed = routeManager.setRoute(activeRouteId);
+    if (changed) {
+      const now = Date.now();
+      distanceMetersRef.current = 0;
+      physicsDistanceRef.current = 0;
+      setLiveDistanceMeters(0);
+      physicsEngineRef.current.reset(0);
+      const routeInfo = routeManager.getPositionInfo(0);
+      const grade = clampRealisticGrade(routeManager.getEffectiveGrade(0));
+      const altitude = routeInfo.altitude || 0;
+      physicsTickRef.current.timestampMs = now;
+      physicsTickRef.current.speedKph = 0;
+      physicsTickRef.current.grade = grade;
+      physicsTickRef.current.altitude = altitude;
+      setLiveMetrics((prev) => ({
+        ...prev,
+        speed: 0,
+        virtualSpeedKph: 0,
+        routeGradePct: grade * 100,
+        routeAltitudeM: altitude
+      }));
+    }
+  }, [activeRouteId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (UNITY_ONLY_MODE) return;
+    try {
+      localStorage.setItem(UNITY_RUNTIME_STORAGE_KEY, virtualWorldRuntimePreference);
+    } catch (error) {
+      // Ignore localStorage errors.
+    }
+  }, [virtualWorldRuntimePreference]);
+
+  useEffect(() => {
+    if (UNITY_ONLY_MODE) {
+      const target = unityRuntimeAvailable ? 'unity' : 'three';
+      if (virtualWorldRuntimePreference !== target) {
+        setVirtualWorldRuntimePreference(target);
+      }
+      return;
+    }
+    if (!UNITY_RUNTIME_ENABLED && virtualWorldRuntimePreference !== 'three') {
+      setVirtualWorldRuntimePreference('three');
+    }
+  }, [unityRuntimeAvailable, virtualWorldRuntimePreference]);
+
+  useEffect(() => {
     sessionStateRef.current = sessionState;
   }, [sessionState]);
 
@@ -673,6 +763,22 @@ const LiveTrainingApp = () => {
 
       const ftpValue = parseFloat(settings?.ftp);
       setUserFtp(Number.isFinite(ftpValue) ? ftpValue : DEFAULT_FTP);
+      const riderWeightKg = Number(settings?.weight);
+      const bikeWeightKg = Number(settings?.bike_weight);
+      const cda = Number(settings?.cda);
+      const crr = Number(settings?.crr);
+      const airDensity = Number(settings?.air_density);
+      const drivetrainEfficiency = Number(settings?.drivetrain_efficiency);
+      physicsEngineRef.current.setParams({
+        riderWeightKg: Number.isFinite(riderWeightKg) ? riderWeightKg : ridePhysicsDefaults.riderWeightKg,
+        bikeWeightKg: Number.isFinite(bikeWeightKg) ? bikeWeightKg : ridePhysicsDefaults.bikeWeightKg,
+        cda: Number.isFinite(cda) ? cda : ridePhysicsDefaults.cda,
+        crr: Number.isFinite(crr) ? crr : ridePhysicsDefaults.crr,
+        airDensity: Number.isFinite(airDensity) ? airDensity : ridePhysicsDefaults.airDensity,
+        drivetrainEfficiency: Number.isFinite(drivetrainEfficiency)
+          ? drivetrainEfficiency
+          : ridePhysicsDefaults.drivetrainEfficiency
+      });
       setWorkouts(Array.isArray(workoutsResponse) ? workoutsResponse : []);
     } catch (error) {
       setWorkoutsError(error?.message || 'Unable to load workouts.');
@@ -947,7 +1053,14 @@ const LiveTrainingApp = () => {
       reconnectResumeRef.current = false;
       setTrainerState(initialTrainerState);
       setSessionState('idle');
-      setLiveMetrics((prev) => ({ ...prev, power: null, cadence: null, speed: null }));
+      setLiveMetrics((prev) => ({
+        ...prev,
+        power: null,
+        cadence: null,
+        speed: null,
+        trainerSpeedKph: null,
+        virtualSpeedKph: null
+      }));
       resetChartData();
       return;
     }
@@ -960,7 +1073,14 @@ const LiveTrainingApp = () => {
     if (!device) {
       setTrainerState(initialTrainerState);
       setSessionState('idle');
-      setLiveMetrics((prev) => ({ ...prev, power: null, cadence: null, speed: null }));
+      setLiveMetrics((prev) => ({
+        ...prev,
+        power: null,
+        cadence: null,
+        speed: null,
+        trainerSpeedKph: null,
+        virtualSpeedKph: null
+      }));
       resetChartData();
       return;
     }
@@ -1040,43 +1160,122 @@ const LiveTrainingApp = () => {
     resetChartData();
   }, [resetChartData]);
 
+  const computeVirtualMotion = useCallback((input = {}) => {
+    const routeManager = physicsRouteManagerRef.current;
+    const distanceMeters = Number(physicsDistanceRef.current || distanceMetersRef.current || 0);
+    const positionInfo = routeManager.getPositionInfo(distanceMeters);
+    const grade = clampRealisticGrade(routeManager.getEffectiveGrade(distanceMeters));
+    const altitude = Number(positionInfo?.altitude) || 0;
+    const now = Date.now();
+    const dt = Math.max(0.04, Math.min(0.5, (now - (physicsTickRef.current?.timestampMs || now)) / 1000));
+
+    if (!PHYSICS_V2_ENABLED) {
+      const fallbackSpeedKph = Number.isFinite(input.trainerSpeedKph)
+        ? input.trainerSpeedKph
+        : (physicsTickRef.current?.speedKph || 0);
+      physicsTickRef.current = {
+        timestampMs: now,
+        speedKph: Math.max(0, fallbackSpeedKph),
+        grade,
+        altitude
+      };
+      return {
+        virtualSpeedKph: Math.max(0, fallbackSpeedKph),
+        routeGradePct: grade * 100,
+        routeAltitudeM: altitude
+      };
+    }
+
+    const result = physicsEngineRef.current.step({
+      dt,
+      powerW: Number(input.power) || 0,
+      cadenceRpm: Number(input.cadence) || 0,
+      grade
+    });
+    if (sessionStateRef.current === 'running') {
+      physicsDistanceRef.current = Math.max(0, physicsDistanceRef.current + result.speedMps * dt);
+    }
+
+    const virtualSpeedKph = Number.isFinite(result?.speedKph)
+      ? Number(result.speedKph.toFixed(1))
+      : 0;
+    physicsTickRef.current = {
+      timestampMs: now,
+      speedKph: virtualSpeedKph,
+      grade,
+      altitude
+    };
+
+    return {
+      virtualSpeedKph,
+      routeGradePct: grade * 100,
+      routeAltitudeM: altitude
+    };
+  }, []);
+
   const handleBikeData = useCallback((event) => {
     const data = parseIndoorBikeData(event.target.value);
-    setLiveMetrics((prev) => ({
-      power: Number.isFinite(data.power) ? data.power : prev.power,
-      cadence: Number.isFinite(data.cadence) ? data.cadence : prev.cadence,
-      speed: resolveVirtualSpeed(
-        data.speed,
-        Number.isFinite(data.power) ? data.power : prev.power,
-        prev.speed
-      ),
-      heartRate: externalHrRef.current == null && Number.isFinite(data.heartRate)
-        ? data.heartRate
-        : prev.heartRate
-    }));
-  }, []);
+    setLiveMetrics((prev) => {
+      const power = Number.isFinite(data.power) ? data.power : prev.power;
+      const cadence = Number.isFinite(data.cadence) ? data.cadence : prev.cadence;
+      const trainerSpeedKph = Number.isFinite(data.speed) ? data.speed : prev.trainerSpeedKph;
+      const motion = computeVirtualMotion({ power, cadence, trainerSpeedKph });
+      return {
+        power,
+        cadence,
+        speed: motion.virtualSpeedKph,
+        heartRate: externalHrRef.current == null && Number.isFinite(data.heartRate)
+          ? data.heartRate
+          : prev.heartRate,
+        trainerSpeedKph: Number.isFinite(trainerSpeedKph) ? trainerSpeedKph : null,
+        virtualSpeedKph: motion.virtualSpeedKph,
+        routeGradePct: motion.routeGradePct,
+        routeAltitudeM: motion.routeAltitudeM
+      };
+    });
+  }, [computeVirtualMotion]);
 
   const handlePowerData = useCallback((event) => {
     const data = parseCyclingPowerMeasurement(event.target.value, cadenceRef);
-    setLiveMetrics((prev) => ({
-      power: Number.isFinite(data.power) ? data.power : prev.power,
-      cadence: Number.isFinite(data.cadence) ? Math.round(data.cadence) : prev.cadence,
-      speed: resolveVirtualSpeed(null, Number.isFinite(data.power) ? data.power : prev.power, prev.speed),
-      heartRate: prev.heartRate
-    }));
-  }, []);
+    setLiveMetrics((prev) => {
+      const power = Number.isFinite(data.power) ? data.power : prev.power;
+      const cadence = Number.isFinite(data.cadence) ? Math.round(data.cadence) : prev.cadence;
+      const motion = computeVirtualMotion({ power, cadence, trainerSpeedKph: prev.trainerSpeedKph });
+      return {
+        ...prev,
+        power,
+        cadence,
+        speed: motion.virtualSpeedKph,
+        virtualSpeedKph: motion.virtualSpeedKph,
+        routeGradePct: motion.routeGradePct,
+        routeAltitudeM: motion.routeAltitudeM
+      };
+    });
+  }, [computeVirtualMotion]);
 
   const handleFecData = useCallback((event) => {
     const message = parseFecMessage(event.target.value);
     if (!message?.decoded) return;
     const { power, cadence } = message.decoded;
-    setLiveMetrics((prev) => ({
-      power: Number.isFinite(power) ? power : prev.power,
-      cadence: Number.isFinite(cadence) ? cadence : prev.cadence,
-      speed: resolveVirtualSpeed(null, Number.isFinite(power) ? power : prev.power, prev.speed),
-      heartRate: prev.heartRate
-    }));
-  }, []);
+    setLiveMetrics((prev) => {
+      const resolvedPower = Number.isFinite(power) ? power : prev.power;
+      const resolvedCadence = Number.isFinite(cadence) ? cadence : prev.cadence;
+      const motion = computeVirtualMotion({
+        power: resolvedPower,
+        cadence: resolvedCadence,
+        trainerSpeedKph: prev.trainerSpeedKph
+      });
+      return {
+        ...prev,
+        power: resolvedPower,
+        cadence: resolvedCadence,
+        speed: motion.virtualSpeedKph,
+        virtualSpeedKph: motion.virtualSpeedKph,
+        routeGradePct: motion.routeGradePct,
+        routeAltitudeM: motion.routeAltitudeM
+      };
+    });
+  }, [computeVirtualMotion]);
 
   const sendFecPage = useCallback(async (controlChar, dataPage, payload) => {
     const message = buildFecMessage(dataPage, payload);
@@ -1195,7 +1394,11 @@ const LiveTrainingApp = () => {
       power: null,
       cadence: null,
       speed: null,
-      heartRate: externalHrRef.current != null ? externalHrRef.current : null
+      heartRate: externalHrRef.current != null ? externalHrRef.current : null,
+      trainerSpeedKph: null,
+      virtualSpeedKph: null,
+      routeGradePct: 0,
+      routeAltitudeM: 0
     });
 
     return { controlPoint, serviceType, capability };
@@ -1373,7 +1576,15 @@ const LiveTrainingApp = () => {
     setStepElapsed(0);
     setTotalElapsed(0);
     distanceMetersRef.current = 0;
+    physicsDistanceRef.current = 0;
     setLiveDistanceMeters(0);
+    physicsEngineRef.current.reset(0);
+    physicsTickRef.current = {
+      timestampMs: Date.now(),
+      speedKph: 0,
+      grade: 0,
+      altitude: 0
+    };
     resetChartData();
 
     if (trainerState.status === 'connected' && trainerState.controlPoint) {
@@ -1619,9 +1830,19 @@ const LiveTrainingApp = () => {
     }
   }, [navigateToSession, navigateToSetup, pauseSession, resumeSession, startSession, stopSession]);
 
+  const handleVirtualWorldRouteChange = useCallback((routeId) => {
+    if (!routeId || typeof routeId !== 'string') return;
+    const routeManager = physicsRouteManagerRef.current;
+    const resolved = routeManager.resolveRouteId(routeId);
+    if (resolved) {
+      setActiveRouteId(resolved);
+    }
+  }, []);
+
   // Virtual World integration - use external HR when available
   const virtualWorldMetrics = useMemo(() => ({
     ...liveMetrics,
+    speed: Number.isFinite(liveMetrics.virtualSpeedKph) ? liveMetrics.virtualSpeedKph : liveMetrics.speed,
     heartRate: Number.isFinite(externalHr) ? externalHr : liveMetrics.heartRate
   }), [liveMetrics, externalHr]);
 
@@ -1634,10 +1855,13 @@ const LiveTrainingApp = () => {
     stepElapsed,
     stepRemaining: remainingStep,
     distance: liveDistanceMeters,
+    routeId: activeRouteId,
+    runtime: resolvedVirtualWorldRuntime,
     mode: 'erg',
     workoutSelected: Boolean(selectedWorkoutId),
     workoutName: selectedWorkout?.name || '',
-    onControl: handleVirtualWorldControl
+    onControl: handleVirtualWorldControl,
+    onRouteChange: handleVirtualWorldRouteChange
   });
 
   // Store close function in ref for use in handleVirtualWorldControl
@@ -2366,6 +2590,55 @@ const LiveTrainingApp = () => {
                     )}
                   </div>
                 </div>
+                <div className="lt-workout__selector">
+                  <div className="lt-label">Route</div>
+                  <select
+                    className="form-select"
+                    value={activeRouteId}
+                    onChange={(event) => setActiveRouteId(event.target.value)}
+                    disabled={sessionState !== 'idle'}
+                  >
+                    {routeOptions.map((route) => (
+                      <option key={route.id} value={route.id}>
+                        {route.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="lt-workout__hint">
+                    <span>Route drives gradient, altitude, and minimap profile.</span>
+                  </div>
+                </div>
+                <div className="lt-workout__selector">
+                  <div className="lt-label">World runtime</div>
+                  <select
+                    className="form-select"
+                    value={virtualWorldRuntimePreference}
+                    onChange={(event) => setVirtualWorldRuntimePreference(event.target.value === 'unity' ? 'unity' : 'three')}
+                    disabled={sessionState !== 'idle' || !unityRuntimeAvailable || UNITY_ONLY_MODE}
+                  >
+                    {!UNITY_ONLY_MODE && <option value="three">Three.js (stable)</option>}
+                    {unityRuntimeAvailable && (
+                      <option value="unity">Unity WebGL (beta)</option>
+                    )}
+                  </select>
+                  <div className="lt-workout__hint">
+                    {!unityRuntimeAvailable && (
+                      <span>Unity runtime is disabled. Set `__VW_FLAGS.unityRuntimeEnabled = true`.</span>
+                    )}
+                    {unityRuntimeAvailable && UNITY_ONLY_MODE && (
+                      <span>Unity-only mode is enabled for Virtual World.</span>
+                    )}
+                    {unityRuntimeAvailable && !UNITY_ONLY_MODE && virtualWorldRuntimePreference === 'unity' && !unityRouteAllowed && (
+                      <span>Unity is scoped to {runtimeScopeLabel}. Current route uses Three.js.</span>
+                    )}
+                    {unityRuntimeAvailable && (!UNITY_ONLY_MODE && (virtualWorldRuntimePreference !== 'unity' || unityRouteAllowed)) && (
+                      <span>Active runtime: {virtualWorld.activeRuntime === 'unity' ? 'Unity WebGL' : 'Three.js'}.</span>
+                    )}
+                    {unityRuntimeAvailable && UNITY_ONLY_MODE && (
+                      <span>Active runtime: Unity WebGL.</span>
+                    )}
+                  </div>
+                </div>
                 <div className="lt-workout__row">
                   <Zap size={18} />
                   <div>
@@ -2460,17 +2733,27 @@ const LiveTrainingApp = () => {
                 type="button"
                 onClick={virtualWorld.toggle}
                 disabled={virtualWorld.isLaunching}
-                title={virtualWorld.isOpen ? 'Virtual World is open' : 'Launch 3D Virtual World'}
+                title={virtualWorld.isOpen
+                  ? `Virtual World is open (${virtualWorld.activeRuntime === 'unity' ? 'Unity WebGL' : 'Three.js'})`
+                  : `Launch 3D Virtual World (${resolvedVirtualWorldRuntime === 'unity' ? 'Unity WebGL' : 'Three.js'})`}
               >
                 <Globe size={16} />
-                {virtualWorld.isLaunching ? 'Opening...' : 'Virtual World'}
+                {virtualWorld.isLaunching
+                  ? 'Opening...'
+                  : `Virtual World (${(UNITY_ONLY_MODE || virtualWorld.activeRuntime === 'unity') ? 'Unity' : 'Three'})`}
               </button>
-              <span className="lt-hint">
-                {trainerConnected
-                  ? (trainerControlAvailable ? 'Trainer control active' : 'Trainer connected (power data only)')
-                  : 'Demo mode until trainer connects'}
-              </span>
-            </div>
+                <span className="lt-hint">
+                  {trainerConnected
+                    ? (trainerControlAvailable ? 'Trainer control active' : 'Trainer connected (power data only)')
+                    : 'Demo mode until trainer connects'}
+                  {virtualWorld.launchReason === 'unity-timeout'
+                    && (UNITY_ONLY_MODE
+                      ? ' · Unity startup timed out.'
+                      : ' · Unity timed out, auto-fallback to Three.js.')}
+                  {(typeof virtualWorld.launchReason === 'string' && virtualWorld.launchReason.startsWith('unity-failed:'))
+                    && ` · Unity startup failed: ${virtualWorld.launchReason.slice('unity-failed:'.length)}`}
+                </span>
+              </div>
           </section>
         </>
       )}
@@ -2608,16 +2891,27 @@ const LiveTrainingApp = () => {
                   type="button"
                   onClick={virtualWorld.toggle}
                   disabled={virtualWorld.isLaunching}
-                  title={virtualWorld.isOpen ? 'Virtual World is open' : 'Launch 3D Virtual World'}
+                  title={virtualWorld.isOpen
+                    ? `Virtual World is open (${virtualWorld.activeRuntime === 'unity' ? 'Unity WebGL' : 'Three.js'})`
+                    : `Launch 3D Virtual World (${resolvedVirtualWorldRuntime === 'unity' ? 'Unity WebGL' : 'Three.js'})`}
                 >
                   <Globe size={16} />
-                  {virtualWorld.isLaunching ? 'Opening...' : 'Virtual World'}
+                  {virtualWorld.isLaunching
+                    ? 'Opening...'
+                    : `Virtual World (${(UNITY_ONLY_MODE || virtualWorld.activeRuntime === 'unity') ? 'Unity' : 'Three'})`}
                 </button>
               </div>
               <div className="lt-session-hint">
                 {trainerConnected
                   ? (trainerControlAvailable ? 'Trainer control active' : 'Trainer connected (power data only)')
                   : 'Demo mode until trainer connects'}
+                {` · Runtime: ${(UNITY_ONLY_MODE || virtualWorld.activeRuntime === 'unity') ? 'Unity WebGL' : 'Three.js'}`}
+                {virtualWorld.launchReason === 'unity-timeout'
+                  && (UNITY_ONLY_MODE
+                    ? ' · Unity startup timed out.'
+                    : ' · Unity timed out, auto-fallback active.')}
+                {(typeof virtualWorld.launchReason === 'string' && virtualWorld.launchReason.startsWith('unity-failed:'))
+                  && ` · Unity startup failed: ${virtualWorld.launchReason.slice('unity-failed:'.length)}`}
               </div>
             </aside>
           </div>

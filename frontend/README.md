@@ -79,7 +79,7 @@ frontend/
    ```bash
    cd backend
    source venv/bin/activate  # or venv\Scripts\activate on Windows
-   uvicorn app.main:app --reload --port 8000
+   ./scripts/dev-server.sh
    ```
 
 2. **Start Frontend** (Terminal 2):

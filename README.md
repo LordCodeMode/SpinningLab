@@ -81,9 +81,9 @@ A comprehensive training analytics dashboard for cyclists and endurance athletes
 
    The API will be available at `http://localhost:8000`
 
-   > Need auto-reload while editing backend code? Set `DEBUG=true` in `backend/.env`
-   > (or run `python -m uvicorn app.main:app --reload --reload-dir app --reload-exclude data cache`)
-   > so the reloader ignores constantly changing SQLite/cache files.
+   > Need auto-reload while editing backend code?
+   > Run `./scripts/dev-server.sh` from `backend/`.
+   > It scopes reload to `app/` + `shared/` and excludes virtualenv/cache folders.
 
 5. **Open the frontend**
 

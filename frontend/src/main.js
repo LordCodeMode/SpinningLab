@@ -3,13 +3,20 @@
  */
 
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import * as ReactDOMClient from 'react-dom/client';
 import AuthApp from './react/auth/AuthApp.jsx';
+
+const createRoot =
+  ReactDOMClient.createRoot || ReactDOMClient.default?.createRoot;
 
 const mountAuth = () => {
   const rootElement = document.getElementById('auth-root');
   if (!rootElement) {
     console.error('[Auth] Missing #auth-root');
+    return;
+  }
+  if (typeof createRoot !== 'function') {
+    console.error('[Auth] react-dom/client.createRoot is unavailable');
     return;
   }
   const root = createRoot(rootElement);

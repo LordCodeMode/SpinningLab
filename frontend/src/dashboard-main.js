@@ -14,8 +14,11 @@ import errorBoundary from './lib/core/errorBoundary.js';
 import { notify } from './lib/core/utils.js';
 
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import * as ReactDOMClient from 'react-dom/client';
 import DashboardApp from './react/app/DashboardApp.jsx';
+
+const createRoot =
+  ReactDOMClient.createRoot || ReactDOMClient.default?.createRoot;
 
 window.notify = notify;
 
@@ -23,6 +26,10 @@ const mountDashboardApp = () => {
   const rootElement = document.getElementById('dashboard-root');
   if (!rootElement) {
     console.error('[Dashboard] Missing #dashboard-root for React app');
+    return null;
+  }
+  if (typeof createRoot !== 'function') {
+    console.error('[Dashboard] react-dom/client.createRoot is unavailable');
     return null;
   }
   const root = createRoot(rootElement);

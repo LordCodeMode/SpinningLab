@@ -5,11 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:clean": "pkill -f \"frontend/node_modules/.bin/vite\" || true; rm -rf node_modules/.vite; vite --host 127.0.0.1 --port 8080 --strictPort",
     "build": "vite build",
-    "assets:quaternius": "node scripts/fetch-quaternius-nature-pack.mjs",
-    "assets:polyhaven": "node scripts/fetch-polyhaven-realism-pack.mjs",
-    "assets:polyhaven:ultra": "node scripts/fetch-polyhaven-realism-pack.mjs --ultra",
-    "assets:env": "node scripts/generate-environment-assets.mjs",
     "preview": "vite preview",
     "serve": "vite preview --port 8080",
     "lint": "eslint .",
@@ -38,10 +35,10 @@
     "mapbox-gl": "^3.17.0",
     "plotly.js-dist-min": "^3.3.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "three": "^0.170.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.6",
     "@eslint/js": "^9.39.2",
     "@testing-library/dom": "^10.4.1",
     "@vitejs/plugin-react": "^4.3.1",
@@ -62,6 +59,6 @@
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18 <23"
   }
 }

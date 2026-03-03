@@ -40,6 +40,20 @@
       }
     })();
   </script>
+
+  <script>
+    (function () {
+      window.__VW_FLAGS = {
+        ...(window.__VW_FLAGS || {}),
+        unityOnlyMode: true,
+        unityRuntimeEnabled: true,
+        unityRouteScope: ['*'],
+        unityMountainsEnabled: true,
+        unityAutoFallback: false,
+        unityReadyTimeoutMs: 120000
+      };
+    })();
+  </script>
   
   <style>
     /* CRITICAL: Ensure Feather icons are always visible */
