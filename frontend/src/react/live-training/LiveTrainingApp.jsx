@@ -37,9 +37,24 @@ const CADENCE_TRANSITION_CONFIRM_TICKS = 2;
 const FEC_SERVICE_UUID = '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e';
 const FEC_NOTIFY_UUID = '6e40fec2-b5a3-f393-e0a9-e50e24dcca9e';
 const FEC_WRITE_UUID = '6e40fec3-b5a3-f393-e0a9-e50e24dcca9e';
-const DEFAULT_ROUTE_ID = 'hilly-route';
+const DEFAULT_ROUTE_ID = 'route-valley';
 const UNITY_RUNTIME_STORAGE_KEY = 'liveTraining:virtualWorldRuntime';
+const UNITY_RUNTIME_MANIFEST_URL = '/unity/current.json';
 const GRADE_DEADBAND = 0.0015;
+const PHYSICS_TICK_RATE_HZ = 20;
+const PHYSICS_TICK_INTERVAL_MS = Math.round(1000 / PHYSICS_TICK_RATE_HZ);
+const PHYSICS_DT_MIN_SEC = 1 / 30;
+const PHYSICS_DT_MAX_SEC = 0.25;
+const PEDALING_ON_CADENCE_RPM = 18;
+const PEDALING_OFF_CADENCE_RPM = 8;
+const PEDALING_ON_CONFIRM_SEC = 0.35;
+const PEDALING_OFF_CONFIRM_SEC = 0.7;
+const TRAINER_SPEED_VALID_MIN_KPH = 0.5;
+const TRAINER_SPEED_VALID_MAX_KPH = 120;
+const HYBRID_SPEED_ALPHA_PEDALING = 0.25;
+const HYBRID_SPEED_ALPHA_COASTING = 0.45;
+const HYBRID_SPEED_FILTER_TIME_CONSTANT_SEC = 0.35;
+const HYBRID_SPEED_MAX_DELTA_KPH_PER_SEC = 14;
 const PHYSICS_V2_ENABLED = (typeof globalThis === 'undefined')
   ? true
   : globalThis?.__VW_FLAGS?.physicsV2Enabled !== false;
@@ -300,6 +315,28 @@ const clampRealisticGrade = (grade) => {
   return Math.abs(clamped) < GRADE_DEADBAND ? 0 : clamped;
 };
 
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const smoothTowards = (fromValue, toValue, dtSeconds, timeConstantSeconds) => {
+  const safeDt = Math.max(0, Number(dtSeconds) || 0);
+  const safeTc = Math.max(0.001, Number(timeConstantSeconds) || 0.35);
+  const alpha = 1 - Math.exp(-safeDt / safeTc);
+  return fromValue + (toValue - fromValue) * alpha;
+};
+
+const classifyEffortBand = (cadenceSmoothed, speedKph) => {
+  if (!Number.isFinite(cadenceSmoothed) || cadenceSmoothed < PEDALING_ON_CADENCE_RPM) return 'idle';
+  if (Number(speedKph) < 20) return 'easy';
+  return 'medium';
+};
+
+const createSensorInputSnapshot = () => ({
+  power: null,
+  cadence: null,
+  trainerSpeedKph: null,
+  heartRate: null
+});
+
 const buildControlCommand = (opcode, params = []) => new Uint8Array([opcode, ...params]);
 
 const buildTargetPowerCommand = (watts) => {
@@ -346,6 +383,9 @@ const LiveTrainingApp = () => {
   const [liveMetrics, setLiveMetrics] = useState({
     power: null,
     cadence: null,
+    cadenceSmoothed: 0,
+    pedalingActive: false,
+    effortBand: 'idle',
     speed: null,
     heartRate: null,
     trainerSpeedKph: null,
@@ -370,6 +410,7 @@ const LiveTrainingApp = () => {
   const [selectedWorkoutId, setSelectedWorkoutId] = useState('');
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [activeRouteId, setActiveRouteId] = useState(DEFAULT_ROUTE_ID);
+  const [routeCatalogVersion, setRouteCatalogVersion] = useState(0);
   const [virtualWorldRuntimePreference, setVirtualWorldRuntimePreference] = useState(() => {
     if (UNITY_ONLY_MODE && UNITY_RUNTIME_ENABLED && UNITY_MOUNTAINS_ENABLED) return 'unity';
     if (UNITY_RUNTIME_ENABLED && UNITY_MOUNTAINS_ENABLED) return 'unity';
@@ -397,6 +438,13 @@ const LiveTrainingApp = () => {
     grade: 0,
     altitude: 0
   });
+  const motionSmoothingRef = useRef({
+    hybridSpeedKph: 0,
+    cadenceSmoothed: 0,
+    pedalingActive: false,
+    cadenceAboveSeconds: 0,
+    cadenceBelowSeconds: 0,
+  });
   const sessionSamplesRef = useRef([]);
   const sessionStartRef = useRef(null);
   const sessionFinalizedRef = useRef(false);
@@ -416,6 +464,7 @@ const LiveTrainingApp = () => {
   const externalHrRef = useRef(null);
   const trainerDeviceRef = useRef(null);
   const hrDeviceRef = useRef(null);
+  const sensorInputRef = useRef(createSensorInputSnapshot());
 
   const workoutSteps = useMemo(() => {
     const derived = buildWorkoutSteps(selectedWorkout, userFtp);
@@ -443,7 +492,7 @@ const LiveTrainingApp = () => {
         name: route?.name || route?.id || 'Route'
       }))
       .filter((route) => route.id);
-  }, []);
+  }, [routeCatalogVersion]);
   const unityRuntimeAvailable = UNITY_RUNTIME_ENABLED && UNITY_MOUNTAINS_ENABLED;
   const unityRouteAllowed = useMemo(() => {
     if (!unityRuntimeAvailable) return false;
@@ -660,30 +709,70 @@ const LiveTrainingApp = () => {
   }, [liveMetrics]);
 
   useEffect(() => {
+    let canceled = false;
+
+    const hydrateRouteProfile = async () => {
+      const routeManager = physicsRouteManagerRef.current;
+      try {
+        const result = await routeManager.loadProfileFromRuntimeManifest(UNITY_RUNTIME_MANIFEST_URL);
+        if (canceled || !result?.loaded) return;
+
+        setRouteCatalogVersion((prev) => prev + 1);
+        setActiveRouteId((prev) => routeManager.resolveRouteId(prev));
+      } catch (error) {
+        // Keep fallback routes when runtime manifest/profile is unavailable.
+      }
+    };
+
+    hydrateRouteProfile();
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const routeManager = physicsRouteManagerRef.current;
     const changed = routeManager.setRoute(activeRouteId);
+
+    const now = Date.now();
     if (changed) {
-      const now = Date.now();
       distanceMetersRef.current = 0;
       physicsDistanceRef.current = 0;
       setLiveDistanceMeters(0);
       physicsEngineRef.current.reset(0);
-      const routeInfo = routeManager.getPositionInfo(0);
-      const grade = clampRealisticGrade(routeManager.getEffectiveGrade(0));
-      const altitude = routeInfo.altitude || 0;
-      physicsTickRef.current.timestampMs = now;
-      physicsTickRef.current.speedKph = 0;
-      physicsTickRef.current.grade = grade;
-      physicsTickRef.current.altitude = altitude;
-      setLiveMetrics((prev) => ({
-        ...prev,
-        speed: 0,
-        virtualSpeedKph: 0,
-        routeGradePct: grade * 100,
-        routeAltitudeM: altitude
-      }));
     }
-  }, [activeRouteId]);
+
+    const routeInfo = routeManager.getPositionInfo(physicsDistanceRef.current || 0);
+    const grade = clampRealisticGrade(routeManager.getEffectiveGrade(physicsDistanceRef.current || 0));
+    const altitude = routeInfo.altitude || 0;
+
+    physicsTickRef.current.timestampMs = now;
+    physicsTickRef.current.speedKph = changed ? 0 : (physicsTickRef.current.speedKph || 0);
+    physicsTickRef.current.grade = grade;
+    physicsTickRef.current.altitude = altitude;
+    if (changed) {
+      motionSmoothingRef.current.hybridSpeedKph = 0;
+      motionSmoothingRef.current.cadenceSmoothed = 0;
+      motionSmoothingRef.current.pedalingActive = false;
+      motionSmoothingRef.current.cadenceAboveSeconds = 0;
+      motionSmoothingRef.current.cadenceBelowSeconds = 0;
+    }
+
+    setLiveMetrics((prev) => ({
+      ...prev,
+      ...(changed
+        ? {
+          speed: 0,
+          virtualSpeedKph: 0,
+          cadenceSmoothed: 0,
+          pedalingActive: false,
+          effortBand: 'idle'
+        }
+        : {}),
+      routeGradePct: grade * 100,
+      routeAltitudeM: altitude
+    }));
+  }, [activeRouteId, routeCatalogVersion]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1051,12 +1140,23 @@ const LiveTrainingApp = () => {
     if (manualDisconnectRef.current) {
       reconnectAttemptsRef.current = 0;
       reconnectResumeRef.current = false;
+      sensorInputRef.current = createSensorInputSnapshot();
+      motionSmoothingRef.current = {
+        hybridSpeedKph: 0,
+        cadenceSmoothed: 0,
+        pedalingActive: false,
+        cadenceAboveSeconds: 0,
+        cadenceBelowSeconds: 0,
+      };
       setTrainerState(initialTrainerState);
       setSessionState('idle');
       setLiveMetrics((prev) => ({
         ...prev,
         power: null,
         cadence: null,
+        cadenceSmoothed: 0,
+        pedalingActive: false,
+        effortBand: 'idle',
         speed: null,
         trainerSpeedKph: null,
         virtualSpeedKph: null
@@ -1071,12 +1171,23 @@ const LiveTrainingApp = () => {
 
     const device = trainerDeviceRef.current;
     if (!device) {
+      sensorInputRef.current = createSensorInputSnapshot();
+      motionSmoothingRef.current = {
+        hybridSpeedKph: 0,
+        cadenceSmoothed: 0,
+        pedalingActive: false,
+        cadenceAboveSeconds: 0,
+        cadenceBelowSeconds: 0,
+      };
       setTrainerState(initialTrainerState);
       setSessionState('idle');
       setLiveMetrics((prev) => ({
         ...prev,
         power: null,
         cadence: null,
+        cadenceSmoothed: 0,
+        pedalingActive: false,
+        effortBand: 'idle',
         speed: null,
         trainerSpeedKph: null,
         virtualSpeedKph: null
@@ -1155,127 +1266,222 @@ const LiveTrainingApp = () => {
   }, [resetChartData, sendTargetToControl]);
 
   const handleHrDisconnect = useCallback(() => {
+    sensorInputRef.current.heartRate = null;
     setHrState(initialHrState);
     setExternalHr(null);
     resetChartData();
   }, [resetChartData]);
 
-  const computeVirtualMotion = useCallback((input = {}) => {
+  const computeVirtualMotionStep = useCallback((input = {}, dt = PHYSICS_TICK_INTERVAL_MS / 1000) => {
     const routeManager = physicsRouteManagerRef.current;
     const distanceMeters = Number(physicsDistanceRef.current || distanceMetersRef.current || 0);
-    const positionInfo = routeManager.getPositionInfo(distanceMeters);
     const grade = clampRealisticGrade(routeManager.getEffectiveGrade(distanceMeters));
-    const altitude = Number(positionInfo?.altitude) || 0;
+    const routeInfo = routeManager.getPositionInfo(distanceMeters);
+    const altitude = Number(routeInfo?.altitude) || 0;
     const now = Date.now();
-    const dt = Math.max(0.04, Math.min(0.5, (now - (physicsTickRef.current?.timestampMs || now)) / 1000));
+    const safeDt = Math.max(PHYSICS_DT_MIN_SEC, Math.min(PHYSICS_DT_MAX_SEC, Number(dt) || (PHYSICS_TICK_INTERVAL_MS / 1000)));
+    const cadenceRaw = Number.isFinite(input.cadence) ? Math.max(0, Number(input.cadence)) : 0;
+    const trainerSpeedRaw = Number(input.trainerSpeedKph);
+    const trainerSpeedValid = Number.isFinite(trainerSpeedRaw)
+      && trainerSpeedRaw >= TRAINER_SPEED_VALID_MIN_KPH
+      && trainerSpeedRaw <= TRAINER_SPEED_VALID_MAX_KPH;
+    const trainerSpeedKph = trainerSpeedValid ? trainerSpeedRaw : null;
+
+    const motion = motionSmoothingRef.current;
+    motion.cadenceSmoothed = smoothTowards(motion.cadenceSmoothed || 0, cadenceRaw, safeDt, 0.4);
+    if (motion.cadenceSmoothed >= PEDALING_ON_CADENCE_RPM) {
+      motion.cadenceAboveSeconds += safeDt;
+      motion.cadenceBelowSeconds = 0;
+      if (!motion.pedalingActive && motion.cadenceAboveSeconds >= PEDALING_ON_CONFIRM_SEC) {
+        motion.pedalingActive = true;
+      }
+    } else if (motion.cadenceSmoothed <= PEDALING_OFF_CADENCE_RPM) {
+      motion.cadenceBelowSeconds += safeDt;
+      motion.cadenceAboveSeconds = 0;
+      if (motion.pedalingActive && motion.cadenceBelowSeconds >= PEDALING_OFF_CONFIRM_SEC) {
+        motion.pedalingActive = false;
+      }
+    } else {
+      motion.cadenceAboveSeconds = 0;
+      motion.cadenceBelowSeconds = 0;
+    }
 
     if (!PHYSICS_V2_ENABLED) {
-      const fallbackSpeedKph = Number.isFinite(input.trainerSpeedKph)
-        ? input.trainerSpeedKph
-        : (physicsTickRef.current?.speedKph || 0);
+      const baseSpeedKph = trainerSpeedKph ?? Math.max(0, Number(physicsTickRef.current?.speedKph) || 0);
+      const previousHybrid = Math.max(0, Number(motion.hybridSpeedKph) || 0);
+      const smoothedSpeed = smoothTowards(
+        previousHybrid,
+        baseSpeedKph,
+        safeDt,
+        HYBRID_SPEED_FILTER_TIME_CONSTANT_SEC
+      );
+      const maxDelta = HYBRID_SPEED_MAX_DELTA_KPH_PER_SEC * safeDt;
+      const clampedDelta = clamp(smoothedSpeed - previousHybrid, -maxDelta, maxDelta);
+      const fallbackSpeedKph = Math.max(0, previousHybrid + clampedDelta);
+      motion.hybridSpeedKph = fallbackSpeedKph;
+      const effortBand = classifyEffortBand(motion.cadenceSmoothed, fallbackSpeedKph);
+      if (sessionStateRef.current === 'running') {
+        physicsDistanceRef.current = Math.max(0, physicsDistanceRef.current + (fallbackSpeedKph / 3.6) * safeDt);
+      }
+
+      const nextDistance = Number(physicsDistanceRef.current || 0);
+      const nextGrade = clampRealisticGrade(routeManager.getEffectiveGrade(nextDistance));
+      const nextRouteInfo = routeManager.getPositionInfo(nextDistance);
+      const nextAltitude = Number(nextRouteInfo?.altitude) || altitude;
       physicsTickRef.current = {
         timestampMs: now,
-        speedKph: Math.max(0, fallbackSpeedKph),
-        grade,
-        altitude
+        speedKph: fallbackSpeedKph,
+        grade: nextGrade,
+        altitude: nextAltitude
       };
       return {
-        virtualSpeedKph: Math.max(0, fallbackSpeedKph),
-        routeGradePct: grade * 100,
-        routeAltitudeM: altitude
+        virtualSpeedKph: fallbackSpeedKph,
+        routeGradePct: nextGrade * 100,
+        routeAltitudeM: nextAltitude,
+        distanceMeters: nextDistance,
+        pedalingActive: Boolean(motion.pedalingActive),
+        cadenceSmoothed: Number(motion.cadenceSmoothed.toFixed(1)),
+        effortBand
       };
     }
 
     const result = physicsEngineRef.current.step({
-      dt,
+      dt: safeDt,
       powerW: Number(input.power) || 0,
-      cadenceRpm: Number(input.cadence) || 0,
+      cadenceRpm: cadenceRaw,
       grade
     });
+
+    const modelSpeedKph = Math.max(0, Number.isFinite(result?.speedKph) ? Number(result.speedKph) : 0);
+    const blendAlpha = trainerSpeedKph == null
+      ? 0
+      : (motion.pedalingActive ? HYBRID_SPEED_ALPHA_PEDALING : HYBRID_SPEED_ALPHA_COASTING);
+    const hybridTargetSpeedKph = trainerSpeedKph == null
+      ? modelSpeedKph
+      : ((modelSpeedKph * (1 - blendAlpha)) + (trainerSpeedKph * blendAlpha));
+    const previousHybrid = Math.max(0, Number(motion.hybridSpeedKph) || 0);
+    const smoothedSpeed = smoothTowards(
+      previousHybrid,
+      hybridTargetSpeedKph,
+      safeDt,
+      HYBRID_SPEED_FILTER_TIME_CONSTANT_SEC
+    );
+    const maxDelta = HYBRID_SPEED_MAX_DELTA_KPH_PER_SEC * safeDt;
+    const clampedDelta = clamp(smoothedSpeed - previousHybrid, -maxDelta, maxDelta);
+    const virtualSpeedKph = Math.max(0, previousHybrid + clampedDelta);
+    motion.hybridSpeedKph = virtualSpeedKph;
+    const effortBand = classifyEffortBand(motion.cadenceSmoothed, virtualSpeedKph);
+
     if (sessionStateRef.current === 'running') {
-      physicsDistanceRef.current = Math.max(0, physicsDistanceRef.current + result.speedMps * dt);
+      physicsDistanceRef.current = Math.max(0, physicsDistanceRef.current + (virtualSpeedKph / 3.6) * safeDt);
     }
 
-    const virtualSpeedKph = Number.isFinite(result?.speedKph)
-      ? Number(result.speedKph.toFixed(1))
-      : 0;
+    const nextDistance = Number(physicsDistanceRef.current || 0);
+    const nextGrade = clampRealisticGrade(routeManager.getEffectiveGrade(nextDistance));
+    const nextRouteInfo = routeManager.getPositionInfo(nextDistance);
+    const nextAltitude = Number(nextRouteInfo?.altitude) || altitude;
+    const roundedSpeedKph = Number(virtualSpeedKph.toFixed(1));
+
     physicsTickRef.current = {
       timestampMs: now,
-      speedKph: virtualSpeedKph,
-      grade,
-      altitude
+      speedKph: roundedSpeedKph,
+      grade: nextGrade,
+      altitude: nextAltitude
     };
 
     return {
-      virtualSpeedKph,
-      routeGradePct: grade * 100,
-      routeAltitudeM: altitude
+      virtualSpeedKph: roundedSpeedKph,
+      routeGradePct: nextGrade * 100,
+      routeAltitudeM: nextAltitude,
+      distanceMeters: nextDistance,
+      pedalingActive: Boolean(motion.pedalingActive),
+      cadenceSmoothed: Number(motion.cadenceSmoothed.toFixed(1)),
+      effortBand
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const tickPhysics = () => {
+      const now = Date.now();
+      const prevTimestampMs = Number(physicsTickRef.current?.timestampMs) || now;
+      const computedDt = (now - prevTimestampMs) / 1000;
+      const input = sensorInputRef.current || createSensorInputSnapshot();
+      const motion = computeVirtualMotionStep(input, computedDt);
+      const resolvedHeartRate = Number.isFinite(externalHrRef.current)
+        ? externalHrRef.current
+        : (Number.isFinite(input.heartRate) ? input.heartRate : null);
+
+      setLiveMetrics((prev) => {
+        const next = {
+          ...prev,
+          power: Number.isFinite(input.power) ? Number(input.power) : prev.power,
+          cadence: Number.isFinite(input.cadence) ? Number(input.cadence) : prev.cadence,
+          cadenceSmoothed: motion.cadenceSmoothed,
+          pedalingActive: motion.pedalingActive,
+          effortBand: motion.effortBand,
+          heartRate: Number.isFinite(resolvedHeartRate) ? Number(resolvedHeartRate) : prev.heartRate,
+          trainerSpeedKph: Number.isFinite(input.trainerSpeedKph) ? Number(input.trainerSpeedKph) : prev.trainerSpeedKph,
+          speed: motion.virtualSpeedKph,
+          virtualSpeedKph: motion.virtualSpeedKph,
+          routeGradePct: motion.routeGradePct,
+          routeAltitudeM: motion.routeAltitudeM
+        };
+
+        if (
+          next.power === prev.power
+          && next.cadence === prev.cadence
+          && next.cadenceSmoothed === prev.cadenceSmoothed
+          && next.pedalingActive === prev.pedalingActive
+          && next.effortBand === prev.effortBand
+          && next.heartRate === prev.heartRate
+          && next.trainerSpeedKph === prev.trainerSpeedKph
+          && next.speed === prev.speed
+          && next.virtualSpeedKph === prev.virtualSpeedKph
+          && next.routeGradePct === prev.routeGradePct
+          && next.routeAltitudeM === prev.routeAltitudeM
+        ) {
+          return prev;
+        }
+        return next;
+      });
+
+      const nextDistance = Number(motion.distanceMeters) || 0;
+      distanceMetersRef.current = nextDistance;
+      setLiveDistanceMeters((prev) => (Math.abs(prev - nextDistance) < 0.01 ? prev : nextDistance));
+    };
+
+    tickPhysics();
+    const timer = window.setInterval(tickPhysics, PHYSICS_TICK_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [computeVirtualMotionStep]);
+
   const handleBikeData = useCallback((event) => {
     const data = parseIndoorBikeData(event.target.value);
-    setLiveMetrics((prev) => {
-      const power = Number.isFinite(data.power) ? data.power : prev.power;
-      const cadence = Number.isFinite(data.cadence) ? data.cadence : prev.cadence;
-      const trainerSpeedKph = Number.isFinite(data.speed) ? data.speed : prev.trainerSpeedKph;
-      const motion = computeVirtualMotion({ power, cadence, trainerSpeedKph });
-      return {
-        power,
-        cadence,
-        speed: motion.virtualSpeedKph,
-        heartRate: externalHrRef.current == null && Number.isFinite(data.heartRate)
-          ? data.heartRate
-          : prev.heartRate,
-        trainerSpeedKph: Number.isFinite(trainerSpeedKph) ? trainerSpeedKph : null,
-        virtualSpeedKph: motion.virtualSpeedKph,
-        routeGradePct: motion.routeGradePct,
-        routeAltitudeM: motion.routeAltitudeM
-      };
-    });
-  }, [computeVirtualMotion]);
+    if (Number.isFinite(data.power)) sensorInputRef.current.power = data.power;
+    if (Number.isFinite(data.cadence)) sensorInputRef.current.cadence = data.cadence;
+    if (Number.isFinite(data.speed)) sensorInputRef.current.trainerSpeedKph = data.speed;
+    if (externalHrRef.current == null && Number.isFinite(data.heartRate)) {
+      sensorInputRef.current.heartRate = data.heartRate;
+    }
+  }, []);
 
   const handlePowerData = useCallback((event) => {
     const data = parseCyclingPowerMeasurement(event.target.value, cadenceRef);
-    setLiveMetrics((prev) => {
-      const power = Number.isFinite(data.power) ? data.power : prev.power;
-      const cadence = Number.isFinite(data.cadence) ? Math.round(data.cadence) : prev.cadence;
-      const motion = computeVirtualMotion({ power, cadence, trainerSpeedKph: prev.trainerSpeedKph });
-      return {
-        ...prev,
-        power,
-        cadence,
-        speed: motion.virtualSpeedKph,
-        virtualSpeedKph: motion.virtualSpeedKph,
-        routeGradePct: motion.routeGradePct,
-        routeAltitudeM: motion.routeAltitudeM
-      };
-    });
-  }, [computeVirtualMotion]);
+    if (Number.isFinite(data.power)) sensorInputRef.current.power = data.power;
+    if (Number.isFinite(data.cadence)) sensorInputRef.current.cadence = Math.round(data.cadence);
+  }, []);
 
   const handleFecData = useCallback((event) => {
     const message = parseFecMessage(event.target.value);
     if (!message?.decoded) return;
     const { power, cadence } = message.decoded;
-    setLiveMetrics((prev) => {
-      const resolvedPower = Number.isFinite(power) ? power : prev.power;
-      const resolvedCadence = Number.isFinite(cadence) ? cadence : prev.cadence;
-      const motion = computeVirtualMotion({
-        power: resolvedPower,
-        cadence: resolvedCadence,
-        trainerSpeedKph: prev.trainerSpeedKph
-      });
-      return {
-        ...prev,
-        power: resolvedPower,
-        cadence: resolvedCadence,
-        speed: motion.virtualSpeedKph,
-        virtualSpeedKph: motion.virtualSpeedKph,
-        routeGradePct: motion.routeGradePct,
-        routeAltitudeM: motion.routeAltitudeM
-      };
-    });
-  }, [computeVirtualMotion]);
+    if (Number.isFinite(power)) sensorInputRef.current.power = power;
+    if (Number.isFinite(cadence)) sensorInputRef.current.cadence = cadence;
+  }, []);
 
   const sendFecPage = useCallback(async (controlChar, dataPage, payload) => {
     const message = buildFecMessage(dataPage, payload);
@@ -1295,6 +1501,7 @@ const LiveTrainingApp = () => {
   const handleHrData = useCallback((event) => {
     const hr = parseHeartRateMeasurement(event.target.value);
     if (Number.isFinite(hr)) {
+      sensorInputRef.current.heartRate = hr;
       setExternalHr(hr);
     }
   }, []);
@@ -1387,6 +1594,11 @@ const LiveTrainingApp = () => {
       capability,
       serviceType
     });
+
+    sensorInputRef.current = {
+      ...createSensorInputSnapshot(),
+      heartRate: externalHrRef.current != null ? externalHrRef.current : null
+    };
 
     // Clear all metrics when trainer connects to prevent stale/simulated values
     // from affecting cadence-gated session timing.
@@ -1577,6 +1789,7 @@ const LiveTrainingApp = () => {
     setTotalElapsed(0);
     distanceMetersRef.current = 0;
     physicsDistanceRef.current = 0;
+    sensorInputRef.current.trainerSpeedKph = null;
     setLiveDistanceMeters(0);
     physicsEngineRef.current.reset(0);
     physicsTickRef.current = {
@@ -1584,6 +1797,13 @@ const LiveTrainingApp = () => {
       speedKph: 0,
       grade: 0,
       altitude: 0
+    };
+    motionSmoothingRef.current = {
+      hybridSpeedKph: 0,
+      cadenceSmoothed: 0,
+      pedalingActive: false,
+      cadenceAboveSeconds: 0,
+      cadenceBelowSeconds: 0,
     };
     resetChartData();
 
@@ -1664,6 +1884,28 @@ const LiveTrainingApp = () => {
     setCurrentStepIndex(0);
     setStepElapsed(0);
     setTotalElapsed(0);
+    physicsEngineRef.current.reset(0);
+    physicsTickRef.current = {
+      timestampMs: Date.now(),
+      speedKph: 0,
+      grade: physicsTickRef.current.grade || 0,
+      altitude: physicsTickRef.current.altitude || 0
+    };
+    motionSmoothingRef.current = {
+      hybridSpeedKph: 0,
+      cadenceSmoothed: 0,
+      pedalingActive: false,
+      cadenceAboveSeconds: 0,
+      cadenceBelowSeconds: 0,
+    };
+    setLiveMetrics((prev) => ({
+      ...prev,
+      speed: 0,
+      virtualSpeedKph: 0,
+      cadenceSmoothed: 0,
+      pedalingActive: false,
+      effortBand: 'idle'
+    }));
     resetChartData();
 
     if (trainerState.status === 'connected' && trainerState.controlPoint) {
@@ -1857,6 +2099,7 @@ const LiveTrainingApp = () => {
     distance: liveDistanceMeters,
     routeId: activeRouteId,
     runtime: resolvedVirtualWorldRuntime,
+    presentation: 'popup',
     mode: 'erg',
     workoutSelected: Boolean(selectedWorkoutId),
     workoutName: selectedWorkout?.name || '',
@@ -2942,6 +3185,20 @@ const LiveTrainingApp = () => {
           </section>
         </>
       )}
+
+      <section className="lt-section lt-section--virtual-world">
+        <div className="section-header">
+          <div>
+            <h2 className="section-title">Virtual World</h2>
+            <p className="section-subtitle">
+              Opens in a separate window and stays synced with live trainer data.
+            </p>
+          </div>
+        </div>
+        <div className="lt-virtual-world-host__placeholder">
+          Launch with the globe button. The Unity world opens in a separate popup window.
+        </div>
+      </section>
     </div>
   );
 };

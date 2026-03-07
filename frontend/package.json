@@ -17,6 +17,11 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "unity:preflight": "bash ../scripts/unity/preflight-path-check.sh",
+    "unity:sync": "node scripts/sync-unity-build.mjs",
+    "unity:verify": "node scripts/verify-unity-build.mjs",
+    "unity:manifest:local": "node ../scripts/unity/publish-build.mjs --target local",
+    "unity:publish:s3": "node ../scripts/unity/publish-build.mjs --target s3",
     "prepare": "husky"
   },
   "lint-staged": {

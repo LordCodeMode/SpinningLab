@@ -97,6 +97,17 @@ A comprehensive training analytics dashboard for cyclists and endurance athletes
 
    Then navigate to `http://localhost:8080`
 
+## Unity WebGL Runtime (Live Training)
+
+Unity source and build artifacts are intentionally kept outside iCloud-sensitive paths.
+
+- Unity source project: `~/Developer/Unity/training-world`
+- Unity build output root: `~/Developer/UnityBuilds/training-dashboard`
+
+Use the integration guide for build/publish commands:
+
+- [docs/unity-webgl-integration.md](docs/unity-webgl-integration.md)
+
 ## Project Structure
 
 ```

@@ -26,6 +26,12 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
+      },
+      '/unity-builds': {
+        target: 'http://127.0.0.1:9000',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/unity-builds/, ''),
       }
     },
 
@@ -49,6 +55,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         dashboard: resolve(__dirname, 'dashboard.html'),
+        virtualRide: resolve(__dirname, 'virtual-ride.html'),
+        virtualRideUnity: resolve(__dirname, 'virtual-ride-unity.html'),
       },
 
       output: {

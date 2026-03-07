@@ -1,0 +1,12 @@
+{
+  "version": "v1",
+  "cacheToken": "v1-1772832355365",
+  "buildBaseUrl": "/unity/v1/Build",
+  "loaderUrl": "2026-03-06T21-22-57Z.loader.js",
+  "frameworkUrl": "2026-03-06T21-22-57Z.framework.js",
+  "dataUrl": "2026-03-06T21-22-57Z.data",
+  "codeUrl": "2026-03-06T21-22-57Z.wasm",
+  "streamingAssetsUrl": "StreamingAssets",
+  "bridgeProtocolVersion": 1,
+  "routeProfileUrl": "/unity/v1/route-profiles.json"
+}

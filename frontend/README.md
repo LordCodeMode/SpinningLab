@@ -28,6 +28,32 @@ The dev server will start at `http://localhost:8080` with:
 - 🎨 CSS hot reload
 - 📦 On-demand module loading
 
+### Unity Runtime (Local + Non-iCloud)
+
+The Live Training Unity runtime is loaded from a manifest and external build artifacts.
+
+- Unity project path: `~/Developer/Unity/training-world`
+- Unity builds path: `~/Developer/UnityBuilds/training-dashboard`
+
+Commands:
+
+```bash
+# In a separate terminal, serve Unity build artifacts
+python3 -m http.server 9000 --directory ~/Developer/UnityBuilds
+
+# Validate paths (rejects iCloud/trash-sensitive locations)
+npm run unity:preflight
+
+# Update local manifest from latest build
+npm run unity:manifest:local
+
+# Publish build + manifest to S3-compatible storage
+UNITY_S3_BUCKET=<bucket> UNITY_CDN_BASE_URL=https://cdn.example.com npm run unity:publish:s3
+```
+
+Local dev note:
+- `npm run dev` proxies `/unity-builds/*` to `http://127.0.0.1:9000`, so Unity files load same-origin from the browser perspective.
+
 ### Production Build
 
 ```bash
@@ -202,6 +228,9 @@ Create `.env` for environment-specific configuration:
 ```env
 # API Configuration
 VITE_API_BASE_URL=http://localhost:8000
+
+# Unity manifest override (optional)
+VITE_UNITY_MANIFEST_URL=http://localhost:8080/unity/current.json
 
 # Feature Flags
 VITE_ENABLE_ANALYTICS=true

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Virtual Ride (Fallback)</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: linear-gradient(145deg, #0f1725, #0a111b);
+      color: #f5fbff;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+    .panel {
+      width: min(580px, calc(100vw - 32px));
+      background: rgba(9, 15, 23, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 20px;
+      display: grid;
+      gap: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .label {
+      opacity: 0.78;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .value {
+      margin-top: 4px;
+      font-size: 22px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div>
+      <strong>Fallback Runtime Active</strong>
+      <div style="opacity:.8;margin-top:6px;">Unity failed/timed out. Live metrics continue here to keep session control responsive.</div>
+    </div>
+    <div class="grid">
+      <div class="metric"><div class="label">Power</div><div class="value" id="power">0 W</div></div>
+      <div class="metric"><div class="label">Cadence</div><div class="value" id="cadence">0 rpm</div></div>
+      <div class="metric"><div class="label">Heart Rate</div><div class="value" id="heartRate">0 bpm</div></div>
+      <div class="metric"><div class="label">Speed</div><div class="value" id="speed">0.0 km/h</div></div>
+      <div class="metric"><div class="label">Grade</div><div class="value" id="grade">0.0 %</div></div>
+      <div class="metric"><div class="label">Distance</div><div class="value" id="distance">0.00 km</div></div>
+    </div>
+  </div>
+
+  <script type="module">
+    const channel = new BroadcastChannel('virtual-ride-data');
+
+    const fields = {
+      power: document.getElementById('power'),
+      cadence: document.getElementById('cadence'),
+      heartRate: document.getElementById('heartRate'),
+      speed: document.getElementById('speed'),
+      grade: document.getElementById('grade'),
+      distance: document.getElementById('distance')
+    };
+
+    const format = {
+      power: (value) => `${Math.round(Number(value) || 0)} W`,
+      cadence: (value) => `${Math.round(Number(value) || 0)} rpm`,
+      heartRate: (value) => `${Math.round(Number(value) || 0)} bpm`,
+      speed: (value) => `${(Number(value) || 0).toFixed(1)} km/h`,
+      grade: (value) => `${(Number(value) || 0).toFixed(1)} %`,
+      distance: (value) => `${((Number(value) || 0) / 1000).toFixed(2)} km`
+    };
+
+    const renderLiveData = (data = {}) => {
+      fields.power.textContent = format.power(data.power);
+      fields.cadence.textContent = format.cadence(data.cadence);
+      fields.heartRate.textContent = format.heartRate(data.heartRate);
+      fields.speed.textContent = format.speed(data.virtualSpeedKph || data.speed);
+      fields.grade.textContent = format.grade(data.routeGradePct);
+      fields.distance.textContent = format.distance(data.distance);
+    };
+
+    channel.onmessage = (event) => {
+      const message = event?.data || {};
+      if (message.type === 'live-data') {
+        renderLiveData(message.data || {});
+      }
+    };
+
+    channel.postMessage({
+      type: 'virtual-world-ready',
+      data: {
+        runtime: 'three',
+        reason: 'fallback-runtime'
+      }
+    });
+
+    window.addEventListener('beforeunload', () => channel.close());
+  </script>
+</body>
+</html>

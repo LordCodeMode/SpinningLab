@@ -1,0 +1,1348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Virtual Ride (Unity WebGL)</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #05090f;
+      --panel: linear-gradient(155deg, rgba(20, 34, 52, 0.4), rgba(9, 17, 30, 0.24));
+      --panel-border: rgba(220, 240, 255, 0.3);
+      --text: #edf7ff;
+      --muted: rgba(230, 244, 255, 0.72);
+      --accent: #63d4ff;
+      --good: #56f4a9;
+      --warn: #f7d37a;
+      --map-route: rgba(123, 208, 255, 0.9);
+      --map-marker: #56f4a9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 20% 20%, #11384c 0%, #070b12 56%, #04070c 100%);
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: rgba(4, 9, 14, 0.76);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      font-size: 13px;
+      z-index: 30;
+    }
+
+    .status-label {
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #98daff;
+    }
+
+    .status-text {
+      color: #d7e6f5;
+      opacity: 0.95;
+      max-width: min(76ch, 72vw);
+      text-align: right;
+    }
+
+    #unity-shell {
+      position: relative;
+      width: 100vw;
+      height: calc(100vh - 46px);
+      overflow: hidden;
+    }
+
+    #unity-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #05070a;
+    }
+
+    #loading-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      background: linear-gradient(160deg, rgba(8, 14, 20, 0.86), rgba(5, 8, 12, 0.65));
+      transition: opacity 250ms ease;
+      z-index: 20;
+    }
+
+    #loading-overlay.hidden {
+      opacity: 0;
+    }
+
+    .loader-panel {
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+      text-align: center;
+      padding: 20px 28px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      background: rgba(7, 12, 18, 0.74);
+    }
+
+    progress {
+      width: min(340px, 74vw);
+      height: 10px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .hud {
+      position: absolute;
+      inset: 0;
+      padding: 10px 12px 14px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      align-items: start;
+      gap: 10px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .hud-main {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 10px;
+    }
+
+    .hud-panel {
+      pointer-events: auto;
+      position: relative;
+      overflow: hidden;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 10px;
+      backdrop-filter: blur(16px) saturate(1.35);
+      -webkit-backdrop-filter: blur(16px) saturate(1.35);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 12px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .hud-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0));
+    }
+
+    .hud-top {
+      width: clamp(420px, 52vw, 760px);
+      justify-self: center;
+      padding: 8px 10px;
+    }
+
+    .top-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .top-metric {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 10px;
+      padding: 7px 10px 8px;
+    }
+
+    .top-metric-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .top-metric-value {
+      margin-top: 3px;
+      font-weight: 700;
+      font-size: clamp(25px, 3.2vw, 40px);
+      line-height: 1;
+    }
+
+    .hud-left {
+      display: grid;
+      gap: 8px;
+      width: clamp(280px, 26vw, 370px);
+    }
+
+    .workout-panel {
+      display: grid;
+      gap: 8px;
+      min-height: 0;
+      max-height: min(70vh, 620px);
+      overflow: hidden;
+    }
+
+    .hud-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .workout-name {
+      display: block;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .workout-subtitle {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .workout-current {
+      border: 1px solid rgba(99, 212, 255, 0.5);
+      background: rgba(44, 130, 180, 0.3);
+      border-radius: 12px;
+      padding: 8px;
+    }
+
+    .workout-current-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .workout-current-main strong {
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .workout-current-main span {
+      font-size: 13px;
+      color: #d3ebff;
+    }
+
+    .workout-current-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .workout-current-metrics > div {
+      background: rgba(0, 0, 0, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 8px;
+      padding: 6px 7px;
+      display: grid;
+      gap: 2px;
+    }
+
+    .workout-current-metrics span {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .workout-current-metrics strong {
+      font-size: 18px;
+      line-height: 1.1;
+    }
+
+    .workout-next {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 8px 9px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .workout-next-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .workout-next-main strong {
+      font-size: 16px;
+      color: var(--text);
+    }
+
+    .workout-next-main span {
+      color: #d5ecff;
+      font-weight: 600;
+    }
+
+    .workout-next small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .workout-list {
+      display: grid;
+      gap: 6px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .workout-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 13px;
+    }
+
+    .workout-item small {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .hud-right {
+      display: grid;
+      gap: 8px;
+      width: clamp(280px, 24vw, 350px);
+    }
+
+    .route-panel {
+      display: grid;
+      gap: 8px;
+    }
+
+    .hud-route {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .hud-route strong {
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .route-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .route-stat {
+      background: rgba(255, 255, 255, 0.09);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      padding: 6px;
+      display: grid;
+      gap: 3px;
+    }
+
+    .route-stat span {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .route-stat strong {
+      font-size: 18px;
+      line-height: 1.1;
+      color: var(--text);
+    }
+
+    .map-wrap {
+      display: grid;
+      gap: 8px;
+    }
+
+    #route-map {
+      width: 100%;
+      height: 156px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(4, 10, 16, 0.34);
+      display: block;
+    }
+
+    .map-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .button {
+      appearance: none;
+      border: 1px solid rgba(160, 228, 255, 0.5);
+      color: #dff6ff;
+      background: rgba(60, 152, 196, 0.32);
+      border-radius: 8px;
+      font-size: 12px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    @media (max-width: 1100px) {
+      .hud-main {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .hud-top {
+        width: 100%;
+      }
+
+      .hud-left,
+      .hud-right {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .status-bar {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      .hud {
+        padding: 8px;
+      }
+
+      .top-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .top-metric-value {
+        font-size: clamp(18px, 5.3vw, 28px);
+      }
+
+      .route-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .workout-current-metrics {
+        grid-template-columns: 1fr;
+      }
+
+      #route-map {
+        height: 132px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="status-bar">
+    <span class="status-label">Unity Runtime</span>
+    <span id="status" class="status-text">Booting Unity WebGL runtime...</span>
+  </div>
+
+  <div id="unity-shell">
+    <canvas id="unity-canvas"></canvas>
+
+    <div class="hud" aria-hidden="false">
+      <section class="hud-top hud-panel">
+        <div class="top-metrics">
+          <div class="top-metric">
+            <div class="top-metric-label">Power</div>
+            <div class="top-metric-value" id="metric-power">0 W</div>
+          </div>
+          <div class="top-metric">
+            <div class="top-metric-label">Heart Rate</div>
+            <div class="top-metric-value" id="metric-hr">0 bpm</div>
+          </div>
+          <div class="top-metric">
+            <div class="top-metric-label">Cadence</div>
+            <div class="top-metric-value" id="metric-cadence">0 rpm</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="hud-main">
+        <section class="hud-left">
+          <div class="hud-panel workout-panel">
+            <div class="hud-title">Workout <span id="workout-clock">0:00</span></div>
+            <strong class="workout-name" id="workout-name">No workout selected</strong>
+
+            <div class="workout-current">
+              <div class="workout-subtitle">Current Block</div>
+              <div class="workout-current-main">
+                <strong id="workout-current-label">--</strong>
+                <span id="workout-current-zone">--</span>
+              </div>
+              <div class="workout-current-metrics">
+                <div>
+                  <span>Target</span>
+                  <strong id="workout-current-target">--</strong>
+                </div>
+                <div>
+                  <span>Next in</span>
+                  <strong id="workout-current-remaining">--</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="workout-next">
+              <div class="workout-subtitle">Next Up</div>
+              <div class="workout-next-main">
+                <strong id="workout-next-label">--</strong>
+                <span id="workout-next-target">--</span>
+              </div>
+              <small id="workout-next-eta">--</small>
+            </div>
+
+            <div class="workout-list" id="workout-list"></div>
+          </div>
+        </section>
+
+        <section class="hud-right">
+          <div class="hud-panel route-panel">
+            <div class="hud-route">
+              <strong id="route-name">Route: --</strong>
+              <span id="session-state">Session: idle</span>
+            </div>
+            <div class="route-stats">
+              <div class="route-stat">
+                <span>Speed</span>
+                <strong id="metric-speed">0.0 km/h</strong>
+              </div>
+              <div class="route-stat">
+                <span>Grade</span>
+                <strong id="metric-grade">0.0 %</strong>
+              </div>
+              <div class="route-stat">
+                <span>Distance</span>
+                <strong id="metric-distance">0.00 km</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="hud-panel map-wrap">
+            <div class="hud-title">Route Mini-Map <span id="map-route-label">--</span></div>
+            <canvas id="route-map" width="420" height="180"></canvas>
+            <div class="map-footer">
+              <span id="map-status">Waiting for route profile...</span>
+              <button id="export-gpx" class="button" type="button" disabled>Export GPX</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="loading-overlay">
+      <div class="loader-panel">
+        <strong>Loading 3D world...</strong>
+        <progress id="load-progress" max="1" value="0"></progress>
+        <small id="load-hint">Preparing runtime</small>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const CHANNEL_NAME = 'virtual-ride-data';
+    const channel = new BroadcastChannel(CHANNEL_NAME);
+
+    const statusEl = document.getElementById('status');
+    const progressEl = document.getElementById('load-progress');
+    const hintEl = document.getElementById('load-hint');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const canvas = document.getElementById('unity-canvas');
+
+    const routeNameEl = document.getElementById('route-name');
+    const sessionStateEl = document.getElementById('session-state');
+    const workoutClockEl = document.getElementById('workout-clock');
+    const workoutNameEl = document.getElementById('workout-name');
+    const workoutCurrentLabelEl = document.getElementById('workout-current-label');
+    const workoutCurrentZoneEl = document.getElementById('workout-current-zone');
+    const workoutCurrentTargetEl = document.getElementById('workout-current-target');
+    const workoutCurrentRemainingEl = document.getElementById('workout-current-remaining');
+    const workoutNextLabelEl = document.getElementById('workout-next-label');
+    const workoutNextTargetEl = document.getElementById('workout-next-target');
+    const workoutNextEtaEl = document.getElementById('workout-next-eta');
+    const workoutListEl = document.getElementById('workout-list');
+    const mapRouteLabelEl = document.getElementById('map-route-label');
+    const mapStatusEl = document.getElementById('map-status');
+    const mapCanvas = document.getElementById('route-map');
+    const exportGpxButton = document.getElementById('export-gpx');
+
+    const metricEls = {
+      power: document.getElementById('metric-power'),
+      hr: document.getElementById('metric-hr'),
+      cadence: document.getElementById('metric-cadence'),
+      speed: document.getElementById('metric-speed'),
+      grade: document.getElementById('metric-grade'),
+      distance: document.getElementById('metric-distance'),
+    };
+
+    const ROUTE_ALIASES = {
+      'hilly-route': 'route-alpine',
+      'alpine-pass': 'route-alpine',
+      'valley-route': 'route-valley',
+      'flat-loop': 'route-valley',
+      'crosswind-route': 'route-crosswind',
+    };
+
+    const state = {
+      liveData: {
+        power: 0,
+        cadence: 0,
+        heartRate: 0,
+        virtualSpeedKph: 0,
+        routeGradePct: 0,
+        distance: 0,
+        elapsed: 0,
+      },
+      sessionState: 'idle',
+      routeId: 'route-valley',
+      workoutName: '',
+      workoutSteps: [],
+      routeProfile: null,
+      activeRoute: null,
+      routeMapProjection: null,
+      runtimeVersion: '',
+    };
+    const mapBackgroundCache = new Map();
+
+    let unityInstanceRef = null;
+    const pendingMessages = [];
+
+    const normalizeRouteId = (value) => {
+      const raw = String(value || '').trim().toLowerCase();
+      return ROUTE_ALIASES[raw] || raw;
+    };
+
+    const formatDuration = (seconds) => {
+      const total = Math.max(0, Math.round(Number(seconds) || 0));
+      const mins = Math.floor(total / 60);
+      const secs = total % 60;
+      return `${mins}:${String(secs).padStart(2, '0')}`;
+    };
+
+    const fmtInt = (value) => `${Math.round(Number(value) || 0)}`;
+    const fmt1 = (value) => `${(Number(value) || 0).toFixed(1)}`;
+    const formatTargetPower = (step) => {
+      const target = Math.round(Number(step?.targetPower) || 0);
+      return target > 0 ? `${target} W` : '--';
+    };
+
+    const setStatus = (text) => {
+      statusEl.textContent = text;
+    };
+
+    const setHint = (text) => {
+      hintEl.textContent = text;
+    };
+
+    const setMapStatus = (text) => {
+      mapStatusEl.textContent = text;
+    };
+
+    const postRuntimeEvent = (type, data = {}) => {
+      channel.postMessage({
+        type,
+        data: {
+          runtime: 'unity',
+          ...data,
+        },
+      });
+    };
+
+    const resolveManifestUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get('manifest');
+      if (fromQuery && fromQuery.trim()) return fromQuery.trim();
+      return '/unity/current.json';
+    };
+
+    const resolveUrl = (value, base, cacheToken = '') => {
+      if (!value) return '';
+      if (/^https?:\/\//i.test(value)) return value;
+      const cleanedBase = String(base || '').replace(/\/+$/, '');
+      const cleanedValue = String(value).replace(/^\/+/, '');
+      const url = `${cleanedBase}/${cleanedValue}`;
+      if (!cacheToken) return url;
+      const separator = url.includes('?') ? '&' : '?';
+      return `${url}${separator}v=${encodeURIComponent(cacheToken)}`;
+    };
+
+    const resolveAgainstManifest = (value, manifestUrl, cacheToken = '') => {
+      if (!value) return '';
+      let resolved = '';
+      try {
+        resolved = new URL(value, new URL(manifestUrl, window.location.href)).toString();
+      } catch (error) {
+        resolved = value;
+      }
+      if (!cacheToken) return resolved;
+      return `${resolved}${resolved.includes('?') ? '&' : '?'}v=${encodeURIComponent(cacheToken)}`;
+    };
+
+    const loadScript = (src) => new Promise((resolve, reject) => {
+      const tag = document.createElement('script');
+      tag.src = src;
+      tag.async = true;
+      tag.onload = () => resolve();
+      tag.onerror = () => reject(new Error(`Failed loading script: ${src}`));
+      document.head.appendChild(tag);
+    });
+
+    const envelopeForUnity = (message) => {
+      const payload = {
+        type: String(message?.type || ''),
+        dataJson: JSON.stringify(message?.data || {}),
+      };
+      return JSON.stringify(payload);
+    };
+
+    const flushPending = () => {
+      if (!unityInstanceRef) return;
+
+      while (pendingMessages.length > 0) {
+        const next = pendingMessages.shift();
+        try {
+          unityInstanceRef.SendMessage('DashboardBridge', 'OnBridgeMessage', envelopeForUnity(next));
+        } catch (error) {
+          postRuntimeEvent('virtual-world-failed', { reason: `send-message:${error?.message || error}` });
+          break;
+        }
+      }
+    };
+
+    const normalizeProfileRoute = (route) => {
+      if (!route || typeof route !== 'object') return null;
+      const id = normalizeRouteId(route.id || route.routeId || 'route-valley');
+      const name = String(route.name || id || 'Route');
+      const points = Array.isArray(route.points) ? route.points : [];
+      if (points.length < 2) return null;
+
+      const normalizedPoints = [];
+      let runningDistance = 0;
+      for (let i = 0; i < points.length; i += 1) {
+        const source = points[i] || {};
+        const x = Number(source.x) || 0;
+        const y = Number(source.y) || Number(source.elevationMeters) || 0;
+        const z = Number(source.z) || 0;
+        const explicitDistance = Number(source.distanceMeters);
+
+        if (Number.isFinite(explicitDistance)) {
+          runningDistance = Math.max(runningDistance, explicitDistance);
+        } else if (normalizedPoints.length > 0) {
+          const prev = normalizedPoints[normalizedPoints.length - 1];
+          const dx = x - prev.x;
+          const dy = y - prev.y;
+          const dz = z - prev.z;
+          runningDistance += Math.sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        normalizedPoints.push({
+          x,
+          y,
+          z,
+          distanceMeters: runningDistance,
+          elevationMeters: Number(source.elevationMeters) || y,
+        });
+      }
+
+      if (normalizedPoints.length < 2) return null;
+      const totalDistanceMeters = Math.max(
+        Number(route.totalDistanceMeters) || 0,
+        normalizedPoints[normalizedPoints.length - 1].distanceMeters,
+        1
+      );
+
+      return { id, name, points: normalizedPoints, totalDistanceMeters };
+    };
+
+    const pickActiveRoute = () => {
+      const routes = Array.isArray(state.routeProfile?.routes) ? state.routeProfile.routes : [];
+      if (!routes.length) {
+        state.activeRoute = null;
+        mapRouteLabelEl.textContent = '--';
+        routeNameEl.textContent = `Route: ${state.routeId || '--'}`;
+        exportGpxButton.disabled = true;
+        return;
+      }
+
+      const wanted = normalizeRouteId(state.routeId);
+      const found = routes.find((route) => route.id === wanted) || routes[0];
+      state.activeRoute = found;
+      mapRouteLabelEl.textContent = found.name;
+      routeNameEl.textContent = `Route: ${found.name}`;
+      exportGpxButton.disabled = false;
+    };
+
+    const getPointAtDistance = (route, distanceMeters) => {
+      if (!route || !Array.isArray(route.points) || route.points.length < 2) return null;
+      const total = Math.max(1, Number(route.totalDistanceMeters) || 1);
+      const wrappedDistance = ((Number(distanceMeters) || 0) % total + total) % total;
+
+      let idx = 0;
+      for (let i = 0; i < route.points.length - 1; i += 1) {
+        if (wrappedDistance <= route.points[i + 1].distanceMeters) {
+          idx = i;
+          break;
+        }
+        idx = i;
+      }
+
+      const a = route.points[idx];
+      const b = route.points[Math.min(idx + 1, route.points.length - 1)];
+      const span = Math.max(0.0001, (b.distanceMeters - a.distanceMeters) || 0.0001);
+      const t = Math.max(0, Math.min(1, (wrappedDistance - a.distanceMeters) / span));
+
+      return {
+        x: a.x + (b.x - a.x) * t,
+        z: a.z + (b.z - a.z) * t,
+      };
+    };
+
+    const buildProjection = (route, width, height) => {
+      const points = route.points;
+      let minX = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      let minZ = Number.POSITIVE_INFINITY;
+      let maxZ = Number.NEGATIVE_INFINITY;
+
+      for (let i = 0; i < points.length; i += 1) {
+        minX = Math.min(minX, points[i].x);
+        maxX = Math.max(maxX, points[i].x);
+        minZ = Math.min(minZ, points[i].z);
+        maxZ = Math.max(maxZ, points[i].z);
+      }
+
+      const pad = 14;
+      const spanX = Math.max(1, maxX - minX);
+      const spanZ = Math.max(1, maxZ - minZ);
+      const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanZ);
+
+      const mapWidth = spanX * scale;
+      const mapHeight = spanZ * scale;
+      const offsetX = (width - mapWidth) / 2;
+      const offsetY = (height - mapHeight) / 2;
+
+      return (point) => ({
+        x: offsetX + (point.x - minX) * scale,
+        y: height - (offsetY + (point.z - minZ) * scale),
+      });
+    };
+
+    const hashString = (value) => {
+      const text = String(value || '');
+      let hash = 2166136261 >>> 0;
+      for (let i = 0; i < text.length; i += 1) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return hash >>> 0;
+    };
+
+    const noise2d = (x, y, seed) => {
+      const n = Math.sin((x * 12.9898) + (y * 78.233) + (seed * 0.017)) * 43758.5453;
+      return n - Math.floor(n);
+    };
+
+    const createMapBackground = (route, width, height, project) => {
+      const layer = document.createElement('canvas');
+      layer.width = width;
+      layer.height = height;
+      const ctx = layer.getContext('2d');
+      if (!ctx) return layer;
+
+      const seed = hashString(route.id || route.name || 'route');
+      const points = Array.isArray(route.points) ? route.points : [];
+      const elevations = points.map((point) => Number(point.elevationMeters ?? point.y ?? 0)).filter(Number.isFinite);
+      const minElevation = elevations.length ? Math.min(...elevations) : 0;
+      const maxElevation = elevations.length ? Math.max(...elevations) : minElevation + 1;
+      const elevationSpan = Math.max(1, maxElevation - minElevation);
+
+      const baseGradient = ctx.createLinearGradient(0, 0, 0, height);
+      baseGradient.addColorStop(0, 'rgba(38, 78, 66, 0.34)');
+      baseGradient.addColorStop(0.55, 'rgba(33, 64, 51, 0.3)');
+      baseGradient.addColorStop(1, 'rgba(17, 32, 28, 0.4)');
+      ctx.fillStyle = baseGradient;
+      ctx.fillRect(0, 0, width, height);
+
+      for (let i = 0; i < points.length - 1; i += 1) {
+        const a = points[i];
+        const b = points[i + 1];
+        const elev = Number(a.elevationMeters ?? a.y ?? 0);
+        const elev01 = Math.max(0, Math.min(1, (elev - minElevation) / elevationSpan));
+        const a2 = project(a);
+        const b2 = project(b);
+        const hue = 126 - (elev01 * 48);
+        const light = 22 + (elev01 * 16);
+        const alpha = 0.11 + (elev01 * 0.07);
+
+        ctx.beginPath();
+        ctx.moveTo(a2.x, a2.y);
+        ctx.lineTo(b2.x, b2.y);
+        ctx.lineWidth = 18 - (elev01 * 5);
+        ctx.strokeStyle = `hsla(${hue}, 34%, ${light}%, ${alpha})`;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      }
+
+      for (let line = 0; line < 10; line += 1) {
+        const yBase = ((line + 1) / 11) * height;
+        ctx.beginPath();
+        for (let x = 0; x <= width; x += 5) {
+          const waviness = (noise2d(x * 0.065, yBase * 0.08 + line, seed) - 0.5) * 7;
+          const wave2 = (noise2d(x * 0.023, line * 0.7, seed + 19) - 0.5) * 5;
+          const y = yBase + waviness + wave2;
+          if (x === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.strokeStyle = 'rgba(210, 244, 215, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      const speckleCount = 420;
+      for (let i = 0; i < speckleCount; i += 1) {
+        const px = noise2d(i * 1.17, seed * 0.13, seed + 7) * width;
+        const py = noise2d(i * 0.73, seed * 0.27, seed + 31) * height;
+        const r = 0.35 + (noise2d(i * 0.29, i * 0.61, seed + 53) * 0.95);
+        const alpha = 0.05 + (noise2d(i * 0.51, i * 0.41, seed + 71) * 0.08);
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(84, 156, 96, ${alpha.toFixed(3)})`;
+        ctx.fill();
+      }
+
+      const vignette = ctx.createRadialGradient(width * 0.5, height * 0.5, Math.min(width, height) * 0.25, width * 0.5, height * 0.5, Math.max(width, height) * 0.8);
+      vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      vignette.addColorStop(1, 'rgba(0, 0, 0, 0.24)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, width, height);
+
+      return layer;
+    };
+
+    const getMapBackground = (route, width, height, project) => {
+      const routeToken = `${route.id || 'route'}:${route.points?.length || 0}:${Math.round(Number(route.totalDistanceMeters) || 0)}`;
+      const cacheKey = `${routeToken}:${width}x${height}`;
+      const cached = mapBackgroundCache.get(cacheKey);
+      if (cached) return cached;
+      const next = createMapBackground(route, width, height, project);
+      mapBackgroundCache.set(cacheKey, next);
+      return next;
+    };
+
+    const drawMap = () => {
+      const ctx = mapCanvas.getContext('2d');
+      if (!ctx) return;
+
+      const width = mapCanvas.width;
+      const height = mapCanvas.height;
+      ctx.clearRect(0, 0, width, height);
+
+      const route = state.activeRoute;
+      if (!route || !Array.isArray(route.points) || route.points.length < 2) {
+        ctx.fillStyle = 'rgba(230, 244, 255, 0.8)';
+        ctx.font = '12px "IBM Plex Sans", sans-serif';
+        ctx.fillText('No route profile available', 14, 24);
+        setMapStatus('No route profile loaded');
+        return;
+      }
+
+      const project = buildProjection(route, width, height);
+      state.routeMapProjection = project;
+
+      const background = getMapBackground(route, width, height, project);
+      if (background) {
+        ctx.drawImage(background, 0, 0, width, height);
+      }
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+
+      ctx.beginPath();
+      const first = project(route.points[0]);
+      ctx.moveTo(first.x, first.y);
+      for (let i = 1; i < route.points.length; i += 1) {
+        const p = project(route.points[i]);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = 'rgba(123, 208, 255, 0.9)';
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      const markerPoint = getPointAtDistance(route, state.liveData.distance || 0);
+      if (markerPoint) {
+        const marker = project(markerPoint);
+        ctx.beginPath();
+        ctx.arc(marker.x, marker.y, 4.8, 0, Math.PI * 2);
+        ctx.fillStyle = '#56f4a9';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+        ctx.stroke();
+      }
+
+      const distanceKm = ((Number(state.liveData.distance) || 0) / 1000).toFixed(2);
+      setMapStatus(`${route.name} | ${distanceKm} km`);
+    };
+
+    const renderMetrics = () => {
+      metricEls.power.textContent = `${fmtInt(state.liveData.power)} W`;
+      metricEls.hr.textContent = `${fmtInt(state.liveData.heartRate)} bpm`;
+      metricEls.cadence.textContent = `${fmtInt(state.liveData.cadence)} rpm`;
+      metricEls.speed.textContent = `${fmt1(state.liveData.virtualSpeedKph || state.liveData.speed)} km/h`;
+      metricEls.grade.textContent = `${fmt1(state.liveData.routeGradePct)} %`;
+      metricEls.distance.textContent = `${((Number(state.liveData.distance) || 0) / 1000).toFixed(2)} km`;
+      workoutClockEl.textContent = formatDuration(state.liveData.elapsed || 0);
+      sessionStateEl.textContent = `Session: ${state.sessionState || 'idle'}`;
+    };
+
+    const renderWorkout = () => {
+      const steps = Array.isArray(state.workoutSteps) ? state.workoutSteps : [];
+      const elapsed = Number(state.liveData.elapsed) || 0;
+      workoutNameEl.textContent = state.workoutName || (steps.length ? 'Workout' : 'No workout selected');
+
+      workoutListEl.innerHTML = '';
+      if (!steps.length) {
+        workoutCurrentLabelEl.textContent = '--';
+        workoutCurrentZoneEl.textContent = '--';
+        workoutCurrentTargetEl.textContent = '--';
+        workoutCurrentRemainingEl.textContent = '--';
+        workoutNextLabelEl.textContent = '--';
+        workoutNextTargetEl.textContent = '--';
+        workoutNextEtaEl.textContent = '--';
+
+        const empty = document.createElement('div');
+        empty.className = 'workout-item';
+        empty.textContent = 'No structured blocks available';
+        workoutListEl.appendChild(empty);
+        return;
+      }
+
+      let activeIndex = Math.max(0, steps.length - 1);
+      let elapsedCursor = 0;
+      let elapsedInStep = 0;
+      for (let i = 0; i < steps.length; i += 1) {
+        const duration = Math.max(0, Number(steps[i]?.durationSec) || 0);
+        const end = elapsedCursor + duration;
+        if (elapsed < end || i === steps.length - 1) {
+          activeIndex = i;
+          elapsedInStep = Math.max(0, elapsed - elapsedCursor);
+          break;
+        }
+        elapsedCursor = end;
+      }
+
+      const activeStep = steps[activeIndex] || {};
+      const activeDuration = Math.max(0, Number(activeStep.durationSec) || 0);
+      const remainingInStep = Math.max(0, activeDuration - elapsedInStep);
+
+      workoutCurrentLabelEl.textContent = String(activeStep.label || `Block ${activeIndex + 1}`);
+      workoutCurrentZoneEl.textContent = String(activeStep.zone || 'No zone');
+      workoutCurrentTargetEl.textContent = formatTargetPower(activeStep);
+      workoutCurrentRemainingEl.textContent = formatDuration(remainingInStep);
+
+      const nextStep = steps[activeIndex + 1];
+      if (nextStep) {
+        workoutNextLabelEl.textContent = String(nextStep.label || `Block ${activeIndex + 2}`);
+        workoutNextTargetEl.textContent = formatTargetPower(nextStep);
+        workoutNextEtaEl.textContent = `Starts in ${formatDuration(remainingInStep)} - ${formatDuration(Number(nextStep.durationSec) || 0)} duration`;
+      } else {
+        workoutNextLabelEl.textContent = 'Last block';
+        workoutNextTargetEl.textContent = '--';
+        workoutNextEtaEl.textContent = 'No further blocks';
+      }
+
+      const previewStart = activeIndex + 1;
+      const previewEnd = Math.min(steps.length, previewStart + 3);
+      for (let i = previewStart; i < previewEnd; i += 1) {
+        const step = steps[i] || {};
+        const item = document.createElement('div');
+        item.className = 'workout-item';
+
+        item.innerHTML = `
+          <span>+${i - activeIndex} ${String(step.label || `Block ${i + 1}`)}<br><small>${String(step.zone || 'No zone')}</small></span>
+          <span>${formatTargetPower(step)}<br><small>${formatDuration(Number(step.durationSec) || 0)}</small></span>
+        `;
+        workoutListEl.appendChild(item);
+      }
+
+      if (previewStart >= steps.length) {
+        const empty = document.createElement('div');
+        empty.className = 'workout-item';
+        empty.textContent = 'No further blocks';
+        workoutListEl.appendChild(empty);
+      }
+    };
+
+    const renderHud = () => {
+      pickActiveRoute();
+      renderMetrics();
+      renderWorkout();
+      drawMap();
+    };
+
+    const handleHudMessage = (message) => {
+      const type = message?.type;
+      const data = message?.data || {};
+      if (!type) return;
+
+      if (type === 'live-data') {
+        state.liveData = {
+          ...state.liveData,
+          ...data,
+          routeId: data.routeId || state.liveData.routeId,
+        };
+        if (data.routeId) state.routeId = data.routeId;
+        if (data.sessionState) state.sessionState = String(data.sessionState || 'idle');
+        renderHud();
+        return;
+      }
+
+      if (type === 'session-start') {
+        state.sessionState = 'running';
+        state.workoutName = String(data.workoutName || state.workoutName || 'Workout');
+        state.workoutSteps = Array.isArray(data.workoutSteps) ? data.workoutSteps : [];
+        if (data.routeId) state.routeId = data.routeId;
+        renderHud();
+        return;
+      }
+
+      if (type === 'session-pause') {
+        state.sessionState = 'paused';
+        renderHud();
+        return;
+      }
+
+      if (type === 'session-resume') {
+        state.sessionState = 'running';
+        renderHud();
+        return;
+      }
+
+      if (type === 'session-stop') {
+        state.sessionState = 'idle';
+        renderHud();
+        return;
+      }
+
+      if ((type === 'route-change' || type === 'route-change-request') && data.routeId) {
+        state.routeId = data.routeId;
+        renderHud();
+      }
+    };
+
+    const handleIncomingMessage = (message) => {
+      const type = message?.type;
+      if (!type) return;
+
+      if (type === 'heartbeat' || type === 'virtual-world-ready' || type === 'virtual-world-failed') {
+        return;
+      }
+
+      if (!unityInstanceRef) {
+        pendingMessages.push(message);
+        return;
+      }
+
+      try {
+        unityInstanceRef.SendMessage('DashboardBridge', 'OnBridgeMessage', envelopeForUnity(message));
+      } catch (error) {
+        postRuntimeEvent('virtual-world-failed', { reason: `send-message:${error?.message || error}` });
+      }
+    };
+
+    channel.onmessage = (event) => {
+      const message = event?.data || {};
+      handleHudMessage(message);
+      handleIncomingMessage(message);
+    };
+
+    window.addEventListener('beforeunload', () => {
+      channel.close();
+    });
+
+    window.addEventListener('resize', () => {
+      drawMap();
+    });
+
+    const toPseudoGpx = (route) => {
+      const baseLat = 48.2082;
+      const baseLon = 16.3738;
+      const latMeters = 111320;
+      const lonMeters = 111320 * Math.cos((baseLat * Math.PI) / 180);
+      const now = Date.now();
+
+      const trkpts = route.points.map((point, index) => {
+        const lat = baseLat + (point.z / latMeters);
+        const lon = baseLon + (point.x / lonMeters);
+        const ele = Number(point.elevationMeters || point.y || 0).toFixed(2);
+        const time = new Date(now + index * 1000).toISOString();
+        return `    <trkpt lat="${lat.toFixed(7)}" lon="${lon.toFixed(7)}"><ele>${ele}</ele><time>${time}</time></trkpt>`;
+      }).join('\n');
+
+      return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="training-dashboard" xmlns="http://www.topografix.com/GPX/1/1">\n  <metadata><name>${route.name}</name></metadata>\n  <trk>\n    <name>${route.name}</name>\n    <type>cycling</type>\n    <trkseg>\n${trkpts}\n    </trkseg>\n  </trk>\n</gpx>\n`;
+    };
+
+    exportGpxButton.addEventListener('click', () => {
+      if (!state.activeRoute) return;
+      const gpx = toPseudoGpx(state.activeRoute);
+      const blob = new Blob([gpx], { type: 'application/gpx+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const safeRouteId = String(state.activeRoute.id || 'route').replace(/[^a-z0-9-_]+/gi, '-');
+      link.href = url;
+      link.download = `${safeRouteId}.gpx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
+    const loadRouteProfile = async (manifest, manifestUrl, cacheToken) => {
+      const routeProfileUrlRaw = String(manifest?.routeProfileUrl || '').trim();
+      if (!routeProfileUrlRaw) {
+        setMapStatus('Manifest has no routeProfileUrl');
+        drawMap();
+        return;
+      }
+
+      const routeProfileUrl = resolveAgainstManifest(routeProfileUrlRaw, manifestUrl, cacheToken);
+      const response = await fetch(routeProfileUrl, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`Route profile missing (${response.status})`);
+      }
+
+      const payload = await response.json();
+      const routesRaw = Array.isArray(payload?.routes) ? payload.routes : [];
+      const routes = routesRaw.map(normalizeProfileRoute).filter(Boolean);
+      if (!routes.length) {
+        throw new Error('Route profile has no usable routes');
+      }
+
+      state.routeProfile = { routes };
+      setMapStatus(`Route profile loaded (${routes.length} routes)`);
+      renderHud();
+    };
+
+    const boot = async () => {
+      try {
+        const manifestUrl = resolveManifestUrl();
+        setHint('Fetching runtime manifest');
+
+        const manifestResp = await fetch(manifestUrl, { cache: 'no-store' });
+        if (!manifestResp.ok) {
+          throw new Error(`Manifest missing (${manifestResp.status}) at ${manifestUrl}`);
+        }
+
+        const manifest = await manifestResp.json();
+        const version = String(manifest?.version || '').trim();
+        const cacheToken = String(manifest?.cacheToken || version || '').trim();
+        const buildBase = String(manifest?.buildBaseUrl || '').trim();
+
+        if (!version || !buildBase) {
+          throw new Error('Manifest must include version and buildBaseUrl');
+        }
+
+        state.runtimeVersion = version;
+
+        try {
+          await loadRouteProfile(manifest, manifestUrl, cacheToken);
+        } catch (routeError) {
+          setMapStatus(`Route profile unavailable: ${routeError?.message || routeError}`);
+          drawMap();
+        }
+
+        const loaderUrl = resolveUrl(manifest.loaderUrl || 'WebGL.loader.js', buildBase, cacheToken);
+        setHint('Loading Unity loader');
+        await loadScript(loaderUrl);
+
+        if (typeof window.createUnityInstance !== 'function') {
+          throw new Error('createUnityInstance is not available after loading Unity loader');
+        }
+
+        const config = {
+          dataUrl: resolveUrl(manifest.dataUrl || 'WebGL.data', buildBase, cacheToken),
+          frameworkUrl: resolveUrl(manifest.frameworkUrl || 'WebGL.framework.js', buildBase, cacheToken),
+          codeUrl: resolveUrl(manifest.codeUrl || 'WebGL.wasm', buildBase, cacheToken),
+          streamingAssetsUrl: resolveUrl(manifest.streamingAssetsUrl || 'StreamingAssets', buildBase, cacheToken),
+          companyName: 'Training Dashboard',
+          productName: 'Virtual Ride',
+          productVersion: version,
+          webglContextAttributes: {
+            antialias: true,
+            alpha: false,
+            preserveDrawingBuffer: false,
+            powerPreference: 'high-performance'
+          }
+        };
+
+        setHint('Initializing Unity WebGL');
+
+        const unityInstance = await window.createUnityInstance(canvas, config, (progress) => {
+          const ratio = Math.max(0, Math.min(1, Number(progress) || 0));
+          progressEl.value = ratio;
+          setHint(`Loading ${Math.round(ratio * 100)}%`);
+        });
+
+        unityInstanceRef = unityInstance;
+        loadingOverlay.classList.add('hidden');
+        setStatus('Unity WebGL connected. Waiting for ride data...');
+
+        postRuntimeEvent('virtual-world-ready', { runtimeVersion: version });
+        flushPending();
+      } catch (error) {
+        const detail = error?.message || String(error);
+        setStatus(`Unity startup failed: ${detail}`);
+        setHint('Runtime could not be started');
+        postRuntimeEvent('virtual-world-failed', { reason: detail });
+      }
+    };
+
+    renderHud();
+    boot();
+  </script>
+</body>
+</html>

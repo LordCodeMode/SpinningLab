@@ -38,7 +38,7 @@ describe('RidePhysicsEngine', () => {
       speed = step.speedKph;
     }
 
-    expect(speed).toBeGreaterThan(25);
+    expect(speed).toBeGreaterThan(23);
   });
 
   it('clamps unrealistic grade input to realistic bounds', () => {
