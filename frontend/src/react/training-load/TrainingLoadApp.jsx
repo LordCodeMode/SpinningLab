@@ -38,6 +38,36 @@ const formatWeekLabel = (value) => {
   return `${start} – ${endLabel}`;
 };
 
+const SegmentedBar = ({ segments, className = '', label }) => {
+  let offset = 0;
+
+  return (
+    <svg
+      className={`tl-polarized-bar-svg ${className}`.trim()}
+      viewBox="0 0 100 6"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      {segments.map((segment) => {
+        const width = Math.max(0, Math.min(100 - offset, Number(segment.width) || 0));
+        const x = offset;
+        offset += width;
+        return (
+          <rect
+            key={segment.key}
+            className={`tl-polarized-segment tl-polarized-segment--${segment.key}`}
+            x={x}
+            y="0"
+            width={width}
+            height="6"
+          />
+        );
+      })}
+    </svg>
+  );
+};
+
 const getWeekStart = (date) => {
   const result = new Date(date);
   const day = result.getUTCDay();
@@ -735,9 +765,9 @@ const TrainingLoadApp = () => {
             <div className="tl-widget-header section-header">
               <h3 className="section-title">Load Timeline</h3>
               <div className="tl-chart-legend">
-                <span className="tl-legend-item"><i style={{ background: '#3b82f6' }}></i>CTL</span>
-                <span className="tl-legend-item"><i style={{ background: '#f59e0b' }}></i>ATL</span>
-                <span className="tl-legend-item"><i style={{ background: '#10b981' }}></i>TSB</span>
+                <span className="tl-legend-item"><i className="tl-legend-swatch tl-legend-swatch--ctl"></i>CTL</span>
+                <span className="tl-legend-item"><i className="tl-legend-swatch tl-legend-swatch--atl"></i>ATL</span>
+                <span className="tl-legend-item"><i className="tl-legend-swatch tl-legend-swatch--tsb"></i>TSB</span>
               </div>
             </div>
             <div className="tl-chart-canvas-wrapper">
@@ -805,7 +835,7 @@ const TrainingLoadApp = () => {
 
         <div className="tl-insights-grid">
           <div className="tl-insight-card">
-            <div className="tl-insight-icon" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+            <div className="tl-insight-icon tl-insight-icon--distribution">
               <i data-feather="bar-chart-2"></i>
             </div>
             <div className="tl-insight-content">
@@ -817,7 +847,7 @@ const TrainingLoadApp = () => {
           </div>
 
           <div className="tl-insight-card">
-            <div className="tl-insight-icon" style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
+            <div className="tl-insight-icon tl-insight-icon--consistency">
               <i data-feather="trending-up"></i>
             </div>
             <div className="tl-insight-content">
@@ -827,7 +857,7 @@ const TrainingLoadApp = () => {
           </div>
 
           <div className="tl-insight-card">
-            <div className="tl-insight-icon" style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}>
+            <div className="tl-insight-icon tl-insight-icon--streak">
               <i data-feather="zap"></i>
             </div>
             <div className="tl-insight-content">
@@ -838,23 +868,28 @@ const TrainingLoadApp = () => {
 
           {polarized ? (
             <div className="tl-insight-card">
-              <div className="tl-insight-icon" style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)' }}>
+              <div className="tl-insight-icon tl-insight-icon--polarized">
                 <i data-feather="layers"></i>
               </div>
               <div className="tl-insight-content">
                 <h4>Polarized Distribution</h4>
                 <p>{lowPct}% low · {midPct}% mid · {highPct}% high</p>
                 <div className="tl-polarized-bar">
-                  <span style={{ width: `${lowPct}%` }} className="tl-polarized-bar__low"></span>
-                  <span style={{ width: `${midPct}%` }} className="tl-polarized-bar__mid"></span>
-                  <span style={{ width: `${highPct}%` }} className="tl-polarized-bar__high"></span>
+                  <SegmentedBar
+                    label="Polarized training distribution"
+                    segments={[
+                      { key: 'low', width: lowPct },
+                      { key: 'mid', width: midPct },
+                      { key: 'high', width: highPct }
+                    ]}
+                  />
                 </div>
                 <div className="tl-polarized-score">Polarization score: {formatNumber(polarized.polarized_score, 1)}%</div>
               </div>
             </div>
           ) : (
             <div className="tl-insight-card">
-              <div className="tl-insight-icon" style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)' }}>
+              <div className="tl-insight-icon tl-insight-icon--polarized">
                 <i data-feather="layers"></i>
               </div>
               <div className="tl-insight-content">

@@ -4,8 +4,6 @@ Handles OAuth authentication and activity synchronization with Strava
 """
 import httpx
 import time
-import json
-import os
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, List, Any, Iterable
@@ -16,9 +14,14 @@ from sqlalchemy.orm import Session
 
 from ..database.models import User, Activity, PowerZone, HrZone
 from ..core.config import settings
-from ..services.fit_processing.power_metrics import extract_power_metrics
+from ..services.fit_processing.power_metrics import extract_power_metrics, calculate_tss, calculate_if, calculate_ef
 from ..services.fit_processing.heart_rate_metrics import compute_hr_zones
 from ..services.fit_processing.zones import compute_power_zones
+from ..services.storage_service import (
+    build_live_training_tcx_key,
+    build_stream_key,
+    storage_service,
+)
 from ..utils.polyline import encode_polyline
 
 logger = logging.getLogger(__name__)
@@ -191,16 +194,15 @@ class StravaService:
         access_token = await self.get_valid_token(user, db)
         tcx_bytes = self._build_tcx(name=name, started_at=started_at, samples=samples)
 
-        os.makedirs(settings.FIT_FILES_DIR, exist_ok=True)
-        session_dir = os.path.join(settings.FIT_FILES_DIR, "live_training")
-        os.makedirs(session_dir, exist_ok=True)
         timestamp = int(time.time())
         file_name = f"live_training_{user.id}_{timestamp}.tcx"
-        file_path = os.path.join(session_dir, file_name)
         try:
-            with open(file_path, "wb") as handle:
-                handle.write(tcx_bytes)
-        except OSError:
+            storage_service.put_bytes(
+                build_live_training_tcx_key(user.id, timestamp),
+                tcx_bytes,
+                content_type="application/vnd.garmin.tcx+xml",
+            )
+        except Exception:
             logger.warning("Failed to persist TCX file for user %s", user.id)
 
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -493,7 +495,12 @@ class StravaService:
                     stream_metrics = self._process_streams(streams, user)
                     power_zones = stream_metrics.pop("power_zones", [])
                     hr_zones = stream_metrics.pop("hr_zones", [])
-                    parsed_data.update(stream_metrics)
+                    # Prefer Strava summary averages when available; use stream-derived values as fallback.
+                    preferred_summary_fields = {"avg_power", "avg_heart_rate", "duration"}
+                    for field, value in stream_metrics.items():
+                        if field in preferred_summary_fields and parsed_data.get(field) is not None:
+                            continue
+                        parsed_data[field] = value
 
                     route_polyline = self._extract_route_polyline(streams)
                     if route_polyline:
@@ -508,6 +515,21 @@ class StravaService:
                     parsed_data["avg_power"] = activity_data.get("average_watts")
                 if not parsed_data.get("duration") and activity_data.get("elapsed_time"):
                     parsed_data["duration"] = activity_data.get("elapsed_time")
+
+                # Recalculate derived metrics from the preserved summary context.
+                # For Strava activities this keeps NP stream-derived, but TSS/IF/EF aligned
+                # with the final duration / average HR values we store.
+                ftp_value = user.ftp or 250
+                normalized_power = parsed_data.get("normalized_power")
+                duration_seconds = parsed_data.get("duration")
+                avg_heart_rate = parsed_data.get("avg_heart_rate")
+
+                if normalized_power:
+                    parsed_data["intensity_factor"] = calculate_if(normalized_power, ftp_value)
+                    if duration_seconds:
+                        parsed_data["tss"] = calculate_tss(normalized_power, duration_seconds, ftp_value)
+                    if avg_heart_rate:
+                        parsed_data["efficiency_factor"] = calculate_ef(normalized_power, avg_heart_rate)
 
                 # Only keep fields that exist on the Activity model
                 parsed_data = self._filter_activity_fields(parsed_data)
@@ -713,14 +735,9 @@ class StravaService:
         return df, moving_seconds, elapsed_seconds
 
     def _store_streams(self, activity_id: int, streams: Dict[str, Any]) -> None:
-        """Persist Strava streams to disk for later timeline rendering."""
-        streams_dir = os.path.join(settings.FIT_FILES_DIR, "streams")
-        os.makedirs(streams_dir, exist_ok=True)
-
-        stream_path = os.path.join(streams_dir, f"{activity_id}.json")
+        """Persist Strava streams for later timeline rendering."""
         try:
-            with open(stream_path, "w") as f:
-                json.dump(streams, f)
+            storage_service.put_json(build_stream_key(activity_id), streams)
         except Exception as exc:
             logger.warning(f"Failed to store streams for activity {activity_id}: {exc}")
 

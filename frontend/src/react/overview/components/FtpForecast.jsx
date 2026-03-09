@@ -1,6 +1,22 @@
 import React from 'react';
 import { formatRelativeDate } from '../overviewUtils';
 
+const ProgressBarSvg = ({ value, className = '', label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 100 8"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <rect className="ov-progress-svg__track" x="0" y="0" width="100" height="8" rx="4" />
+      <rect className="ov-progress-svg__fill" x="0" y="0" width={width} height="8" rx="4" />
+    </svg>
+  );
+};
+
 const FtpForecast = ({ prediction }) => {
   if (!prediction) {
     return (
@@ -43,7 +59,11 @@ const FtpForecast = ({ prediction }) => {
         </div>
       </div>
       <div className="ov-ftp-bar">
-        <div className="ov-ftp-bar-fill" style={{ width: `${Math.min(100, Math.max(0, confidence))}%` }} />
+        <ProgressBarSvg
+          value={Math.min(100, Math.max(0, confidence))}
+          className="ov-ftp-bar-fill"
+          label="FTP forecast confidence"
+        />
       </div>
       {prediction.notification ? (
         <div className="ov-ftp-note">{prediction.notification}</div>

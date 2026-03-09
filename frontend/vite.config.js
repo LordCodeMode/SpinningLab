@@ -3,6 +3,8 @@ import { resolve } from 'path';
 import react from '@vitejs/plugin-react';
 import autoprefixer from 'autoprefixer';
 
+const enableSourceMaps = process.env.VITE_SOURCEMAP === 'true';
+
 export default defineConfig({
   plugins: [react()],
   // Root directory
@@ -69,6 +71,21 @@ export default defineConfig({
             './src/lib/core/eventBus.js',
             './src/lib/core/utils.js',
           ],
+          'monitoring': [
+            '@sentry/browser'
+          ],
+          'charts-vendor': [
+            'chart.js/auto',
+            'plotly.js-dist-min'
+          ],
+          'maps-vendor': [
+            'mapbox-gl'
+          ],
+          'icons-motion': [
+            'feather-icons',
+            'framer-motion',
+            'lucide-react'
+          ],
           // Services
           'services': [
             './src/lib/services/DataService.js',
@@ -114,8 +131,8 @@ export default defineConfig({
       },
     },
 
-    // Source maps for debugging
-    sourcemap: true,
+    // Public production builds ship without source maps by default
+    sourcemap: enableSourceMaps,
 
     // CSS code splitting
     cssCodeSplit: true,

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bluetooth,
   HeartPulse,
@@ -9,7 +9,8 @@ import {
   Pause,
   Square,
   RefreshCw,
-  Globe
+  Globe,
+  Search
 } from 'lucide-react';
 import { useVirtualWorld } from '../../virtual-world/useVirtualWorld.js';
 import { RouteManager } from '../../virtual-world/routes.js';
@@ -19,6 +20,8 @@ import API from '../../lib/core/api.js';
 import { eventBus, EVENTS } from '../../lib/core/eventBus.js';
 import { notify } from '../../lib/core/utils.js';
 import { buildFecMessage, parseFecMessage } from './fec.js';
+import { POWER_ZONES, getZoneForPower } from '../../lib/pages/workout-builder/zones.js';
+import GlassCard from '../components/ui/GlassCard.jsx';
 
 const WORKOUT_STEPS = [
   { id: 'warmup', label: 'Warm up', durationSec: 600, targetPower: 150, zone: 'Z1' },
@@ -30,7 +33,9 @@ const WORKOUT_STEPS = [
 ];
 
 const DEFAULT_FTP = 250;
+const STARTER_WORKOUT_DESCRIPTION = 'Balanced demo session with a smooth warm up, two threshold efforts, and a controlled cool down.';
 const WORKOUT_LIBRARY_LIMIT = 200;
+const WORKOUT_PREVIEW_BLOCK_LIMIT = 5;
 const MAX_CHART_POINTS = 360;
 const PEDALING_CADENCE_THRESHOLD_RPM = 40;
 const CADENCE_TRANSITION_CONFIRM_TICKS = 2;
@@ -55,6 +60,7 @@ const HYBRID_SPEED_ALPHA_PEDALING = 0.25;
 const HYBRID_SPEED_ALPHA_COASTING = 0.45;
 const HYBRID_SPEED_FILTER_TIME_CONSTANT_SEC = 0.35;
 const HYBRID_SPEED_MAX_DELTA_KPH_PER_SEC = 14;
+const VIRTUAL_WORLD_ROUTE_START_OFFSET_METERS = 120;
 const PHYSICS_V2_ENABLED = (typeof globalThis === 'undefined')
   ? true
   : globalThis?.__VW_FLAGS?.physicsV2Enabled !== false;
@@ -106,6 +112,99 @@ const formatMetric = (value, options = {}) => {
   const { suffix = '', decimals = 0 } = options;
   if (!Number.isFinite(value)) return '--';
   return `${Number(value).toFixed(decimals)}${suffix}`;
+};
+
+const normalizeSearchValue = (value) => String(value || '').trim().toLowerCase();
+
+const hexToRgba = (hex, alpha) => {
+  const value = String(hex || '').replace('#', '').trim();
+  if (value.length !== 6) return `rgba(148, 163, 184, ${alpha})`;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const resolveZoneDefinition = (zoneLabel, targetPower, ftp = DEFAULT_FTP) => {
+  const normalizedZone = normalizeSearchValue(zoneLabel);
+
+  if (normalizedZone) {
+    const directMatch = POWER_ZONES.find((zone) => {
+      const zoneId = normalizeSearchValue(zone.id);
+      const zoneName = normalizeSearchValue(zone.name);
+      return normalizedZone === zoneId
+        || normalizedZone.includes(`(${zoneId})`)
+        || normalizedZone.includes(zoneName);
+    });
+
+    if (directMatch) return directMatch;
+
+    if (normalizedZone.includes('sweet')) {
+      return POWER_ZONES.find((zone) => zone.id === 'Z3') || null;
+    }
+  }
+
+  if (Number.isFinite(targetPower) && Number.isFinite(ftp) && ftp > 0) {
+    return getZoneForPower((targetPower / ftp) * 100);
+  }
+
+  return null;
+};
+
+const getZoneTone = (zone) => {
+  const id = String(zone?.id || '').toLowerCase();
+  return id || 'neutral';
+};
+
+const ZoneProgressBar = ({ value, zone, className = '', label }) => {
+  const progress = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={`lt-progress lt-zone-context ${className}`.trim()}
+      data-zone={getZoneTone(zone)}
+      viewBox="0 0 100 8"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <rect className="lt-progress__track" x="0" y="0" width="100" height="8" rx="4" />
+      <rect className="lt-progress__fill" x="0" y="0" width={progress} height="8" rx="4" />
+    </svg>
+  );
+};
+
+const ZoneStrip = ({ segments, className = '', label, segmentClassName = '' }) => {
+  let offset = 0;
+
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 100 18"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      {segments.map((segment) => {
+        const width = Math.max(0, Math.min(100 - offset, Number(segment.width) || 0));
+        const x = offset;
+        offset += width;
+        return (
+          <g key={segment.id}>
+            <rect
+              className={`${segmentClassName} lt-zone-context`.trim()}
+              data-zone={getZoneTone(segment.zone)}
+              x={x}
+              y="0"
+              width={width}
+              height="18"
+              rx="9"
+            />
+            {segment.title ? <title>{segment.title}</title> : null}
+          </g>
+        );
+      })}
+    </svg>
+  );
 };
 
 const average = (values) => {
@@ -230,6 +329,69 @@ const buildWorkoutSteps = (workout, ftp) => {
     .filter((step) => step.durationSec > 0);
 };
 
+const buildZoneBreakdown = (steps, ftp) => {
+  const totals = new Map();
+  let totalSeconds = 0;
+
+  steps.forEach((step) => {
+    const durationSec = Number(step?.durationSec) || 0;
+    if (durationSec <= 0) return;
+
+    const zone = resolveZoneDefinition(step?.zone, step?.targetPower, ftp);
+    if (!zone) return;
+
+    totalSeconds += durationSec;
+    totals.set(zone.id, (totals.get(zone.id) || 0) + durationSec);
+  });
+
+  if (!totalSeconds) return [];
+
+  return POWER_ZONES
+    .map((zone) => {
+      const durationSec = totals.get(zone.id) || 0;
+      return durationSec > 0
+        ? {
+          zone,
+          durationSec,
+          share: durationSec / totalSeconds
+        }
+        : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.durationSec - a.durationSec);
+};
+
+const buildPowerZoneBreakdown = (powerSeries, ftp = DEFAULT_FTP) => {
+  const totals = new Map();
+  const resolvedFtp = Number.isFinite(ftp) && ftp > 0 ? ftp : DEFAULT_FTP;
+  let totalSeconds = 0;
+
+  powerSeries.forEach((power) => {
+    if (!Number.isFinite(power) || power <= 0) return;
+    const zone = getZoneForPower((power / resolvedFtp) * 100);
+    if (!zone) return;
+
+    totalSeconds += 1;
+    totals.set(zone.id, (totals.get(zone.id) || 0) + 1);
+  });
+
+  if (!totalSeconds) return [];
+
+  return POWER_ZONES
+    .map((zone) => {
+      const durationSec = totals.get(zone.id) || 0;
+      return durationSec > 0
+        ? {
+          zone,
+          durationSec,
+          share: durationSec / totalSeconds
+        }
+        : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.durationSec - a.durationSec);
+};
+
 const parseIndoorBikeData = (dataView) => {
   if (!dataView) return {};
   let offset = 0;
@@ -334,8 +496,44 @@ const createSensorInputSnapshot = () => ({
   power: null,
   cadence: null,
   trainerSpeedKph: null,
-  heartRate: null
+  heartRate: null,
+  updatedAtMs: {
+    power: 0,
+    cadence: 0,
+    trainerSpeedKph: 0,
+    heartRate: 0
+  }
 });
+
+const SENSOR_SIGNAL_MAX_AGE_MS = {
+  power: 2500,
+  cadence: 1800,
+  trainerSpeedKph: 1800,
+  heartRate: 3000
+};
+
+const setFreshSensorValue = (snapshot, field, value, timestampMs = Date.now()) => {
+  if (!snapshot || !field) return;
+  if (!snapshot.updatedAtMs || typeof snapshot.updatedAtMs !== 'object') {
+    snapshot.updatedAtMs = { power: 0, cadence: 0, trainerSpeedKph: 0, heartRate: 0 };
+  }
+  snapshot[field] = value;
+  snapshot.updatedAtMs[field] = timestampMs;
+};
+
+const getFreshSensorValue = (snapshot, field, maxAgeMs, nowMs = Date.now()) => {
+  if (!snapshot || !field) return null;
+  const value = snapshot[field];
+  if (!Number.isFinite(value)) return null;
+  const updatedAtMs = Number(snapshot.updatedAtMs?.[field] || 0);
+  if (!updatedAtMs) return Number(value);
+  if ((nowMs - updatedAtMs) > maxAgeMs) return null;
+  return Number(value);
+};
+
+const toVirtualRouteDistance = (sessionDistanceMeters = 0) => (
+  Math.max(0, Number(sessionDistanceMeters) || 0) + VIRTUAL_WORLD_ROUTE_START_OFFSET_METERS
+);
 
 const buildControlCommand = (opcode, params = []) => new Uint8Array([opcode, ...params]);
 
@@ -409,6 +607,9 @@ const LiveTrainingApp = () => {
   const [workoutsError, setWorkoutsError] = useState('');
   const [selectedWorkoutId, setSelectedWorkoutId] = useState('');
   const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [workoutSearch, setWorkoutSearch] = useState('');
+  const [workoutTypeFilter, setWorkoutTypeFilter] = useState('all');
+  const [showWorkoutBlockModal, setShowWorkoutBlockModal] = useState(false);
   const [activeRouteId, setActiveRouteId] = useState(DEFAULT_ROUTE_ID);
   const [routeCatalogVersion, setRouteCatalogVersion] = useState(0);
   const [virtualWorldRuntimePreference, setVirtualWorldRuntimePreference] = useState(() => {
@@ -465,6 +666,7 @@ const LiveTrainingApp = () => {
   const trainerDeviceRef = useRef(null);
   const hrDeviceRef = useRef(null);
   const sensorInputRef = useRef(createSensorInputSnapshot());
+  const deferredWorkoutSearch = useDeferredValue(workoutSearch);
 
   const workoutSteps = useMemo(() => {
     const derived = buildWorkoutSteps(selectedWorkout, userFtp);
@@ -484,6 +686,33 @@ const LiveTrainingApp = () => {
       return String(a?.name || '').localeCompare(String(b?.name || ''));
     });
   }, [workouts]);
+  const workoutTypes = useMemo(() => (
+    [...new Set(
+      sortedWorkouts
+        .map((workout) => String(workout?.workout_type || '').trim())
+        .filter(Boolean)
+    )]
+  ), [sortedWorkouts]);
+  const filteredWorkouts = useMemo(() => {
+    const searchNeedle = normalizeSearchValue(deferredWorkoutSearch);
+
+    return sortedWorkouts.filter((workout) => {
+      const workoutType = String(workout?.workout_type || '').trim();
+      const haystack = [
+        workout?.name,
+        workout?.description,
+        workoutType,
+        ...(Array.isArray(workout?.tags) ? workout.tags : [])
+      ]
+        .map(normalizeSearchValue)
+        .join(' ');
+
+      const matchesSearch = !searchNeedle || haystack.includes(searchNeedle);
+      const matchesType = workoutTypeFilter === 'all' || workoutType === workoutTypeFilter;
+
+      return matchesSearch && matchesType;
+    });
+  }, [deferredWorkoutSearch, sortedWorkouts, workoutTypeFilter]);
   const routeOptions = useMemo(() => {
     return physicsRouteManagerRef.current
       .getRoutes()
@@ -509,6 +738,70 @@ const LiveTrainingApp = () => {
   const remainingStep = Math.max(0, stepDuration - stepElapsed);
   const totalProgress = totalDuration ? Math.min(1, totalElapsed / totalDuration) : 0;
   const stepProgress = stepDuration ? Math.min(1, stepElapsed / stepDuration) : 0;
+  const selectedWorkoutZoneBreakdown = useMemo(
+    () => buildZoneBreakdown(workoutSteps, userFtp),
+    [userFtp, workoutSteps]
+  );
+  const dominantZone = selectedWorkoutZoneBreakdown[0]?.zone || null;
+  const currentStepZone = useMemo(
+    () => resolveZoneDefinition(currentStep?.zone, currentStep?.targetPower, userFtp),
+    [currentStep?.targetPower, currentStep?.zone, userFtp]
+  );
+  const nextStepZone = useMemo(
+    () => resolveZoneDefinition(nextStep?.zone, nextStep?.targetPower, userFtp),
+    [nextStep?.targetPower, nextStep?.zone, userFtp]
+  );
+  const peakTargetPower = useMemo(() => (
+    workoutSteps.reduce((max, step) => Math.max(max, Number(step?.targetPower) || 0), 0)
+  ), [workoutSteps]);
+  const averageTargetPower = useMemo(() => {
+    if (!workoutSteps.length) return null;
+    const total = workoutSteps.reduce((sum, step) => sum + (Number(step?.targetPower) || 0), 0);
+    return total / workoutSteps.length;
+  }, [workoutSteps]);
+  const selectedWorkoutDescription = selectedWorkout?.description || STARTER_WORKOUT_DESCRIPTION;
+  const selectedWorkoutTypeLabel = selectedWorkout?.workout_type || 'Starter session';
+  const selectedWorkoutTss = Number(selectedWorkout?.estimated_tss);
+  const selectedWorkoutSegments = useMemo(() => {
+    if (!totalDuration) return [];
+    return workoutSteps.map((step) => {
+      const zone = resolveZoneDefinition(step?.zone, step?.targetPower, userFtp);
+      return {
+        id: step.id,
+        label: step.label,
+        width: (step.durationSec / totalDuration) * 100,
+        durationSec: step.durationSec,
+        zone
+      };
+    });
+  }, [totalDuration, userFtp, workoutSteps]);
+  const selectedWorkoutLoading = Boolean(
+    selectedWorkoutId
+    && (!selectedWorkout || String(selectedWorkout?.id || '') !== String(selectedWorkoutId))
+  );
+  const previewWorkoutSteps = useMemo(() => (
+    workoutSteps.slice(0, WORKOUT_PREVIEW_BLOCK_LIMIT)
+  ), [workoutSteps]);
+  const hiddenWorkoutStepCount = Math.max(0, workoutSteps.length - previewWorkoutSteps.length);
+  const sessionPowerSeries = useMemo(() => {
+    const samples = Array.isArray(sessionSummary?.samples) ? sessionSummary.samples : [];
+    if (!samples.length) return { filled: [], hasValue: false };
+    return fillForward(samples.map((sample) => sample?.power), 0);
+  }, [sessionSummary]);
+  const sessionZoneBreakdown = useMemo(() => {
+    if (!sessionPowerSeries.hasValue) return [];
+    return buildPowerZoneBreakdown(sessionPowerSeries.filled, userFtp);
+  }, [sessionPowerSeries, userFtp]);
+  const sessionDominantZone = sessionZoneBreakdown[0]?.zone || null;
+  const sessionIntensityFactor = useMemo(() => {
+    if (!Number.isFinite(sessionSummary?.normalizedPower) || !Number.isFinite(userFtp) || userFtp <= 0) return null;
+    return sessionSummary.normalizedPower / userFtp;
+  }, [sessionSummary?.normalizedPower, userFtp]);
+  const sessionPeakHeartRate = useMemo(() => {
+    const samples = Array.isArray(sessionSummary?.samples) ? sessionSummary.samples : [];
+    const heartRates = samples.map((sample) => sample?.heartRate).filter(Number.isFinite);
+    return heartRates.length ? Math.max(...heartRates) : null;
+  }, [sessionSummary]);
   const isSessionView = view === 'session';
 
   const isBluetoothSupported = typeof navigator !== 'undefined' && !!navigator.bluetooth;
@@ -742,8 +1035,9 @@ const LiveTrainingApp = () => {
       physicsEngineRef.current.reset(0);
     }
 
-    const routeInfo = routeManager.getPositionInfo(physicsDistanceRef.current || 0);
-    const grade = clampRealisticGrade(routeManager.getEffectiveGrade(physicsDistanceRef.current || 0));
+    const routeDistance = toVirtualRouteDistance(physicsDistanceRef.current || 0);
+    const routeInfo = routeManager.getPositionInfo(routeDistance);
+    const grade = clampRealisticGrade(routeManager.getEffectiveGrade(routeDistance));
     const altitude = routeInfo.altitude || 0;
 
     physicsTickRef.current.timestampMs = now;
@@ -936,6 +1230,25 @@ const LiveTrainingApp = () => {
     setTotalElapsed(0);
     resetChartData();
   }, [resetChartData, selectedWorkoutId]);
+
+  useEffect(() => {
+    if (sessionState !== 'idle' || isSessionView) {
+      setShowWorkoutBlockModal(false);
+    }
+  }, [isSessionView, sessionState]);
+
+  useEffect(() => {
+    if (!showWorkoutBlockModal || typeof window === 'undefined') return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowWorkoutBlockModal(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showWorkoutBlockModal]);
 
   useEffect(() => {
     document.body.classList.add('page-live-training');
@@ -1274,18 +1587,21 @@ const LiveTrainingApp = () => {
 
   const computeVirtualMotionStep = useCallback((input = {}, dt = PHYSICS_TICK_INTERVAL_MS / 1000) => {
     const routeManager = physicsRouteManagerRef.current;
-    const distanceMeters = Number(physicsDistanceRef.current || distanceMetersRef.current || 0);
-    const grade = clampRealisticGrade(routeManager.getEffectiveGrade(distanceMeters));
-    const routeInfo = routeManager.getPositionInfo(distanceMeters);
+    const sessionDistanceMeters = Number(physicsDistanceRef.current || distanceMetersRef.current || 0);
+    const routeDistanceMeters = toVirtualRouteDistance(sessionDistanceMeters);
+    const grade = clampRealisticGrade(routeManager.getEffectiveGrade(routeDistanceMeters));
+    const routeInfo = routeManager.getPositionInfo(routeDistanceMeters);
     const altitude = Number(routeInfo?.altitude) || 0;
     const now = Date.now();
     const safeDt = Math.max(PHYSICS_DT_MIN_SEC, Math.min(PHYSICS_DT_MAX_SEC, Number(dt) || (PHYSICS_TICK_INTERVAL_MS / 1000)));
-    const cadenceRaw = Number.isFinite(input.cadence) ? Math.max(0, Number(input.cadence)) : 0;
-    const trainerSpeedRaw = Number(input.trainerSpeedKph);
+    const cadenceValue = getFreshSensorValue(input, 'cadence', SENSOR_SIGNAL_MAX_AGE_MS.cadence, now);
+    const cadenceRaw = Number.isFinite(cadenceValue) ? Math.max(0, Number(cadenceValue)) : 0;
+    const trainerSpeedRaw = getFreshSensorValue(input, 'trainerSpeedKph', SENSOR_SIGNAL_MAX_AGE_MS.trainerSpeedKph, now);
     const trainerSpeedValid = Number.isFinite(trainerSpeedRaw)
       && trainerSpeedRaw >= TRAINER_SPEED_VALID_MIN_KPH
       && trainerSpeedRaw <= TRAINER_SPEED_VALID_MAX_KPH;
     const trainerSpeedKph = trainerSpeedValid ? trainerSpeedRaw : null;
+    const powerRaw = getFreshSensorValue(input, 'power', SENSOR_SIGNAL_MAX_AGE_MS.power, now);
 
     const motion = motionSmoothingRef.current;
     motion.cadenceSmoothed = smoothTowards(motion.cadenceSmoothed || 0, cadenceRaw, safeDt, 0.4);
@@ -1325,8 +1641,9 @@ const LiveTrainingApp = () => {
       }
 
       const nextDistance = Number(physicsDistanceRef.current || 0);
-      const nextGrade = clampRealisticGrade(routeManager.getEffectiveGrade(nextDistance));
-      const nextRouteInfo = routeManager.getPositionInfo(nextDistance);
+      const nextRouteDistance = toVirtualRouteDistance(nextDistance);
+      const nextGrade = clampRealisticGrade(routeManager.getEffectiveGrade(nextRouteDistance));
+      const nextRouteInfo = routeManager.getPositionInfo(nextRouteDistance);
       const nextAltitude = Number(nextRouteInfo?.altitude) || altitude;
       physicsTickRef.current = {
         timestampMs: now,
@@ -1339,6 +1656,7 @@ const LiveTrainingApp = () => {
         routeGradePct: nextGrade * 100,
         routeAltitudeM: nextAltitude,
         distanceMeters: nextDistance,
+        routeDistanceMeters: nextRouteDistance,
         pedalingActive: Boolean(motion.pedalingActive),
         cadenceSmoothed: Number(motion.cadenceSmoothed.toFixed(1)),
         effortBand
@@ -1347,7 +1665,7 @@ const LiveTrainingApp = () => {
 
     const result = physicsEngineRef.current.step({
       dt: safeDt,
-      powerW: Number(input.power) || 0,
+      powerW: Number.isFinite(powerRaw) ? Number(powerRaw) : 0,
       cadenceRpm: cadenceRaw,
       grade
     });
@@ -1377,8 +1695,9 @@ const LiveTrainingApp = () => {
     }
 
     const nextDistance = Number(physicsDistanceRef.current || 0);
-    const nextGrade = clampRealisticGrade(routeManager.getEffectiveGrade(nextDistance));
-    const nextRouteInfo = routeManager.getPositionInfo(nextDistance);
+    const nextRouteDistance = toVirtualRouteDistance(nextDistance);
+    const nextGrade = clampRealisticGrade(routeManager.getEffectiveGrade(nextRouteDistance));
+    const nextRouteInfo = routeManager.getPositionInfo(nextRouteDistance);
     const nextAltitude = Number(nextRouteInfo?.altitude) || altitude;
     const roundedSpeedKph = Number(virtualSpeedKph.toFixed(1));
 
@@ -1394,6 +1713,7 @@ const LiveTrainingApp = () => {
       routeGradePct: nextGrade * 100,
       routeAltitudeM: nextAltitude,
       distanceMeters: nextDistance,
+      routeDistanceMeters: nextRouteDistance,
       pedalingActive: Boolean(motion.pedalingActive),
       cadenceSmoothed: Number(motion.cadenceSmoothed.toFixed(1)),
       effortBand
@@ -1409,24 +1729,29 @@ const LiveTrainingApp = () => {
       const computedDt = (now - prevTimestampMs) / 1000;
       const input = sensorInputRef.current || createSensorInputSnapshot();
       const motion = computeVirtualMotionStep(input, computedDt);
+      const freshPower = getFreshSensorValue(input, 'power', SENSOR_SIGNAL_MAX_AGE_MS.power, now);
+      const freshCadence = getFreshSensorValue(input, 'cadence', SENSOR_SIGNAL_MAX_AGE_MS.cadence, now);
+      const freshTrainerSpeed = getFreshSensorValue(input, 'trainerSpeedKph', SENSOR_SIGNAL_MAX_AGE_MS.trainerSpeedKph, now);
+      const freshHeartRate = getFreshSensorValue(input, 'heartRate', SENSOR_SIGNAL_MAX_AGE_MS.heartRate, now);
       const resolvedHeartRate = Number.isFinite(externalHrRef.current)
         ? externalHrRef.current
-        : (Number.isFinite(input.heartRate) ? input.heartRate : null);
+        : freshHeartRate;
 
       setLiveMetrics((prev) => {
         const next = {
           ...prev,
-          power: Number.isFinite(input.power) ? Number(input.power) : prev.power,
-          cadence: Number.isFinite(input.cadence) ? Number(input.cadence) : prev.cadence,
+          power: Number.isFinite(freshPower) ? Number(freshPower) : null,
+          cadence: Number.isFinite(freshCadence) ? Number(freshCadence) : null,
           cadenceSmoothed: motion.cadenceSmoothed,
           pedalingActive: motion.pedalingActive,
           effortBand: motion.effortBand,
-          heartRate: Number.isFinite(resolvedHeartRate) ? Number(resolvedHeartRate) : prev.heartRate,
-          trainerSpeedKph: Number.isFinite(input.trainerSpeedKph) ? Number(input.trainerSpeedKph) : prev.trainerSpeedKph,
+          heartRate: Number.isFinite(resolvedHeartRate) ? Number(resolvedHeartRate) : null,
+          trainerSpeedKph: Number.isFinite(freshTrainerSpeed) ? Number(freshTrainerSpeed) : null,
           speed: motion.virtualSpeedKph,
           virtualSpeedKph: motion.virtualSpeedKph,
           routeGradePct: motion.routeGradePct,
-          routeAltitudeM: motion.routeAltitudeM
+          routeAltitudeM: motion.routeAltitudeM,
+          routeDistanceMeters: motion.routeDistanceMeters
         };
 
         if (
@@ -1441,6 +1766,7 @@ const LiveTrainingApp = () => {
           && next.virtualSpeedKph === prev.virtualSpeedKph
           && next.routeGradePct === prev.routeGradePct
           && next.routeAltitudeM === prev.routeAltitudeM
+          && next.routeDistanceMeters === prev.routeDistanceMeters
         ) {
           return prev;
         }
@@ -1461,26 +1787,26 @@ const LiveTrainingApp = () => {
 
   const handleBikeData = useCallback((event) => {
     const data = parseIndoorBikeData(event.target.value);
-    if (Number.isFinite(data.power)) sensorInputRef.current.power = data.power;
-    if (Number.isFinite(data.cadence)) sensorInputRef.current.cadence = data.cadence;
-    if (Number.isFinite(data.speed)) sensorInputRef.current.trainerSpeedKph = data.speed;
+    if (Number.isFinite(data.power)) setFreshSensorValue(sensorInputRef.current, 'power', data.power);
+    if (Number.isFinite(data.cadence)) setFreshSensorValue(sensorInputRef.current, 'cadence', data.cadence);
+    if (Number.isFinite(data.speed)) setFreshSensorValue(sensorInputRef.current, 'trainerSpeedKph', data.speed);
     if (externalHrRef.current == null && Number.isFinite(data.heartRate)) {
-      sensorInputRef.current.heartRate = data.heartRate;
+      setFreshSensorValue(sensorInputRef.current, 'heartRate', data.heartRate);
     }
   }, []);
 
   const handlePowerData = useCallback((event) => {
     const data = parseCyclingPowerMeasurement(event.target.value, cadenceRef);
-    if (Number.isFinite(data.power)) sensorInputRef.current.power = data.power;
-    if (Number.isFinite(data.cadence)) sensorInputRef.current.cadence = Math.round(data.cadence);
+    if (Number.isFinite(data.power)) setFreshSensorValue(sensorInputRef.current, 'power', data.power);
+    if (Number.isFinite(data.cadence)) setFreshSensorValue(sensorInputRef.current, 'cadence', Math.round(data.cadence));
   }, []);
 
   const handleFecData = useCallback((event) => {
     const message = parseFecMessage(event.target.value);
     if (!message?.decoded) return;
     const { power, cadence } = message.decoded;
-    if (Number.isFinite(power)) sensorInputRef.current.power = power;
-    if (Number.isFinite(cadence)) sensorInputRef.current.cadence = cadence;
+    if (Number.isFinite(power)) setFreshSensorValue(sensorInputRef.current, 'power', power);
+    if (Number.isFinite(cadence)) setFreshSensorValue(sensorInputRef.current, 'cadence', cadence);
   }, []);
 
   const sendFecPage = useCallback(async (controlChar, dataPage, payload) => {
@@ -1501,7 +1827,7 @@ const LiveTrainingApp = () => {
   const handleHrData = useCallback((event) => {
     const hr = parseHeartRateMeasurement(event.target.value);
     if (Number.isFinite(hr)) {
-      sensorInputRef.current.heartRate = hr;
+      setFreshSensorValue(sensorInputRef.current, 'heartRate', hr);
       setExternalHr(hr);
     }
   }, []);
@@ -2088,6 +2414,11 @@ const LiveTrainingApp = () => {
     heartRate: Number.isFinite(externalHr) ? externalHr : liveMetrics.heartRate
   }), [liveMetrics, externalHr]);
 
+  const virtualWorldRouteDistanceMeters = useMemo(
+    () => toVirtualRouteDistance(liveDistanceMeters),
+    [liveDistanceMeters]
+  );
+
   const virtualWorld = useVirtualWorld({
     liveMetrics: virtualWorldMetrics,
     sessionState,
@@ -2096,7 +2427,8 @@ const LiveTrainingApp = () => {
     elapsed: totalElapsed,
     stepElapsed,
     stepRemaining: remainingStep,
-    distance: liveDistanceMeters,
+    distance: virtualWorldRouteDistanceMeters,
+    sessionDistance: liveDistanceMeters,
     routeId: activeRouteId,
     runtime: resolvedVirtualWorldRuntime,
     presentation: 'popup',
@@ -2480,6 +2812,16 @@ const LiveTrainingApp = () => {
   const trainerShowDisconnect = trainerConnected || trainerConnecting;
   const hrConnected = hrState.status === 'connected';
   const displayedHr = Number.isFinite(externalHr) ? externalHr : liveMetrics.heartRate;
+  const connectedDeviceCount = Number(trainerConnected) + Number(hrConnected);
+  const connectionReady = trainerConnected && hrConnected;
+  const trainerModeLabel = trainerControlAvailable
+    ? 'ERG ready'
+    : trainerConnected
+      ? 'Power only'
+      : 'Awaiting trainer';
+  const heartRateSourceLabel = hrConnected
+    ? (hrState.name || 'External HRM')
+    : (Number.isFinite(displayedHr) ? 'Trainer feed' : 'No HR source');
   const isDeviceActive = trainerConnected || hrConnected;
   const stravaConnected = Boolean(stravaStatus?.connected);
   const stravaLabel = stravaStatus?.loading
@@ -2506,6 +2848,21 @@ const LiveTrainingApp = () => {
     ? null
     : `${powerDelta > 0 ? '+' : ''}${powerDelta} W`;
 
+  const handleDiscardSession = useCallback(() => {
+    const hasPendingSave = Boolean(pendingUpload);
+    const message = hasPendingSave
+      ? 'Discard this recap and remove the pending local upload state? Already-saved activities will not be deleted.'
+      : 'Discard this workout recap without saving it?';
+
+    if (typeof window !== 'undefined' && !window.confirm(message)) {
+      return;
+    }
+
+    setSaveStatus('idle');
+    clearSessionRecap();
+    notify('Workout recap discarded.', 'info');
+  }, [clearSessionRecap, pendingUpload]);
+
   const handleStartSession = async () => {
     await startSession();
     navigateToSession();
@@ -2518,24 +2875,66 @@ const LiveTrainingApp = () => {
   return (
     <div className={`live-training ${isSessionView ? 'live-training--session' : 'live-training--setup'}`}>
       {isSessionView ? (
-        <header className="page-header lt-hero lt-hero--session">
-          <div>
-            <p className="lt-eyebrow">Live session</p>
-            <h1 className="page-title">Workout in progress</h1>
-            <p className="page-description">
-              Keep your focus on the current block. Your trainer is being paced in ERG mode.
-            </p>
-            <div className="page-header__meta">
-              <span className="page-pill page-pill--accent">{sessionLabel}</span>
-              <span className="page-pill">Elapsed {formatDuration(totalElapsed)}</span>
-              <span className="page-pill">Target {formatMetric(currentStep?.targetPower, { suffix: ' W' })}</span>
-              <span className="page-pill page-pill--muted">{trainerStatusText}</span>
+        <header className="page-header page-header--flat lt-hero lt-hero--session lt-zone-context" data-zone={getZoneTone(currentStepZone)}>
+          <div className="lt-session-hero">
+            <div className="lt-session-hero__main">
+              <div>
+                <p className="lt-eyebrow">Live session</p>
+                <h1 className="page-title">Workout in progress</h1>
+                <p className="page-description">
+                  Stay locked on the current block while ERG pacing and the virtual ride remain in sync.
+                </p>
+              </div>
+              <div className="lt-session-hero__meta">
+                <span className="page-pill page-pill--accent">{sessionLabel}</span>
+                <span className="page-pill lt-zone-context" data-zone={getZoneTone(currentStepZone)}>
+                  {currentStepZone ? `${currentStepZone.name} (${currentStepZone.id})` : 'Structured block'}
+                </span>
+                <span className="page-pill page-pill--muted">{trainerStatusText}</span>
+              </div>
             </div>
-          </div>
-          <div className="page-header__actions lt-hero-actions">
-            <button className="btn btn--secondary" type="button" onClick={handleExitSession}>
-              Back to setup
-            </button>
+
+            <div className="lt-session-hero__stats">
+              <div className="lt-session-hero__stat lt-session-hero__stat--primary">
+                <span className="lt-session-hero__label">Current block</span>
+                <strong className="lt-session-hero__value">{currentStep?.label || 'Warm up'}</strong>
+                <span className="lt-session-hero__meta-copy">
+                  {formatMetric(currentStep?.targetPower, { suffix: ' W' })} target
+                </span>
+              </div>
+              <div className="lt-session-hero__stat">
+                <span className="lt-session-hero__label">Remaining</span>
+                <strong className="lt-session-hero__value">{formatDuration(remainingStep)}</strong>
+                <span className="lt-session-hero__meta-copy">of {formatDuration(stepDuration)}</span>
+              </div>
+              <div className="lt-session-hero__stat">
+                <span className="lt-session-hero__label">Elapsed</span>
+                <strong className="lt-session-hero__value">{formatDuration(totalElapsed)}</strong>
+                <span className="lt-session-hero__meta-copy">total {formatDuration(totalDuration)}</span>
+              </div>
+              <div className="lt-session-hero__stat">
+                <span className="lt-session-hero__label">Next</span>
+                <strong className="lt-session-hero__value">{nextStep ? nextStep.label : 'Finish'}</strong>
+                <span className="lt-session-hero__meta-copy">
+                  {nextStep ? formatMetric(nextStep.targetPower, { suffix: ' W' }) : 'No further block'}
+                </span>
+              </div>
+            </div>
+
+            <div className="lt-session-hero__actions">
+              <div className="lt-session-hero__progress">
+                <div className="lt-label">Workout progress</div>
+                <ZoneProgressBar
+                  value={totalProgress * 100}
+                  zone={dominantZone}
+                  className="lt-session-hero__progress-bar"
+                  label="Workout progress"
+                />
+              </div>
+              <button className="btn btn--secondary" type="button" onClick={handleExitSession}>
+                Back to setup
+              </button>
+            </div>
           </div>
         </header>
       ) : (
@@ -2611,6 +3010,71 @@ const LiveTrainingApp = () => {
                     </div>
                   </div>
                 </div>
+
+                <div className="lt-session-summary__hero lt-zone-context" data-zone={getZoneTone(sessionDominantZone)}>
+                  <div className="lt-session-summary__hero-main">
+                    <div className="lt-label">Session snapshot</div>
+                    <div className="lt-session-summary__hero-value">
+                      {formatMetric(sessionSummary.normalizedPower, { suffix: ' W' })}
+                    </div>
+                    <div className="lt-session-summary__hero-meta">
+                      NP
+                      {sessionIntensityFactor !== null && (
+                        <span>IF {sessionIntensityFactor.toFixed(2)}</span>
+                      )}
+                      {sessionDominantZone && (
+                        <span>{sessionDominantZone.name} focus</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="lt-session-summary__hero-grid">
+                    <div className="lt-session-summary__hero-tile">
+                      <span className="lt-session-summary__hero-label">Avg power</span>
+                      <strong>{formatMetric(sessionSummary.avgPower, { suffix: ' W' })}</strong>
+                    </div>
+                    <div className="lt-session-summary__hero-tile">
+                      <span className="lt-session-summary__hero-label">Peak HR</span>
+                      <strong>{formatMetric(sessionPeakHeartRate, { suffix: ' bpm' })}</strong>
+                    </div>
+                    <div className="lt-session-summary__hero-tile">
+                      <span className="lt-session-summary__hero-label">Distance</span>
+                      <strong>
+                        {formatMetric(
+                          Number.isFinite(sessionSummary.distanceMeters)
+                            ? sessionSummary.distanceMeters / 1000
+                            : null,
+                          { suffix: ' km', decimals: 2 }
+                        )}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {sessionZoneBreakdown.length > 0 && (
+                  <div className="lt-session-summary__zones">
+                    <div className="lt-label">Power zone distribution</div>
+                    <ZoneStrip
+                      segments={sessionZoneBreakdown.map(({ zone, share }) => ({
+                        id: zone.id,
+                        zone,
+                        width: share * 100,
+                        title: `${zone.name} · ${Math.round(share * 100)}%`
+                      }))}
+                      className="lt-session-summary__zone-strip"
+                      segmentClassName="lt-session-summary__zone-segment"
+                      label="Session power zone distribution"
+                    />
+                    <div className="lt-session-summary__zone-grid">
+                      {sessionZoneBreakdown.map(({ zone, durationSec, share }) => (
+                        <div key={zone.id} className="lt-session-summary__zone-card lt-zone-context" data-zone={getZoneTone(zone)}>
+                          <span className="lt-session-summary__zone-name">{zone.name}</span>
+                          <strong className="lt-session-summary__zone-value">{Math.round(share * 100)}%</strong>
+                          <span className="lt-session-summary__zone-time">{formatDuration(durationSec)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="lt-session-summary__grid">
                   <div className="lt-session-summary__metric">
@@ -2701,6 +3165,14 @@ const LiveTrainingApp = () => {
                     >
                       {saveLabel}
                     </button>
+                    <button
+                      className="btn btn--secondary"
+                      type="button"
+                      onClick={handleDiscardSession}
+                      disabled={saveStatus === 'saving'}
+                    >
+                      Discard
+                    </button>
                     {pendingUpload && (
                       <button
                         className="btn btn--secondary"
@@ -2732,69 +3204,127 @@ const LiveTrainingApp = () => {
               </div>
             </div>
 
-            <div className="lt-device-grid">
-              <div className="lt-device">
-                <div className="lt-device__icon">
-                  <Bluetooth size={22} />
+            <div className="lt-connection-overview">
+              <div className={`lt-connection-kpi lt-connection-kpi--primary${connectionReady ? ' is-ready' : ''}`}>
+                <div className="lt-connection-kpi__label">Studio readiness</div>
+                <div className="lt-connection-kpi__value">{connectionReady ? 'Ready to ride' : 'Needs pairing'}</div>
+                <div className="lt-connection-kpi__meta">
+                  {connectedDeviceCount}/2 devices connected
                 </div>
-                <div className="lt-device__content">
-                  <div className="lt-device__title">Smart Trainer</div>
-                  <div className="lt-device__meta">ERG control via Fitness Machine (FTMS) or Tacx FEC over BLE.</div>
+              </div>
+              <div className="lt-connection-kpi">
+                <div className="lt-connection-kpi__label">Trainer mode</div>
+                <div className="lt-connection-kpi__value">{trainerModeLabel}</div>
+                <div className="lt-connection-kpi__meta">{trainerControlLabel}</div>
+              </div>
+              <div className="lt-connection-kpi">
+                <div className="lt-connection-kpi__label">Heart rate source</div>
+                <div className="lt-connection-kpi__value">{heartRateSourceLabel}</div>
+                <div className="lt-connection-kpi__meta">
+                  {Number.isFinite(displayedHr) ? `${Math.round(displayedHr)} bpm live` : 'No active HR stream'}
+                </div>
+              </div>
+            </div>
+
+            <div className="lt-device-grid">
+              <div className="lt-device lt-device--trainer">
+                <div className="lt-device__head">
+                  <div className="lt-device__icon">
+                    <Bluetooth size={22} />
+                  </div>
+                  <div className="lt-device__content">
+                    <div className="lt-device__title">Smart Trainer</div>
+                    <div className="lt-device__meta">ERG control via Fitness Machine (FTMS) or Tacx FEC over BLE.</div>
+                  </div>
                   <div className={`lt-status lt-status--${trainerConnected ? 'on' : 'off'}`}>
                     {trainerStatusText}
                   </div>
-                  {trainerState.error && <p className="lt-error">{trainerState.error}</p>}
                 </div>
-                <div className="lt-device__actions">
-                  {trainerShowDisconnect ? (
-                    <button className="btn btn--secondary" type="button" onClick={disconnectTrainer}>
-                      {trainerConnecting ? 'Cancel' : 'Disconnect'}
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        className="btn btn--primary"
-                        type="button"
-                        onClick={() => connectTrainer(true)}
-                        disabled={!isBluetoothSupported || trainerConnecting}
-                      >
-                        Connect (ERG)
+
+                <div className="lt-device__facts">
+                  <span className="lt-device__fact">{trainerModeLabel}</span>
+                  <span className="lt-device__fact">
+                    {trainerConnected ? trainerControlLabel : 'No active control'}
+                  </span>
+                  <span className="lt-device__fact">
+                    {Number.isFinite(liveMetrics.power) ? `${Math.round(liveMetrics.power)} W live` : 'No live power'}
+                  </span>
+                </div>
+
+                <div className="lt-device__footer">
+                  <div className="lt-device__support">
+                    Use ERG when you want automatic pacing, or power-only for free riding with data.
+                  </div>
+                  {trainerState.error && <p className="lt-error">{trainerState.error}</p>}
+                  <div className="lt-device__actions">
+                    {trainerShowDisconnect ? (
+                      <button className="btn btn--secondary" type="button" onClick={disconnectTrainer}>
+                        {trainerConnecting ? 'Cancel' : 'Disconnect'}
                       </button>
-                      <button
-                        className="btn btn--secondary"
-                        type="button"
-                        onClick={() => connectTrainer(false)}
-                        disabled={!isBluetoothSupported || trainerConnecting}
-                      >
-                        Power only
-                      </button>
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        <button
+                          className="btn btn--primary"
+                          type="button"
+                          onClick={() => connectTrainer(true)}
+                          disabled={!isBluetoothSupported || trainerConnecting}
+                        >
+                          Connect (ERG)
+                        </button>
+                        <button
+                          className="btn btn--secondary"
+                          type="button"
+                          onClick={() => connectTrainer(false)}
+                          disabled={!isBluetoothSupported || trainerConnecting}
+                        >
+                          Power only
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="lt-device">
-                <div className="lt-device__icon">
-                  <HeartPulse size={22} />
-                </div>
-                <div className="lt-device__content">
-                  <div className="lt-device__title">Heart Rate</div>
-                  <div className="lt-device__meta">Bluetooth HRM profile</div>
+              <div className="lt-device lt-device--hr">
+                <div className="lt-device__head">
+                  <div className="lt-device__icon">
+                    <HeartPulse size={22} />
+                  </div>
+                  <div className="lt-device__content">
+                    <div className="lt-device__title">Heart Rate</div>
+                    <div className="lt-device__meta">Bluetooth HRM profile</div>
+                  </div>
                   <div className={`lt-status lt-status--${hrConnected ? 'on' : 'off'}`}>
                     {hrConnected ? `Connected: ${hrState.name}` : 'Not connected'}
                   </div>
-                  {hrState.error && <p className="lt-error">{hrState.error}</p>}
                 </div>
-                <div className="lt-device__actions">
-                  {hrConnected ? (
-                    <button className="btn btn--secondary" type="button" onClick={disconnectHeartRate}>
-                      Disconnect
-                    </button>
-                  ) : (
-                    <button className="btn btn--primary" type="button" onClick={connectHeartRate} disabled={!isBluetoothSupported}>
-                      Connect
-                    </button>
-                  )}
+
+                <div className="lt-device__facts">
+                  <span className="lt-device__fact">{heartRateSourceLabel}</span>
+                  <span className="lt-device__fact">
+                    {Number.isFinite(displayedHr) ? `${Math.round(displayedHr)} bpm live` : 'Waiting for HR'}
+                  </span>
+                  <span className="lt-device__fact">
+                    {hrConnected ? 'Dedicated HR broadcast' : 'Can fall back to trainer HR if available'}
+                  </span>
+                </div>
+
+                <div className="lt-device__footer">
+                  <div className="lt-device__support">
+                    A dedicated HR strap gives more reliable feedback for session analysis and upload.
+                  </div>
+                  {hrState.error && <p className="lt-error">{hrState.error}</p>}
+                  <div className="lt-device__actions">
+                    {hrConnected ? (
+                      <button className="btn btn--secondary" type="button" onClick={disconnectHeartRate}>
+                        Disconnect
+                      </button>
+                    ) : (
+                      <button className="btn btn--primary" type="button" onClick={connectHeartRate} disabled={!isBluetoothSupported}>
+                        Connect
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2809,140 +3339,330 @@ const LiveTrainingApp = () => {
             </div>
 
             <div className="lt-workout">
-              <div className="lt-workout__summary">
-                <div className="lt-workout__selector">
-                  <div className="lt-label">Workout library</div>
-                  <select
-                    className="form-select"
-                    value={selectedWorkoutId}
-                    onChange={(event) => setSelectedWorkoutId(event.target.value)}
-                    disabled={sessionState !== 'idle' || workoutsLoading}
-                  >
-                    <option value="">Starter session (demo)</option>
-                    {sortedWorkouts.map((workout) => (
-                      <option key={workout.id} value={workout.id}>
-                        {workout.name || `Workout ${workout.id}`}{workout.workout_type ? ` (${workout.workout_type})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="lt-workout__hint">
-                    {workoutsLoading && <span>Loading workouts…</span>}
-                    {!workoutsLoading && workoutsError && <span className="lt-error">{workoutsError}</span>}
-                    {!workoutsLoading && !workoutsError && (
-                      <span>FTP target: {formatMetric(userFtp, { suffix: ' W' })}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="lt-workout__selector">
-                  <div className="lt-label">Route</div>
-                  <select
-                    className="form-select"
-                    value={activeRouteId}
-                    onChange={(event) => setActiveRouteId(event.target.value)}
-                    disabled={sessionState !== 'idle'}
-                  >
-                    {routeOptions.map((route) => (
-                      <option key={route.id} value={route.id}>
-                        {route.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="lt-workout__hint">
-                    <span>Route drives gradient, altitude, and minimap profile.</span>
-                  </div>
-                </div>
-                <div className="lt-workout__selector">
-                  <div className="lt-label">World runtime</div>
-                  <select
-                    className="form-select"
-                    value={virtualWorldRuntimePreference}
-                    onChange={(event) => setVirtualWorldRuntimePreference(event.target.value === 'unity' ? 'unity' : 'three')}
-                    disabled={sessionState !== 'idle' || !unityRuntimeAvailable || UNITY_ONLY_MODE}
-                  >
-                    {!UNITY_ONLY_MODE && <option value="three">Three.js (stable)</option>}
-                    {unityRuntimeAvailable && (
-                      <option value="unity">Unity WebGL (beta)</option>
-                    )}
-                  </select>
-                  <div className="lt-workout__hint">
-                    {!unityRuntimeAvailable && (
-                      <span>Unity runtime is disabled. Set `__VW_FLAGS.unityRuntimeEnabled = true`.</span>
-                    )}
-                    {unityRuntimeAvailable && UNITY_ONLY_MODE && (
-                      <span>Unity-only mode is enabled for Virtual World.</span>
-                    )}
-                    {unityRuntimeAvailable && !UNITY_ONLY_MODE && virtualWorldRuntimePreference === 'unity' && !unityRouteAllowed && (
-                      <span>Unity is scoped to {runtimeScopeLabel}. Current route uses Three.js.</span>
-                    )}
-                    {unityRuntimeAvailable && (!UNITY_ONLY_MODE && (virtualWorldRuntimePreference !== 'unity' || unityRouteAllowed)) && (
-                      <span>Active runtime: {virtualWorld.activeRuntime === 'unity' ? 'Unity WebGL' : 'Three.js'}.</span>
-                    )}
-                    {unityRuntimeAvailable && UNITY_ONLY_MODE && (
-                      <span>Active runtime: Unity WebGL.</span>
-                    )}
-                  </div>
-                </div>
-                <div className="lt-workout__row">
-                  <Zap size={18} />
+              <div className="lt-workout__catalog">
+                <div className="lt-workout__catalog-head">
                   <div>
-                    <div className="lt-label">Target power</div>
-                    <div className="lt-value">{formatMetric(currentStep?.targetPower, { suffix: ' W' })}</div>
-                  </div>
-                </div>
-                <div className="lt-workout__row">
-                  <Timer size={18} />
-                  <div>
-                    <div className="lt-label">Step time</div>
-                    <div className="lt-value">{formatDuration(stepElapsed)} / {formatDuration(stepDuration)}</div>
-                  </div>
-                </div>
-                <div className="lt-workout__row">
-                  <Gauge size={18} />
-                  <div>
-                    <div className="lt-label">Next block</div>
-                    <div className="lt-value">
-                      {nextStep
-                        ? `${nextStep.label} · ${formatMetric(nextStep.targetPower, { suffix: ' W' })}`
-                        : 'Finish'}
+                    <div className="lt-label">Workout library</div>
+                    <div className="lt-workout__catalog-title">
+                      {workoutsLoading ? 'Loading sessions…' : `${filteredWorkouts.length} session${filteredWorkouts.length === 1 ? '' : 's'} ready`}
                     </div>
                   </div>
-                </div>
-                <div className="lt-workout__row">
-                  <Gauge size={18} />
-                  <div>
-                    <div className="lt-label">Session</div>
-                    <div className="lt-value">{sessionLabel}</div>
+                  <div className="lt-workout__catalog-meta">
+                    {sortedWorkouts.length} total
                   </div>
                 </div>
-                <div className="lt-progress">
-                  <div className="lt-progress__bar" style={{ width: `${stepProgress * 100}%` }}></div>
+
+                <label className="lt-workout__search">
+                  <Search size={16} className="lt-workout__search-icon" />
+                  <input
+                    className="form-input"
+                    type="search"
+                    value={workoutSearch}
+                    onChange={(event) => setWorkoutSearch(event.target.value)}
+                    placeholder="Search by name, type, or tags"
+                    disabled={sessionState !== 'idle'}
+                  />
+                </label>
+
+                <div className="lt-workout__filters" role="tablist" aria-label="Workout types">
+                  <button
+                    type="button"
+                    className={`lt-workout__filter${workoutTypeFilter === 'all' ? ' lt-workout__filter--active' : ''}`}
+                    onClick={() => setWorkoutTypeFilter('all')}
+                    disabled={sessionState !== 'idle'}
+                  >
+                    All
+                  </button>
+                  {workoutTypes.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={`lt-workout__filter${workoutTypeFilter === type ? ' lt-workout__filter--active' : ''}`}
+                      onClick={() => setWorkoutTypeFilter(type)}
+                      disabled={sessionState !== 'idle'}
+                    >
+                      {type}
+                    </button>
+                  ))}
                 </div>
-                <div className="lt-progress lt-progress--total">
-                  <div className="lt-progress__bar" style={{ width: `${totalProgress * 100}%` }}></div>
+
+                <div className="lt-workout__hint">
+                  {workoutsError && <span className="lt-error">{workoutsError}</span>}
+                  {!workoutsError && <span>Browse by type, then pick from a card with the session details visible up front.</span>}
                 </div>
-                <div className="lt-workout__foot">
-                  <span>
-                    {selectedWorkout?.name ? `Workout: ${selectedWorkout.name}` : 'Starter session'}
-                  </span>
-                  <span>Total: {formatDuration(totalDuration)}</span>
+
+                <div className="lt-workout__picker">
+                  <button
+                    type="button"
+                    className={`lt-workout__card lt-zone-context${selectedWorkoutId ? '' : ' lt-workout__card--active'}`}
+                    data-zone="z4"
+                    onClick={() => setSelectedWorkoutId('')}
+                    disabled={sessionState !== 'idle'}
+                  >
+                    <div className="lt-workout__card-head">
+                      <div>
+                        <div className="lt-workout__card-title">Starter session</div>
+                        <div className="lt-workout__card-type">Demo pacing</div>
+                      </div>
+                      <span className="lt-workout__card-badge">Ready</span>
+                    </div>
+                    <p className="lt-workout__card-description">{STARTER_WORKOUT_DESCRIPTION}</p>
+                    <div className="lt-workout__card-stats">
+                      <span>{formatDuration(WORKOUT_STEPS.reduce((sum, step) => sum + step.durationSec, 0))}</span>
+                      <span>{WORKOUT_STEPS.length} blocks</span>
+                      <span>Threshold focus</span>
+                    </div>
+                  </button>
+
+                  {!workoutsLoading && filteredWorkouts.length === 0 && (
+                    <div className="lt-workout__empty">
+                      No workouts match this search. Clear the filters or use the starter session.
+                    </div>
+                  )}
+
+                  {filteredWorkouts.map((workout) => {
+                    const previewSteps = Array.isArray(workout?.intervals) ? buildWorkoutSteps(workout, userFtp) : [];
+                    const previewZone = previewSteps.length
+                      ? buildZoneBreakdown(previewSteps, userFtp)[0]?.zone
+                      : resolveZoneDefinition(workout?.workout_type, null, userFtp);
+                    const durationSeconds = Number(workout?.total_duration) || previewSteps.reduce((sum, step) => sum + step.durationSec, 0);
+                    const tssValue = Number(workout?.estimated_tss);
+
+                    return (
+                      <button
+                        key={workout.id}
+                        type="button"
+                        className={`lt-workout__card lt-zone-context${String(selectedWorkoutId) === String(workout.id) ? ' lt-workout__card--active' : ''}`}
+                        onClick={() => setSelectedWorkoutId(String(workout.id))}
+                        disabled={sessionState !== 'idle'}
+                        data-zone={getZoneTone(previewZone)}
+                      >
+                        <div className="lt-workout__card-head">
+                          <div>
+                            <div className="lt-workout__card-title">{workout.name || `Workout ${workout.id}`}</div>
+                            <div className="lt-workout__card-type">{workout.workout_type || 'Structured session'}</div>
+                          </div>
+                          {workout.is_template && <span className="lt-workout__card-badge">Template</span>}
+                        </div>
+                        <p className="lt-workout__card-description">
+                          {workout.description || 'Structured power targets with ERG-ready pacing.'}
+                        </p>
+                        <div className="lt-workout__card-stats">
+                          <span>{durationSeconds ? formatDuration(durationSeconds) : '--'}</span>
+                          <span>{Number.isFinite(tssValue) ? `${Math.round(tssValue)} TSS` : 'TSS pending'}</span>
+                          <span>{previewSteps.length ? `${previewSteps.length} blocks` : 'Select for preview'}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="lt-workout__steps">
-                {workoutSteps.map((step, index) => (
-                  <div
-                    key={step.id}
-                    className={`lt-step${index === currentStepIndex ? ' lt-step--active' : ''}`}
-                  >
+              <div className="lt-workout__preview">
+                <div className="lt-workout__summary lt-zone-context" data-zone={getZoneTone(dominantZone)}>
+                  <div className="lt-workout__summary-head">
                     <div>
-                      <div className="lt-step__title">{step.label}</div>
-                      <div className="lt-step__meta">
-                        {formatDuration(step.durationSec)} · {step.targetPower} W
+                      <div className="lt-label">Selected workout</div>
+                      <div className="lt-workout__title">
+                        {selectedWorkout?.name || 'Starter session'}
+                      </div>
+                      <p className="lt-workout__description">{selectedWorkoutDescription}</p>
+                    </div>
+                    <div className="lt-workout__badges">
+                      <span className="lt-workout__badge">{selectedWorkoutTypeLabel}</span>
+                      {dominantZone && (
+                        <span className="lt-workout__badge lt-workout__badge--zone lt-zone-context" data-zone={getZoneTone(dominantZone)}>
+                          {dominantZone.name} ({dominantZone.id})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="lt-workout__insights">
+                    <div className="lt-workout__insight">
+                      <div className="lt-label">Duration</div>
+                      <div className="lt-value">{formatDuration(totalDuration)}</div>
+                    </div>
+                    <div className="lt-workout__insight">
+                      <div className="lt-label">Blocks</div>
+                      <div className="lt-value">{workoutSteps.length}</div>
+                    </div>
+                    <div className="lt-workout__insight">
+                      <div className="lt-label">Peak target</div>
+                      <div className="lt-value">{formatMetric(peakTargetPower, { suffix: ' W' })}</div>
+                    </div>
+                    <div className="lt-workout__insight">
+                      <div className="lt-label">Average target</div>
+                      <div className="lt-value">{formatMetric(averageTargetPower, { suffix: ' W' })}</div>
+                    </div>
+                    <div className="lt-workout__insight">
+                      <div className="lt-label">Estimated TSS</div>
+                      <div className="lt-value">{formatMetric(selectedWorkoutTss, { decimals: 0 })}</div>
+                    </div>
+                  </div>
+
+                  <div className="lt-workout__zone-overview">
+                    <div className="lt-label">Zone flow</div>
+                    <ZoneStrip
+                      segments={selectedWorkoutSegments.map((segment) => ({
+                        ...segment,
+                        title: `${segment.label} · ${formatDuration(segment.durationSec)} · ${segment.zone?.name || segment.zone?.id || 'Unzoned'}`
+                      }))}
+                      className="lt-workout__zone-strip"
+                      segmentClassName="lt-workout__zone-segment"
+                      label="Workout zone flow"
+                    />
+                    <div className="lt-workout__zone-legend">
+                      {selectedWorkoutZoneBreakdown.map(({ zone, durationSec, share }) => (
+                        <span key={zone.id} className="lt-workout__zone-chip lt-zone-context" data-zone={getZoneTone(zone)}>
+                          {zone.id} · {Math.round(share * 100)}% · {formatDuration(durationSec)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="lt-workout__selectors">
+                    <div className="lt-workout__selector">
+                      <div className="lt-label">Route</div>
+                      <select
+                        className="form-select"
+                        value={activeRouteId}
+                        onChange={(event) => setActiveRouteId(event.target.value)}
+                        disabled={sessionState !== 'idle'}
+                      >
+                        {routeOptions.map((route) => (
+                          <option key={route.id} value={route.id}>
+                            {route.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="lt-workout__hint">
+                        <span>Route drives gradient, altitude, and minimap profile.</span>
                       </div>
                     </div>
-                    <span className="lt-step__zone">{step.zone || '—'}</span>
+
+                    <div className="lt-workout__selector">
+                      <div className="lt-label">World runtime</div>
+                      <select
+                        className="form-select"
+                        value={virtualWorldRuntimePreference}
+                        onChange={(event) => setVirtualWorldRuntimePreference(event.target.value === 'unity' ? 'unity' : 'three')}
+                        disabled={sessionState !== 'idle' || !unityRuntimeAvailable || UNITY_ONLY_MODE}
+                      >
+                        {!UNITY_ONLY_MODE && <option value="three">Three.js (stable)</option>}
+                        {unityRuntimeAvailable && (
+                          <option value="unity">Unity WebGL (beta)</option>
+                        )}
+                      </select>
+                      <div className="lt-workout__hint">
+                        {!unityRuntimeAvailable && (
+                          <span>Unity runtime is disabled. Set `__VW_FLAGS.unityRuntimeEnabled = true`.</span>
+                        )}
+                        {unityRuntimeAvailable && UNITY_ONLY_MODE && (
+                          <span>Unity-only mode is enabled for Virtual World.</span>
+                        )}
+                        {unityRuntimeAvailable && !UNITY_ONLY_MODE && virtualWorldRuntimePreference === 'unity' && !unityRouteAllowed && (
+                          <span>Unity is scoped to {runtimeScopeLabel}. Current route uses Three.js.</span>
+                        )}
+                        {unityRuntimeAvailable && (!UNITY_ONLY_MODE && (virtualWorldRuntimePreference !== 'unity' || unityRouteAllowed)) && (
+                          <span>Active runtime: {virtualWorld.activeRuntime === 'unity' ? 'Unity WebGL' : 'Three.js'}.</span>
+                        )}
+                        {unityRuntimeAvailable && UNITY_ONLY_MODE && (
+                          <span>Active runtime: Unity WebGL.</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ))}
+
+                  <div className="lt-workout__rows">
+                    <div className="lt-workout__row">
+                      <Zap size={18} />
+                      <div>
+                        <div className="lt-label">Opening block</div>
+                        <div className="lt-value">{formatMetric(currentStep?.targetPower, { suffix: ' W' })}</div>
+                      </div>
+                    </div>
+                    <div className="lt-workout__row">
+                      <Timer size={18} />
+                      <div>
+                        <div className="lt-label">Opening duration</div>
+                        <div className="lt-value">{formatDuration(stepDuration)}</div>
+                      </div>
+                    </div>
+                    <div className="lt-workout__row">
+                      <Gauge size={18} />
+                      <div>
+                        <div className="lt-label">Next block</div>
+                        <div className="lt-value">
+                          {nextStep
+                            ? `${nextStep.label} · ${formatMetric(nextStep.targetPower, { suffix: ' W' })}`
+                            : 'Finish'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="lt-workout__row">
+                      <Gauge size={18} />
+                      <div>
+                        <div className="lt-label">Session</div>
+                        <div className="lt-value">{sessionLabel}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ZoneProgressBar
+                    value={stepProgress * 100}
+                    zone={currentStepZone}
+                    label="Current block progress"
+                  />
+                  <ZoneProgressBar
+                    value={totalProgress * 100}
+                    zone={dominantZone}
+                    className="lt-progress--total"
+                    label="Total session progress"
+                  />
+                  <div className="lt-workout__foot">
+                    <span>
+                      {selectedWorkoutLoading
+                        ? 'Loading workout details…'
+                        : (selectedWorkout?.name ? `Workout: ${selectedWorkout.name}` : 'Starter session')}
+                    </span>
+                    <span>Total: {formatDuration(totalDuration)} · FTP {formatMetric(userFtp, { suffix: ' W' })}</span>
+                  </div>
+                </div>
+
+                <div className="lt-workout__steps">
+                  {previewWorkoutSteps.map((step, index) => {
+                    const stepZone = resolveZoneDefinition(step?.zone, step?.targetPower, userFtp);
+                    return (
+                      <div
+                        key={step.id}
+                        className={`lt-step lt-zone-context${index === currentStepIndex ? ' lt-step--active' : ''}`}
+                        data-zone={getZoneTone(stepZone)}
+                      >
+                        <div>
+                          <div className="lt-step__eyebrow">Block {index + 1}</div>
+                          <div className="lt-step__title">{step.label}</div>
+                          <div className="lt-step__meta">
+                            {formatDuration(step.durationSec)} · {step.targetPower} W
+                          </div>
+                        </div>
+                        <span className="lt-step__zone">{step.zone || stepZone?.name || '—'}</span>
+                      </div>
+                    );
+                  })}
+                  {hiddenWorkoutStepCount > 0 && (
+                    <button
+                      type="button"
+                      className="lt-workout__show-more"
+                      onClick={() => setShowWorkoutBlockModal(true)}
+                    >
+                      <span className="lt-workout__show-more-title">Show all workout blocks</span>
+                      <span className="lt-workout__show-more-meta">
+                        {hiddenWorkoutStepCount} more block{hiddenWorkoutStepCount === 1 ? '' : 's'} hidden for a cleaner setup view
+                      </span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -3012,8 +3732,12 @@ const LiveTrainingApp = () => {
                     <p className="lt-chart__subtitle">Stable 1 Hz stream for clean pacing feedback.</p>
                   </div>
                   <div className="lt-chart__meta">
-                    <span className="lt-chart__pill">Target {formatMetric(currentStep?.targetPower, { suffix: ' W' })}</span>
-                    <span className="lt-chart__pill">Block {currentStep?.label || 'Warm up'}</span>
+                    <span className="lt-chart__pill lt-zone-context" data-zone={getZoneTone(currentStepZone)}>
+                      Target {formatMetric(currentStep?.targetPower, { suffix: ' W' })}
+                    </span>
+                    <span className="lt-chart__pill lt-zone-context" data-zone={getZoneTone(currentStepZone)}>
+                      Block {currentStep?.label || 'Warm up'}
+                    </span>
                     <span className="lt-chart__pill">Elapsed {formatDuration(totalElapsed)}</span>
                     <span className="lt-chart__pill">
                       Remaining {formatDuration(Math.max(0, totalDuration - totalElapsed))}
@@ -3074,18 +3798,20 @@ const LiveTrainingApp = () => {
             </div>
 
             <aside className="lt-session-stage__side">
-              <div className="lt-session-card">
+              <div className="lt-session-card lt-zone-context" data-zone={getZoneTone(currentStepZone)}>
                 <div className="lt-session-card__label">Current block</div>
                 <div className="lt-session-card__value">{currentStep?.label || 'Warm up'}</div>
                 <div className="lt-session-card__meta">
                   {formatDuration(remainingStep)} left · {formatDuration(stepDuration)}
                 </div>
-                <div className="lt-progress">
-                  <div className="lt-progress__bar" style={{ width: `${stepProgress * 100}%` }}></div>
-                </div>
+                <ZoneProgressBar
+                  value={stepProgress * 100}
+                  zone={currentStepZone}
+                  label="Current block progress"
+                />
               </div>
 
-              <div className="lt-session-card">
+              <div className="lt-session-card lt-zone-context" data-zone={getZoneTone(nextStepZone)}>
                 <div className="lt-session-card__label">Next block</div>
                 <div className="lt-session-card__value">{nextStep ? nextStep.label : 'Finish'}</div>
                 <div className="lt-session-card__meta">
@@ -3099,9 +3825,12 @@ const LiveTrainingApp = () => {
                 <div className="lt-session-card__meta">
                   Elapsed {formatDuration(totalElapsed)} · Remaining {formatDuration(Math.max(0, totalDuration - totalElapsed))}
                 </div>
-                <div className="lt-progress lt-progress--total">
-                  <div className="lt-progress__bar" style={{ width: `${totalProgress * 100}%` }}></div>
-                </div>
+                <ZoneProgressBar
+                  value={totalProgress * 100}
+                  zone={dominantZone}
+                  className="lt-progress--total"
+                  label="Total session progress"
+                />
               </div>
 
               <div className="lt-controls lt-controls--session">
@@ -3167,38 +3896,95 @@ const LiveTrainingApp = () => {
               </div>
             </div>
             <div className="lt-workout__steps lt-workout__steps--session">
-              {workoutSteps.map((step, index) => (
-                <div
-                  key={step.id}
-                  className={`lt-step${index === currentStepIndex ? ' lt-step--active' : ''}`}
-                >
-                  <div>
-                    <div className="lt-step__title">{step.label}</div>
-                    <div className="lt-step__meta">
-                      {formatDuration(step.durationSec)} · {step.targetPower} W
+              {workoutSteps.map((step, index) => {
+                const stepZone = resolveZoneDefinition(step?.zone, step?.targetPower, userFtp);
+                return (
+                  <div
+                    key={step.id}
+                    className={`lt-step lt-zone-context${index === currentStepIndex ? ' lt-step--active' : ''}`}
+                    data-zone={getZoneTone(stepZone)}
+                  >
+                    <div>
+                      <div className="lt-step__eyebrow">Block {index + 1}</div>
+                      <div className="lt-step__title">{step.label}</div>
+                      <div className="lt-step__meta">
+                        {formatDuration(step.durationSec)} · {step.targetPower} W
+                      </div>
                     </div>
+                    <span className="lt-step__zone">{step.zone || stepZone?.name || '—'}</span>
                   </div>
-                  <span className="lt-step__zone">{step.zone || '—'}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         </>
       )}
 
-      <section className="lt-section lt-section--virtual-world">
-        <div className="section-header">
-          <div>
-            <h2 className="section-title">Virtual World</h2>
-            <p className="section-subtitle">
-              Opens in a separate window and stays synced with live trainer data.
-            </p>
-          </div>
+      {showWorkoutBlockModal && !isSessionView && (
+        <div
+          className="lt-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lt-workout-blocks-title"
+          onClick={() => setShowWorkoutBlockModal(false)}
+        >
+          <GlassCard
+            className="lt-modal__card lt-modal__card--blocks"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="lt-modal__header">
+              <div>
+                <p className="lt-eyebrow">Workout blocks</p>
+                <h3 id="lt-workout-blocks-title" className="lt-modal__title">
+                  {selectedWorkout?.name || 'Starter session'}
+                </h3>
+                <p className="lt-modal__subtitle">
+                  Full block list with zone colors, target power, and durations.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => setShowWorkoutBlockModal(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="lt-modal__legend">
+              {selectedWorkoutZoneBreakdown.map(({ zone, durationSec, share }) => (
+                <span key={zone.id} className="lt-workout__zone-chip lt-zone-context" data-zone={getZoneTone(zone)}>
+                  {zone.name} · {Math.round(share * 100)}% · {formatDuration(durationSec)}
+                </span>
+              ))}
+            </div>
+
+            <div className="lt-modal__body">
+              <div className="lt-workout__steps lt-workout__steps--modal">
+                {workoutSteps.map((step, index) => {
+                  const stepZone = resolveZoneDefinition(step?.zone, step?.targetPower, userFtp);
+                  return (
+                    <div
+                      key={step.id}
+                      className={`lt-step lt-zone-context${index === currentStepIndex ? ' lt-step--active' : ''}`}
+                      data-zone={getZoneTone(stepZone)}
+                    >
+                      <div>
+                        <div className="lt-step__eyebrow">Block {index + 1}</div>
+                        <div className="lt-step__title">{step.label}</div>
+                        <div className="lt-step__meta">
+                          {formatDuration(step.durationSec)} · {step.targetPower} W
+                        </div>
+                      </div>
+                      <span className="lt-step__zone">{step.zone || stepZone?.name || '—'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </GlassCard>
         </div>
-        <div className="lt-virtual-world-host__placeholder">
-          Launch with the globe button. The Unity world opens in a separate popup window.
-        </div>
-      </section>
+      )}
     </div>
   );
 };

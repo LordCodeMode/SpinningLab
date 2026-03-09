@@ -5,6 +5,7 @@
 
 import { eventBus, EVENTS } from './eventBus.js';
 import { state } from './state.js';
+import { getDashboardPageMeta } from '../pages/registry.js';
 
 export class Router {
     constructor() {
@@ -166,37 +167,17 @@ export class Router {
 
     updatePageTitle(page) {
         const titleElement = document.getElementById('page-title');
-        if (!titleElement) return;
+        const subtitleElement = document.getElementById('page-subtitle');
+        const pageMeta = getDashboardPageMeta(page);
+        const title = pageMeta?.title || this.formatPageName(page);
 
-        const titles = {
-            // Core pages
-            'overview': 'Dashboard',
-            'activities': 'Activities',
-            'upload': 'Upload Files',
-            'settings': 'Settings',
+        if (titleElement) {
+            titleElement.textContent = title;
+        }
 
-            // Power Analysis
-            'power-curve': 'Power Curve Analysis',
-            'critical-power': 'Critical Power',
-            'best-powers': 'Best Power Values',
-            'zones': 'Power Zones',
-
-            // Performance
-            'training-load': 'Training Load',
-            'comparisons': 'Comparisons',
-            'hr-zones': 'Heart Rate Zones',
-            'vo2max': 'VO2Max Estimation',
-            'efficiency': 'Efficiency Analysis',
-
-            // Workout Planning
-            'calendar': 'Training Calendar',
-            'workout-library': 'Workout Library',
-            'workout-builder': 'Workout Builder',
-            'training-plans': 'Training Plans'
-        };
-
-        const title = titles[page] || this.formatPageName(page);
-        titleElement.textContent = title;
+        if (subtitleElement) {
+            subtitleElement.textContent = pageMeta?.subtitle || '';
+        }
 
         // Also update document title
         document.title = `${title} - Training Analytics Pro`;
@@ -216,7 +197,7 @@ export class Router {
             contentElement.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p style="margin-top: 16px; color: var(--text-tertiary);">Loading...</p>
+                    <p class="loading__text loading__text--spaced">Loading...</p>
                 </div>
             `;
         }

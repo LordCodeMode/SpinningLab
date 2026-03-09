@@ -2,6 +2,7 @@ import pandas as pd
 
 # Import canonical zone definitions
 from shared.constants.training_zones import HEART_RATE_ZONES as HR_ZONES
+from .power_metrics import _expand_time_series
 
 def extract_hr_series(df):
     """Extract heart rate series from DataFrame."""
@@ -34,7 +35,21 @@ def compute_hr_zones(df: pd.DataFrame, max_hr=190):
         Dictionary mapping zone labels to seconds spent in each zone, or None if no HR data
     """
     try:
-        hr_series = extract_hr_series(df)
+        hr_series = None
+        if "time" in df.columns and df["time"].notna().any():
+            expanded_hr, _ = _expand_time_series(
+                value_col=df["heart_rate"],
+                time_col=df["time"],
+                moving_col=df["moving"] if "moving" in df.columns else None,
+                fill_value=None,
+                apply_moving_mask=True,
+            )
+            expanded_hr = expanded_hr.dropna()
+            if not expanded_hr.empty:
+                hr_series = expanded_hr.astype(float)
+
+        if hr_series is None:
+            hr_series = extract_hr_series(df)
         if hr_series is None or hr_series.empty:
             return None
 

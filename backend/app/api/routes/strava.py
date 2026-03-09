@@ -1,7 +1,8 @@
 """
 Strava OAuth and Activity Sync API Routes
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -13,7 +14,8 @@ from ...database.connection import get_db
 from ...database.models import User, Activity
 from ...services.strava_service import strava_service
 from ..dependencies import get_current_user
-from ...services.cache.cache_tasks import rebuild_user_caches_two_stage
+from ...tasks.queue import build_job_response, enqueue_job
+from ...tasks.worker_jobs import run_strava_sync_job
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +168,6 @@ async def disconnect_strava(
 
 @router.post("/sync")
 async def sync_strava_activities(
-    background_tasks: BackgroundTasks,
     limit: Optional[int] = Query(None, description="Maximum number of activities to import"),
     after: Optional[str] = Query(None, description="Only import activities after this date (ISO format)"),
     db: Session = Depends(get_db),
@@ -205,29 +206,17 @@ async def sync_strava_activities(
             if latest and latest[0]:
                 after_date = latest[0] - timedelta(seconds=1)
 
-        # Import activities
-        logger.info(f"Starting Strava sync for user {current_user.id}")
-        result = await strava_service.import_user_activities(
-            user=current_user,
-            db=db,
-            after=after_date,
-            limit=limit
+        logger.info(f"Queueing Strava sync for user {current_user.id}")
+        job = enqueue_job(
+            run_strava_sync_job,
+            current_user.id,
+            after_date.isoformat() if after_date else None,
+            limit,
+            meta={"user_id": current_user.id},
         )
-
-        current_user.strava_last_sync = datetime.now(timezone.utc)
-        db.commit()
-
-        # Rebuild caches if activities were imported
-        if result["imported"] > 0:
-            logger.info("Triggering cache rebuild after importing %s activities", result["imported"])
-            background_tasks.add_task(rebuild_user_caches_two_stage, current_user.id)
-
-        return {
-            "success": True,
-            "message": f"Imported {result['imported']} activities from Strava",
-            "stats": result,
-            "cache_rebuild_triggered": result["imported"] > 0
-        }
+        payload = build_job_response(job, status_url=f"/api/jobs/{job.id}")
+        payload["message"] = "Strava sync queued."
+        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=payload)
 
     except ValueError as e:
         raise HTTPException(

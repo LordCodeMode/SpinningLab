@@ -6,25 +6,58 @@
 import CONFIG from './config.js';
 
 const BASE_URL = CONFIG.API_BASE_URL;
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const CSRF_COOKIE_NAME = 'td_csrf';
+const CSRF_HEADER_NAME = 'X-CSRF-Token';
 
 class APIClient {
   constructor() {
     this.baseURL = BASE_URL;
-  }
-
-  getToken() {
-    return localStorage.getItem(CONFIG.TOKEN_STORAGE_KEY);
+    this.refreshPromise = null;
   }
 
   _mergeHeaders(options) {
-    const token = this.getToken();
     const isFormData = options?.body instanceof FormData;
     const headers = {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(options?.headers || {})
     };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const method = (options?.method || 'GET').toUpperCase();
+    const csrfToken = this._getCookie(CSRF_COOKIE_NAME);
+    if (!SAFE_METHODS.has(method) && csrfToken && !headers[CSRF_HEADER_NAME]) {
+      headers[CSRF_HEADER_NAME] = csrfToken;
+    }
     return headers;
+  }
+
+  _getCookie(name) {
+    if (typeof document === 'undefined') return null;
+    const cookie = document.cookie
+      .split('; ')
+      .find((entry) => entry.startsWith(`${name}=`));
+    return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : null;
+  }
+
+  _refreshSession() {
+    if (!this.refreshPromise) {
+      this.refreshPromise = fetch(`${this.baseURL}/api/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const isJSON = res.headers.get('content-type')?.includes('application/json');
+            const payload = isJSON ? await res.json().catch(() => ({})) : {};
+            throw new Error(payload?.detail || `HTTP ${res.status}`);
+          }
+          return res.json().catch(() => ({}));
+        })
+        .finally(() => {
+          this.refreshPromise = null;
+        });
+    }
+
+    return this.refreshPromise;
   }
 
   async request(endpoint, options = {}) {
@@ -33,7 +66,7 @@ class APIClient {
       method: options.method || 'GET',
       headers: this._mergeHeaders(options),
       body: options.body ?? null,
-      credentials: 'include',
+      credentials: 'include'
     };
 
     try {
@@ -45,6 +78,21 @@ class APIClient {
       const payload = isJSON ? await res.json().catch(() => ({})) : await res.text();
 
       if (!res.ok) {
+        const shouldTryRefresh = (
+          res.status === 401
+          && !options?._skipRefresh
+          && !endpoint.startsWith('/api/auth/login')
+          && !endpoint.startsWith('/api/auth/logout')
+          && !endpoint.startsWith('/api/auth/refresh')
+        );
+        if (shouldTryRefresh) {
+          try {
+            await this._refreshSession();
+            return this.request(endpoint, { ...options, _skipRefresh: true });
+          } catch (refreshError) {
+            console.warn('[API] session refresh failed:', refreshError);
+          }
+        }
         const msg = (isJSON && (payload?.detail || payload?.message)) || `HTTP ${res.status}: ${res.statusText}`;
         throw new Error(msg);
       }
@@ -93,7 +141,7 @@ const apiClient = new APIClient();
    AUTHENTICATION
    =========================== */
 export const AuthAPI = {
-  async login(username, password) {
+  login(username, password) {
     const form = new FormData();
     form.append('username', username);
     form.append('password', password);
@@ -107,13 +155,53 @@ export const AuthAPI = {
   register(username, email, password, name = null) {
     return apiClient.post('/api/auth/register', { username, email, password, name });
   },
+
+  requestEmailVerification(email) {
+    return apiClient.post('/api/auth/verify-email/request', { email });
+  },
+
+  confirmEmailVerification(token) {
+    return apiClient.post('/api/auth/verify-email/confirm', { token });
+  },
+
+  requestPasswordReset(email) {
+    return apiClient.post('/api/auth/password-reset/request', { email });
+  },
+
+  confirmPasswordReset(token, password) {
+    return apiClient.post('/api/auth/password-reset/confirm', { token, password });
+  },
   
   me() {
     return apiClient.get('/api/auth/me');
   },
+
+  refresh() {
+    return apiClient.post('/api/auth/refresh', {});
+  },
   
   logout() {
     return apiClient.post('/api/auth/logout', {});
+  }
+};
+
+export const JobsAPI = {
+  getStatus(jobId) {
+    return apiClient.get(`/api/jobs/${jobId}`);
+  },
+
+  async waitForCompletion(jobId, { timeoutMs = 300000, intervalMs = 1500 } = {}) {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const status = await apiClient.get(`/api/jobs/${jobId}`);
+      if (status.status === 'succeeded' || status.status === 'failed') {
+        return status;
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    throw new Error('Job timed out');
   }
 };
 
@@ -182,6 +270,10 @@ export const API = {
    */
   getCacheStatus() {
     return apiClient.get('/api/import/cache-status');
+  },
+
+  getJobStatus(jobId) {
+    return JobsAPI.getStatus(jobId);
   },
 
   // ========== STRAVA INTEGRATION (NEW) ==========

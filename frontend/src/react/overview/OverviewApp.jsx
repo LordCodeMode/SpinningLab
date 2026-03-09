@@ -400,6 +400,22 @@ const Sparkline = ({ series, stroke = '#2563eb', fill = 'rgba(37, 99, 235, 0.12)
   );
 };
 
+const ProgressBarSvg = ({ value, className = '', label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 100 8"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <rect className="ov-progress-svg__track" x="0" y="0" width="100" height="8" rx="4" />
+      <rect className="ov-progress-svg__fill" x="0" y="0" width={width} height="8" rx="4" />
+    </svg>
+  );
+};
+
 const formatPresetLabel = (preset) => (
   preset.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 );
@@ -967,13 +983,13 @@ const OverviewApp = () => {
               <svg viewBox="0 0 200 200" className="ov-hero-logo" aria-hidden="true">
                 <defs>
                   <linearGradient id="ovHeroRimGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" style={{ stopColor: '#5b8cff', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#7c5cff', stopOpacity: 1 }} />
+                    <stop offset="0%" stopColor="#5b8cff" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#7c5cff" stopOpacity="1" />
                   </linearGradient>
                   <linearGradient id="ovHeroHubGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: '#5b8cff', stopOpacity: 1 }} />
-                    <stop offset="60%" style={{ stopColor: '#7c5cff', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#f08fdc', stopOpacity: 1 }} />
+                    <stop offset="0%" stopColor="#5b8cff" stopOpacity="1" />
+                    <stop offset="60%" stopColor="#7c5cff" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#f08fdc" stopOpacity="1" />
                   </linearGradient>
                   <filter id="ovHeroGlow">
                     <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
@@ -986,7 +1002,7 @@ const OverviewApp = () => {
                   <path id="ovHeroWordBottom" d="M 170 100 A 70 70 0 0 0 30 100" />
                 </defs>
 
-                <g className="ov-hero-rim" style={{ transformOrigin: '100px 100px' }}>
+                <g className="ov-hero-rim ov-hero-origin">
                   <circle cx="100" cy="100" r="70" fill="none" stroke="url(#ovHeroRimGradient)" strokeWidth="20" opacity="0.95" />
                   <text className="ov-hero-wordmark">
                     <textPath href="#ovHeroWordTop" startOffset="50%" textAnchor="middle">
@@ -1000,7 +1016,7 @@ const OverviewApp = () => {
                   </text>
                 </g>
 
-                <g className="ov-hero-chain" style={{ transformOrigin: '100px 100px' }}>
+                <g className="ov-hero-chain ov-hero-origin">
                   <circle cx="100" cy="100" r="30" fill="none" stroke="url(#ovHeroHubGradient)" strokeWidth="5" opacity="0.9" />
                   <circle cx="100" cy="100" r="34" fill="none" stroke="url(#ovHeroHubGradient)" strokeWidth="4.5" strokeDasharray="4 9" strokeLinecap="round" opacity="0.9" />
                   <circle cx="100" cy="100" r="18" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" />
@@ -1009,30 +1025,6 @@ const OverviewApp = () => {
                   <circle cx="100" cy="100" r="3.5" fill="white" opacity="0.45" />
                 </g>
               </svg>
-              <style>
-                {`
-                  @keyframes ov-hero-spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                  }
-                  .ov-hero-rim {
-                    animation: ov-hero-spin 10s linear infinite;
-                    animation-direction: reverse;
-                  }
-                  .ov-hero-chain {
-                    animation: ov-hero-spin 20s linear infinite;
-                    animation-direction: reverse;
-                  }
-                  .ov-hero-wordmark {
-                    fill: #ffffff;
-                    font-size: 12px;
-                    font-weight: 600;
-                    letter-spacing: 0.35em;
-                    text-transform: uppercase;
-                    dominant-baseline: middle;
-                  }
-                `}
-              </style>
             </div>
           </div>
           <div className="ov-signal-row">
@@ -1055,24 +1047,42 @@ const OverviewApp = () => {
 
               return (
                 <>
-                  <div className="ov-signal-card">
-                    <div className="ov-signal-label">Readiness</div>
-                    <div className={`ov-signal-value ov-signal-value--${readiness.className}`}>{readiness.label}</div>
-                    <div className="ov-signal-meta">{readiness.detail}</div>
-                  </div>
-                  <div className="ov-signal-card">
-                    <div className="ov-signal-label">Last Activity</div>
-                    <div className="ov-signal-value">{latestName}</div>
-                    <div className="ov-signal-meta">{latestDate}</div>
-                  </div>
-                  <div className="ov-signal-card">
-                    <div className="ov-signal-label">Weekly Load</div>
-                    <div className="ov-signal-value">{Math.round(weeklyStats.recentTss)} TSS</div>
-                    <div className="ov-signal-progress">
-                      <div className="ov-signal-progress__bar" style={{ width: `${weeklyStats.percent}%` }}></div>
+                  <div className="ov-signal-cluster">
+                    <div className="ov-signal-cluster__intro">
+                      <div className="ov-signal-label">Today overview</div>
+                      <div className="ov-signal-cluster__title">Performance snapshot</div>
+                      <div className="ov-signal-meta">
+                        Readiness, latest ride context and weekly load in one compact block.
+                      </div>
                     </div>
-                    <div className="ov-signal-meta">
-                      Target {Math.round(weeklyStats.target)} TSS - {Math.round(weeklyStats.recentDistance)} km
+
+                    <div className="ov-signal-cluster__grid">
+                      <div className="ov-signal-card ov-signal-card--clustered">
+                        <div className="ov-signal-label">Readiness</div>
+                        <div className={`ov-signal-value ov-signal-value--${readiness.className}`}>{readiness.label}</div>
+                        <div className="ov-signal-meta">{readiness.detail}</div>
+                      </div>
+
+                      <div className="ov-signal-card ov-signal-card--clustered">
+                        <div className="ov-signal-label">Last Activity</div>
+                        <div className="ov-signal-value">{latestName}</div>
+                        <div className="ov-signal-meta">{latestDate}</div>
+                      </div>
+
+                      <div className="ov-signal-card ov-signal-card--clustered">
+                        <div className="ov-signal-label">Weekly Load</div>
+                        <div className="ov-signal-value">{Math.round(weeklyStats.recentTss)} TSS</div>
+                        <div className="ov-signal-progress">
+                          <ProgressBarSvg
+                            value={weeklyStats.percent}
+                            className="ov-signal-progress__bar"
+                            label="Weekly load progress"
+                          />
+                        </div>
+                        <div className="ov-signal-meta">
+                          Target {Math.round(weeklyStats.target)} TSS - {Math.round(weeklyStats.recentDistance)} km
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -1105,64 +1115,81 @@ const OverviewApp = () => {
         }, 0);
         const totalTSS = recentActivities.reduce((sum, activity) => sum + (Number(activity.tss) || 0), 0);
         const totalDuration = recentActivities.reduce((sum, activity) => sum + (Number(activity.duration) || 0), 0);
+        const summaryGroups = [
+          {
+            title: 'Training volume',
+            subtitle: 'How much work happened in the last 7 days.',
+            tone: 'blue',
+            metrics: [
+              {
+                label: 'Sessions',
+                value: recentActivities.length,
+                suffix: '',
+                note: 'completed rides',
+                spark: <Sparkline series={sparkSeries.activities} stroke="#2563eb" fill="rgba(37, 99, 235, 0.18)" />
+              },
+              {
+                label: 'Duration',
+                value: (totalDuration / 3600).toFixed(1),
+                suffix: 'h',
+                note: 'training time',
+                spark: <Sparkline series={sparkSeries.duration} stroke="#10b981" fill="rgba(16, 185, 129, 0.2)" />
+              }
+            ]
+          },
+          {
+            title: 'Output and load',
+            subtitle: 'Distance covered and stress accumulated this week.',
+            tone: 'purple',
+            metrics: [
+              {
+                label: 'Distance',
+                value: totalDistance.toFixed(0),
+                suffix: 'km',
+                note: 'covered distance',
+                spark: <Sparkline series={sparkSeries.distance} stroke="#8b5cf6" fill="rgba(139, 92, 246, 0.18)" />
+              },
+              {
+                label: 'Training Stress',
+                value: totalTSS.toFixed(0),
+                suffix: 'TSS',
+                note: 'load points',
+                spark: <Sparkline series={sparkSeries.tss} stroke="#f59e0b" fill="rgba(245, 158, 11, 0.22)" />
+              }
+            ]
+          }
+        ];
 
         return (
           <div className="ov-quick-stats">
-            <div className="ov-stat-card" data-color="blue">
-              <div className="ov-stat-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              </div>
-              <div className="ov-stat-content">
-                <div className="ov-stat-label">Last 7 Days</div>
-                <div className="ov-stat-value">{recentActivities.length}</div>
-                <div className="ov-stat-subtitle">Activities</div>
-              </div>
-              <Sparkline series={sparkSeries.activities} stroke="#2563eb" fill="rgba(37, 99, 235, 0.18)" />
-            </div>
+            {summaryGroups.map((group) => (
+              <div className={`ov-stat-cluster ov-stat-cluster--${group.tone}`} key={group.title}>
+                <div className="ov-stat-cluster__header">
+                  <div>
+                    <div className="ov-signal-label">{group.title}</div>
+                    <div className="ov-stat-cluster__title">{group.subtitle}</div>
+                  </div>
+                </div>
 
-            <div className="ov-stat-card" data-color="purple">
-              <div className="ov-stat-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
+                <div className="ov-stat-cluster__metrics">
+                  {group.metrics.map((metric) => (
+                    <div className="ov-stat-card ov-stat-card--compact" key={metric.label} data-color={group.tone}>
+                      <div className="ov-stat-content">
+                        <div className="ov-stat-label">{metric.label}</div>
+                        <div className="ov-stat-value">
+                          {metric.value}
+                          {metric.suffix ? <span className="ov-stat-value__suffix"> {metric.suffix}</span> : null}
+                        </div>
+                        <div className="ov-stat-subtitle">{metric.note}</div>
+                      </div>
+                      <div className="ov-stat-sparkline-container">
+                        {metric.spark}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="ov-stat-content">
-                <div className="ov-stat-label">Total Distance</div>
-                <div className="ov-stat-value">{totalDistance.toFixed(0)}</div>
-                <div className="ov-stat-subtitle">Kilometers</div>
-              </div>
-              <Sparkline series={sparkSeries.distance} stroke="#8b5cf6" fill="rgba(139, 92, 246, 0.18)" />
-            </div>
-
-            <div className="ov-stat-card" data-color="orange">
-              <div className="ov-stat-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div className="ov-stat-content">
-                <div className="ov-stat-label">Training Stress</div>
-                <div className="ov-stat-value">{totalTSS.toFixed(0)}</div>
-                <div className="ov-stat-subtitle">TSS Points</div>
-              </div>
-              <Sparkline series={sparkSeries.tss} stroke="#f59e0b" fill="rgba(245, 158, 11, 0.22)" />
-            </div>
-
-            <div className="ov-stat-card" data-color="green">
-              <div className="ov-stat-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ov-stat-content">
-                <div className="ov-stat-label">Training Time</div>
-                <div className="ov-stat-value">{(totalDuration / 3600).toFixed(1)}</div>
-                <div className="ov-stat-subtitle">Hours</div>
-              </div>
-              <Sparkline series={sparkSeries.duration} stroke="#10b981" fill="rgba(16, 185, 129, 0.2)" />
-            </div>
+            ))}
           </div>
         );
       })()
@@ -1191,31 +1218,43 @@ const OverviewApp = () => {
 
                 <div className="ov-metric-large">
                   <div className="ov-metric-large-label">Fitness (CTL)</div>
-                  <div className="ov-metric-large-value" style={{ color: '#3b82f6' }}>
+                  <div className="ov-metric-large-value ov-metric-large-value--blue">
                     {ctl.toFixed(1)}
                   </div>
                   <div className="ov-metric-large-bar">
-                    <div className="ov-metric-large-fill" style={{ width: `${Math.min(100, (ctl / 100) * 100)}%`, background: '#3b82f6' }} />
+                    <ProgressBarSvg
+                      value={Math.min(100, ctl)}
+                      className="ov-metric-large-fill ov-metric-large-fill--blue"
+                      label="Fitness load progress"
+                    />
                   </div>
                 </div>
 
                 <div className="ov-metric-large">
                   <div className="ov-metric-large-label">Fatigue (ATL)</div>
-                  <div className="ov-metric-large-value" style={{ color: '#f59e0b' }}>
+                  <div className="ov-metric-large-value ov-metric-large-value--amber">
                     {atl.toFixed(1)}
                   </div>
                   <div className="ov-metric-large-bar">
-                    <div className="ov-metric-large-fill" style={{ width: `${Math.min(100, (atl / 100) * 100)}%`, background: '#f59e0b' }} />
+                    <ProgressBarSvg
+                      value={Math.min(100, atl)}
+                      className="ov-metric-large-fill ov-metric-large-fill--amber"
+                      label="Fatigue load progress"
+                    />
                   </div>
                 </div>
 
                 <div className="ov-metric-large">
                   <div className="ov-metric-large-label">Form (TSB)</div>
-                  <div className="ov-metric-large-value" style={{ color: tsb >= 0 ? '#10b981' : '#ef4444' }}>
+                  <div className={`ov-metric-large-value ${tsb >= 0 ? 'ov-metric-large-value--green' : 'ov-metric-large-value--red'}`}>
                     {tsb > 0 ? '+' : ''}{tsb.toFixed(1)}
                   </div>
                   <div className="ov-metric-large-bar">
-                    <div className="ov-metric-large-fill" style={{ width: `${Math.abs(tsb) * 2}%`, background: tsb >= 0 ? '#10b981' : '#ef4444' }} />
+                    <ProgressBarSvg
+                      value={Math.min(100, Math.abs(tsb) * 2)}
+                      className={`ov-metric-large-fill ${tsb >= 0 ? 'ov-metric-large-fill--green' : 'ov-metric-large-fill--red'}`}
+                      label="Form balance"
+                    />
                   </div>
                 </div>
 
@@ -1257,7 +1296,11 @@ const OverviewApp = () => {
                         </div>
                       </div>
                       <div className="ov-ftp-bar">
-                        <div className="ov-ftp-bar-fill" style={{ width: `${Math.min(100, Math.max(0, confidence))}%` }} />
+                        <ProgressBarSvg
+                          value={Math.min(100, Math.max(0, confidence))}
+                          className="ov-ftp-bar-fill"
+                          label="FTP forecast confidence"
+                        />
                       </div>
                       {prediction.notification ? (
                         <div className="ov-ftp-note">{prediction.notification}</div>
@@ -1558,12 +1601,12 @@ const OverviewApp = () => {
 
   if (error) {
     return (
-      <div className="no-data">
-        <svg style={{ width: 64, height: 64, marginBottom: 16, color: 'var(--text-tertiary)', opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="no-data ov-no-data">
+        <svg className="ov-no-data__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 8 }}>Failed to Load Overview</h3>
-        <p style={{ marginBottom: 16 }}>{error.message}</p>
+        <h3 className="ov-no-data__title">Failed to Load Overview</h3>
+        <p className="ov-no-data__message">{error.message}</p>
         <button
           className="btn btn--primary"
           type="button"

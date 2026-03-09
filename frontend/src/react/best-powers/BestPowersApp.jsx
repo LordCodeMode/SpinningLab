@@ -3,6 +3,55 @@ import Services from '../../lib/services/index.js';
 import { LoadingSkeleton } from '../components/ui';
 import CONFIG from '../../lib/pages/best-powers/config.js';
 
+const MetricProgressSvg = ({ value, label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg className="bp-react-metric-progress-svg" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" aria-label={label}>
+      <defs>
+        <linearGradient id="bp-react-metric-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#0ea5e9" />
+          <stop offset="100%" stopColor="#22c55e" />
+        </linearGradient>
+      </defs>
+      <rect className="bp-react-metric-track" x="0" y="0" width="100" height="8" rx="4" />
+      <rect x="0" y="0" width={width} height="8" rx="4" fill="url(#bp-react-metric-gradient)" />
+    </svg>
+  );
+};
+
+const DetailProgressSvg = ({ value, label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg className="bp-react-detail-progress-svg" viewBox="0 0 100 14" preserveAspectRatio="none" role="img" aria-label={label}>
+      <defs>
+        <linearGradient id="bp-react-detail-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#bae6fd" />
+          <stop offset="50%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#0ea5e9" />
+        </linearGradient>
+      </defs>
+      <rect className="bp-react-detail-track" x="0" y="0" width="100" height="14" rx="7" />
+      <rect x="0" y="0" width={width} height="14" rx="7" fill="url(#bp-react-detail-gradient)" />
+    </svg>
+  );
+};
+
+const DetailMarkersSvg = ({ markers, label }) => (
+  <svg className="bp-react-detail-markers-svg" viewBox="0 0 100 22" preserveAspectRatio="none" role="img" aria-label={label}>
+    {markers.map((level) => {
+      const x = Math.max(0, Math.min(100, level.valueRatio * 100));
+      return (
+        <g key={`${level.id}-${x}`} transform={`translate(${x} 0)`}>
+          <rect className={`bp-react-marker-shape bp-react-marker-shape--${level.id}`} x="-14" y="0" width="28" height="16" rx="8" />
+          <text className="bp-react-marker-label" x="0" y="11" textAnchor="middle">
+            {level.short}
+          </text>
+        </g>
+      );
+    })}
+  </svg>
+);
+
 const DEFAULT_WEIGHT = 75;
 
 const DURATION_SEGMENTS = [
@@ -943,7 +992,7 @@ export default function BestPowersApp() {
                   <>
                     <div className="bp-react-metric-value">{duration.formattedValue}</div>
                     <div className="bp-react-metric-bar">
-                      <div className="bp-react-metric-fill" style={{ width: `${percent}%` }}></div>
+                      <MetricProgressSvg value={percent} label={`${duration.label} benchmark progress`} />
                     </div>
                     <div className="bp-react-metric-meta">
                       <span>{duration.percentWorldTour}% of WT</span>
@@ -1008,16 +1057,10 @@ export default function BestPowersApp() {
               <div className="bp-react-detail-list">
                 {selectedDetail ? (
                   (() => {
-                    const markers = selectedDetail.benchmarks.map((level) => (
-                      <span
-                        className={`bp-react-marker bp-react-marker--${level.id}`}
-                        key={`${selectedDetail.key}-${level.id}`}
-                        style={{ left: `${level.valueRatio * 100}%` }}
-                        title={`${level.label}: ${level.formattedValue}`}
-                      >
-                        {level.short}
-                      </span>
-                    ));
+                    const markers = selectedDetail.benchmarks.map((level) => ({
+                      ...level,
+                      title: `${level.label}: ${level.formattedValue}`
+                    }));
                     const userPercent = Math.max(0, Math.min(100, selectedDetail.percentWorldTour));
                     const goalText = selectedDetail.nextLevel ? (
                       <span className="bp-react-goal">
@@ -1035,9 +1078,9 @@ export default function BestPowersApp() {
                         </div>
                         <div className="bp-react-detail-rail">
                           <div className="bp-react-detail-bar">
-                            <div className="bp-react-detail-fill" style={{ width: `${userPercent}%` }}></div>
+                            <DetailProgressSvg value={userPercent} label={`${selectedDetail.label} vs benchmark`} />
                           </div>
-                          <div className="bp-react-detail-markers">{markers}</div>
+                          <DetailMarkersSvg markers={markers} label={`${selectedDetail.label} benchmark markers`} />
                         </div>
                         <div className="bp-react-detail-legend">
                           <span className="bp-react-legend-chip bp-react-legend-chip--club">Dev</span>

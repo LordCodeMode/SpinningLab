@@ -1,9 +1,9 @@
 """Integration tests for activities API endpoints."""
 
-import pytest
 from datetime import datetime, timedelta
 
 from app.database.models import User, Activity
+from app.services.storage_service import storage_service
 
 
 class TestGetActivities:
@@ -146,6 +146,37 @@ class TestGetActivity:
         response = client.get(f"/api/activities/{other_activity.id}", headers=auth_headers)
         assert response.status_code == 404  # Should not find it
 
+    def test_get_activity_streams_from_storage(self, client, test_db, test_user, auth_headers):
+        """Test reading stored stream JSON through the storage abstraction."""
+        activity = Activity(
+            user_id=test_user.id,
+            start_time=datetime.utcnow(),
+            duration=1800,
+            file_name="strava.json",
+            strava_activity_id=123456,
+        )
+        test_db.add(activity)
+        test_db.commit()
+        test_db.refresh(activity)
+
+        storage_service.put_json(
+            activity.get_stream_storage_key(),
+            {
+                "time": {"data": [0, 1, 2, 3]},
+                "watts": {"data": [100, 150, 200, 250]},
+                "heartrate": {"data": [120, 125, 130, 135]},
+                "moving": {"data": [1, 1, 1, 1]},
+            },
+        )
+
+        response = client.get(f"/api/activities/{activity.id}/streams", headers=auth_headers)
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["power"] == [100, 150, 200, 250]
+        assert payload["heart_rate"] == [120, 125, 130, 135]
+        assert payload["metadata"]["sample_count"] == 4
+
 
 class TestUpdateActivity:
     """Test PATCH /api/activities/{activity_id} endpoint."""
@@ -207,6 +238,28 @@ class TestDeleteActivity:
         # Verify deletion
         deleted_activity = test_db.query(Activity).filter_by(id=activity_id).first()
         assert deleted_activity is None
+
+    def test_delete_activity_removes_stream_artifact(self, client, test_db, test_user, auth_headers):
+        """Deleting an activity should also remove the persisted stream artifact."""
+        activity = Activity(
+            user_id=test_user.id,
+            start_time=datetime.utcnow(),
+            duration=3600,
+            file_name="test.fit",
+            strava_activity_id=98765,
+        )
+        test_db.add(activity)
+        test_db.commit()
+        test_db.refresh(activity)
+
+        stream_key = activity.get_stream_storage_key()
+        storage_service.put_json(stream_key, {"time": {"data": [0, 1]}, "watts": {"data": [100, 110]}})
+        assert storage_service.exists(stream_key)
+
+        response = client.delete(f"/api/activities/{activity.id}", headers=auth_headers)
+
+        assert response.status_code == 200
+        assert not storage_service.exists(stream_key)
 
     def test_delete_activity_not_found(self, client, test_db, auth_headers):
         """Test deleting non-existent activity."""

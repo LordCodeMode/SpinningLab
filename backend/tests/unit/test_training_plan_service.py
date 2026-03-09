@@ -82,6 +82,23 @@ def test_create_plan_from_template(test_db, test_user):
     assert len(planned) == scheduled_count
 
 
+def test_ensure_template_workouts_seeds_library_templates(test_db, test_user):
+    missing = TrainingPlanService.ensure_template_workouts(
+        db=test_db,
+        user_id=test_user.id,
+        template_id="ftp-3",
+    )
+
+    assert missing == []
+
+    workout_names = {
+        workout.name
+        for workout in test_db.query(Workout).filter(Workout.user_id == test_user.id).all()
+    }
+    assert "FTP 2x20" in workout_names
+    assert "VO2 Max 4x4" in workout_names
+
+
 def test_regenerate_plan_updates_dates(test_db, test_user):
     _create_template_workouts(test_db, test_user)
     start = date.today()
@@ -168,4 +185,3 @@ def test_workout_service_crud(test_db, test_user):
     assert len(workouts) >= 1
 
     assert WorkoutService.delete_workout(test_db, workout.id, test_user.id) is True
-

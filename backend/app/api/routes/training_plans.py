@@ -67,7 +67,11 @@ class TrainingPlanCreateResponse(BaseModel):
 
 
 @router.get("/templates", response_model=List[TrainingPlanTemplateResponse])
-def get_training_plan_templates():
+def get_training_plan_templates(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    TrainingPlanService.ensure_template_workouts(db, current_user.id)
     templates = TrainingPlanService.get_templates()
     return [
         TrainingPlanTemplateResponse(

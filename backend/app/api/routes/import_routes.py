@@ -3,22 +3,21 @@
 # Import routes with automatic cache rebuilding
 # ============================================
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List
-import os
 import hashlib
-import tempfile
 import logging
-import shutil
 
 from ...database.connection import get_db
 from ...database.models import User, Activity
 from ...api.dependencies import get_current_active_user
-from ...services.fit_processing.fit_import_service import FitImportService
 from ...services.cache.cache_builder import CacheBuilder
-from ...services.cache.cache_tasks import rebuild_user_caches_task, rebuild_user_caches_two_stage
-from ...core.config import settings
+from ...services.cache.cache_tasks import run_cache_rebuild_job
+from ...services.storage_service import storage_service, build_fit_file_key
+from ...tasks.queue import build_job_response, enqueue_job
+from ...tasks.worker_jobs import run_fit_import_job
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 @router.post("/fit-files")
 async def import_fit_files(
-    background_tasks: BackgroundTasks,
+    request: Request,
     files: List[UploadFile] = File(...),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -61,13 +60,7 @@ async def import_fit_files(
                 detail=f"Invalid file type: {file.filename}. Only .fit files are allowed."
             )
     
-    # Create user directory
-    user_fit_dir = os.path.join(settings.FIT_FILES_DIR, str(current_user.id))
-    os.makedirs(user_fit_dir, exist_ok=True)
-    
-    import_service = FitImportService(db)
-    results = []
-    successful_imports = 0
+    staged_files = []
     
     for file in files:
         try:
@@ -101,84 +94,78 @@ async def import_fit_files(
             ).first()
             
             if existing_activity:
-                results.append({
+                staged_files.append({
                     "filename": file.filename,
-                    "success": False,
-                    "message": "File already imported (duplicate hash)"
+                    "file_hash": file_hash,
+                    "file_size": len(content),
+                    "storage_key": None,
+                    "duplicate": True,
                 })
                 continue
-            
-            # Save file to disk temporarily
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.fit') as temp_file:
-                temp_file.write(content)
-                temp_path = temp_file.name
-            
-            try:
-                # Process the FIT file
-                result = import_service.process_fit_file(
-                    file_path=temp_path,
-                    user=current_user,
-                    file_hash=file_hash,
-                    file_size=len(content),
-                    original_filename=file.filename
-                )
-                
-                if result.success:
-                    successful_imports += 1
-                    destination_path = os.path.join(user_fit_dir, f"{file_hash}.fit")
-                    os.makedirs(user_fit_dir, exist_ok=True)
-                    if not os.path.exists(destination_path):
-                        shutil.move(temp_path, destination_path)
-                    else:
-                        os.unlink(temp_path)
-                else:
-                    if os.path.exists(temp_path):
-                        os.unlink(temp_path)
-                
-                results.append({
+
+            staged_key = f"staged-imports/{current_user.id}/{file_hash}.fit"
+            storage_service.put_bytes(staged_key, content, content_type="application/octet-stream")
+            staged_files.append(
+                {
                     "filename": file.filename,
-                    "success": result.success,
-                    "message": result.message,
-                    "activity_id": result.activity_id
-                })
-                
-            finally:
-                if os.path.exists(temp_path):
-                    os.unlink(temp_path)
+                    "file_hash": file_hash,
+                    "file_size": len(content),
+                    "storage_key": staged_key,
+                }
+            )
                 
         except Exception as e:
             logger.error(f"Error processing {file.filename}: {e}")
-            results.append({
-                "filename": file.filename,
+            staged_files.append(
+                {
+                    "filename": file.filename,
+                    "file_hash": None,
+                    "file_size": len(content) if isinstance(content, bytes) else 0,
+                    "storage_key": None,
+                    "error": f"Error processing file: {str(e)}",
+                }
+            )
+
+    duplicates = [item for item in staged_files if item.get("duplicate")]
+    errored = [item for item in staged_files if item.get("error")]
+    queued = [item for item in staged_files if item.get("storage_key")]
+
+    if not queued:
+        results = [
+            {
+                "filename": item["filename"],
                 "success": False,
-                "message": f"Error processing file: {str(e)}"
-            })
-    
-    # =========================================
-    # CRITICAL: Trigger cache rebuild in background
-    # =========================================
-    if successful_imports > 0:
-        logger.info(f"Triggering cache rebuild for user {current_user.id} after {successful_imports} successful imports")
-        
-        # Add cache rebuild task to background
-        background_tasks.add_task(
-            rebuild_user_caches_two_stage,
-            current_user.id
-        )
-    
-    return {
-        "results": results,
-        "total": len(files),
-        "successful": successful_imports,
-        "failed": len(files) - successful_imports,
-        "cache_rebuild_triggered": successful_imports > 0,
-        "message": f"Imported {successful_imports} files. Cache rebuild initiated in background." if successful_imports > 0 else "No new files imported."
-    }
+                "message": item.get("error") or "File already imported (duplicate hash)",
+            }
+            for item in staged_files
+        ]
+        return {
+            "results": results,
+            "total": len(files),
+            "successful": 0,
+            "failed": len(errored),
+            "cache_rebuild_triggered": False,
+            "message": "No new files imported.",
+        }
+
+    job = enqueue_job(run_fit_import_job, current_user.id, queued, meta={"user_id": current_user.id})
+    payload = build_job_response(job, status_url=f"/api/jobs/{job.id}")
+    payload["message"] = f"Queued import of {len(queued)} FIT files."
+    payload["duplicate_count"] = len(duplicates)
+    payload["preflight_duplicates"] = [
+        {"filename": item["filename"], "message": "File already imported (duplicate hash)"}
+        for item in duplicates
+    ]
+    payload["preflight_errors"] = [
+        {"filename": item["filename"], "message": item["error"]}
+        for item in errored
+    ]
+    return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=payload)
 
 
 @router.post("/rebuild-cache")
 async def rebuild_cache_endpoint(
-    background_tasks: BackgroundTasks,
+    request: Request,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -193,17 +180,11 @@ async def rebuild_cache_endpoint(
     
     logger.info(f"Manual cache rebuild requested by user {current_user.id}")
     
-    # Trigger rebuild in background
-    background_tasks.add_task(
-        rebuild_user_caches_task,
-        user_id=current_user.id
-    )
-    
-    return {
-        "success": True,
-        "message": "Cache rebuild initiated in background. This may take a few seconds.",
-        "user_id": current_user.id
-    }
+    job = enqueue_job(run_cache_rebuild_job, current_user.id, meta={"user_id": current_user.id})
+    payload = build_job_response(job, status_url=f"/api/jobs/{job.id}")
+    payload["message"] = "Cache rebuild queued."
+    payload["user_id"] = current_user.id
+    return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=payload)
 
 
 @router.get("/cache-status")

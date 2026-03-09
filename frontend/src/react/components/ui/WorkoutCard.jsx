@@ -2,6 +2,23 @@ import React from 'react';
 import { getIntervalColorClass } from '../../../lib/utils/workout-colors.js';
 import { Badge } from './Badge.jsx';
 
+const PREVIEW_HEIGHT = 60;
+const INTERVAL_FILL_MAP = {
+  'workout-card__interval-bar--warmup': '#34d399',
+  'workout-card__interval-bar--cooldown': '#34d399',
+  'workout-card__interval-bar--recovery': '#4ade80',
+  'workout-card__interval-bar--endurance': '#3b82f6',
+  'workout-card__interval-bar--tempo': '#f59e0b',
+  'workout-card__interval-bar--sweetspot': '#f97316',
+  'workout-card__interval-bar--threshold': '#ef4444',
+  'workout-card__interval-bar--vo2max': '#b91c1c',
+  'workout-card__interval-bar--anaerobic': '#7f1d1d',
+  'workout-card__interval-bar--sprint': '#8b5cf6',
+  'workout-card__interval-bar--default': '#8b5cf6'
+};
+
+const getIntervalFill = (barClass) => INTERVAL_FILL_MAP[barClass] || INTERVAL_FILL_MAP['workout-card__interval-bar--default'];
+
 /**
  * Workout Card Component
  * Displays workout details including duration, TSS, and intervals
@@ -32,16 +49,15 @@ export function WorkoutCard({
 
   return (
     <div
-      className={`card workout-card ${clickableClass} ${className}`}
+      className={`card workout-card ${clickableClass} ${onClick ? 'workout-card--interactive' : ''} ${className}`.trim()}
       data-workout-id={id}
-      style={onClick ? { cursor: 'pointer' } : undefined}
       onClick={onClick}
     >
       <div className="card__header">
         <div className={`workout-card__icon ${workoutTypeClass}`}>
           {workoutTypeIcon}
         </div>
-        <div style={{ flex: 1 }}>
+        <div className="workout-card__title-block">
           <h3 className="card__title">{name}</h3>
           <div className="workout-card__meta">
             {workoutType && <span className="workout-card__type">{workoutType}</span>}
@@ -121,9 +137,8 @@ export function CompactWorkoutCard({
 
   return (
     <div
-      className={`compact-workout-card ${className}`}
+      className={`compact-workout-card ${onClick ? 'compact-workout-card--interactive' : ''} ${className}`.trim()}
       data-workout-id={id}
-      style={onClick ? { cursor: 'pointer' } : undefined}
       onClick={onClick}
     >
       <div className={`compact-workout-card__icon ${workoutTypeClass}`}>
@@ -233,34 +248,49 @@ function IntervalPreview({ intervals }) {
   const maxIntervals = 12;
   const displayIntervals = intervals.slice(0, maxIntervals);
   const hasMore = intervals.length > maxIntervals;
+  const totalDuration = displayIntervals.reduce((sum, interval) => sum + Math.max(1, interval.duration || 0), 0) || 1;
+  let currentOffset = 0;
 
   return (
     <div className="workout-card__intervals">
       <div className="workout-card__intervals-label">Workout Structure</div>
-      <div className="workout-card__intervals-viz">
+      <svg
+        className="workout-card__intervals-viz"
+        viewBox={`0 0 100 ${PREVIEW_HEIGHT}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="Workout interval preview"
+      >
         {displayIntervals.map((interval, index) => {
           const duration = Math.max(1, interval.duration || 0);
           const avgPower = ((interval.target_power_low || 0) + (interval.target_power_high || 0)) / 2;
           const barClass = getIntervalColorClass(interval, avgPower);
-          const relativeHeight = Math.min(100, Math.max(20, (avgPower / 120) * 100));
+          const relativeHeight = Math.min(100, Math.max(20, (avgPower / 120) * 100)) / 100;
+          const width = (duration / totalDuration) * 100;
+          const x = currentOffset;
+          const height = Math.max(PREVIEW_HEIGHT * 0.2, PREVIEW_HEIGHT * relativeHeight);
+          const y = PREVIEW_HEIGHT - height;
+          currentOffset += width;
 
           return (
-            <div
+            <rect
               key={index}
               className={`workout-card__interval-bar ${barClass}`}
-              style={{
-                height: `${relativeHeight}%`,
-                flex: `${duration} 0 0`
-              }}
+              x={x}
+              y={y}
+              width={Math.max(width, 1)}
+              height={height}
+              rx="2"
+              fill={getIntervalFill(barClass)}
             />
           );
         })}
         {hasMore && (
-          <div className="workout-card__intervals-more">
+          <text className="workout-card__intervals-more" x="98" y="14" textAnchor="end">
             +{intervals.length - maxIntervals}
-          </div>
+          </text>
         )}
-      </div>
+      </svg>
     </div>
   );
 }

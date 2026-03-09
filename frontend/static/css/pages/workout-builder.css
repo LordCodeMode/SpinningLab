@@ -1342,8 +1342,9 @@ body.page-workout-builder .wb-timeline-scroll {
 }
 
 .wb-timeline {
-  position: relative;
+  display: block;
   min-height: 520px;
+  overflow: visible;
 }
 
 .wb-palette-panel {
@@ -1438,82 +1439,59 @@ body.page-workout-builder .wb-timeline-scroll {
 }
 
 .wb-zone-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+  pointer-events: none;
 }
 
 .wb-zone-band {
-  position: absolute;
-  left: 0;
-  right: 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-  display: flex;
-  align-items: flex-end;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(15, 23, 42, 0.6);
+  stroke: rgba(148, 163, 184, 0.25);
+  stroke-width: 1px;
 }
 
 .wb-grid {
-  position: absolute;
-  inset: 0;
   pointer-events: none;
-  z-index: 2;
 }
 
 .wb-grid__line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(148, 163, 184, 0.35);
+  stroke: rgba(148, 163, 184, 0.35);
+  stroke-width: 1px;
 }
 
 .wb-grid__line--horizontal {
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: rgba(148, 163, 184, 0.35);
+  stroke-dasharray: 2 4;
 }
 
 .wb-grid__label {
-  position: absolute;
-  bottom: -28px;
-  left: 0;
-  transform: translateX(-50%);
   font-size: 11px;
   font-weight: 600;
-  color: var(--wb-muted);
   white-space: nowrap;
+  fill: var(--wb-muted);
+}
+
+.wb-zone-band__label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: rgba(15, 23, 42, 0.6);
 }
 
 .wb-drop-indicator {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.9), rgba(14, 165, 233, 0.5));
-  z-index: 4;
+  fill: rgba(59, 130, 246, 0.9);
 }
 
 .wb-empty {
-  position: absolute;
-  inset: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   font-size: 14px;
   color: var(--wb-muted);
-  z-index: 3;
 }
 
 .wb-block {
-  position: absolute;
-  bottom: 0;
+  position: relative;
+  width: 100%;
+  height: 100%;
   box-sizing: border-box;
   border-radius: 14px;
   padding: 10px 12px 8px;
@@ -1530,6 +1508,7 @@ body.page-workout-builder .wb-timeline-scroll {
 
 .wb-block.is-dragging {
   cursor: grabbing;
+  opacity: 0.72;
 }
 
 .wb-block__label {
@@ -1802,7 +1781,9 @@ body.page-workout-builder .wb-timeline-scroll {
 }
 
 .wb-preview {
-  position: relative;
+  display: block;
+  width: 100%;
+  height: 120px;
   border-radius: 14px;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -1810,36 +1791,86 @@ body.page-workout-builder .wb-timeline-scroll {
 }
 
 .wb-preview__zones {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+  pointer-events: none;
 }
 
 .wb-preview__zone {
-  position: absolute;
-  left: 0;
-  right: 0;
+  pointer-events: none;
 }
 
 .wb-preview__block {
-  position: absolute;
-  bottom: 0;
-  z-index: 2;
-  border-radius: 10px;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  box-sizing: border-box;
+  opacity: 0.95;
 }
 
-.wb-preview__block span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.wb-preview__label {
+  font-size: 4px;
+  font-weight: 700;
+  fill: rgba(15, 23, 42, 0.74);
+  text-transform: capitalize;
+}
+
+.wb-preview__block.workout-card__interval-bar--recovery {
+  fill: #86efac;
+}
+
+.wb-preview__block.workout-card__interval-bar--endurance {
+  fill: #4ade80;
+}
+
+.wb-preview__block.workout-card__interval-bar--tempo {
+  fill: #facc15;
+}
+
+.wb-preview__block.workout-card__interval-bar--threshold {
+  fill: #fb923c;
+}
+
+.wb-preview__block.workout-card__interval-bar--vo2max {
+  fill: #f97316;
+}
+
+.wb-preview__block.workout-card__interval-bar--anaerobic {
+  fill: #ef4444;
+}
+
+.wb-preview__block.workout-card__interval-bar--sprint {
+  fill: #a855f7;
+}
+
+.wb-preview__block.workout-card__interval-bar--default {
+  fill: #94a3b8;
+}
+
+.wb-block.workout-card__interval-bar--recovery {
+  background: #86efac;
+}
+
+.wb-block.workout-card__interval-bar--endurance {
+  background: #4ade80;
+}
+
+.wb-block.workout-card__interval-bar--tempo {
+  background: #facc15;
+}
+
+.wb-block.workout-card__interval-bar--threshold {
+  background: #fb923c;
+}
+
+.wb-block.workout-card__interval-bar--vo2max {
+  background: #f97316;
+}
+
+.wb-block.workout-card__interval-bar--anaerobic {
+  background: #ef4444;
+}
+
+.wb-block.workout-card__interval-bar--sprint {
+  background: #a855f7;
+}
+
+.wb-block.workout-card__interval-bar--default {
+  background: #94a3b8;
 }
 
 .wb-modal__list {

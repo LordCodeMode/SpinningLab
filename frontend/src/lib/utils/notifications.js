@@ -16,115 +16,43 @@ export function notify(message, type = 'info', duration = 4000) {
   if (!container) {
     container = document.createElement('div');
     container.id = 'notification-container';
-    container.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      pointer-events: none;
-    `;
+    container.className = 'notification-container';
     document.body.appendChild(container);
   }
 
   // Create notification element
   const notification = document.createElement('div');
-  notification.className = `notification notification-${type}`;
-  notification.style.cssText = `
-    min-width: 300px;
-    max-width: 500px;
-    padding: 16px 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    pointer-events: auto;
-    animation: slideIn 0.3s ease-out;
-    border-left: 4px solid ${getTypeColor(type)};
-  `;
+  notification.className = `notification notification--toast notification-${type} show`;
 
   // Get icon for notification type
   const icon = getTypeIcon(type);
 
   notification.innerHTML = `
-    <div style="flex-shrink: 0; color: ${getTypeColor(type)};">
+    <div class="notification-icon notification-icon--${type}">
       ${icon}
     </div>
-    <div style="flex: 1; color: #374151; font-size: 14px; line-height: 1.5;">
+    <div class="notification-message">
       ${message}
     </div>
-    <button onclick="this.parentElement.remove()" style="
-      flex-shrink: 0;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 4px;
-      color: #9CA3AF;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    ">
+    <button class="notification-close" type="button" aria-label="Close notification">
       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
       </svg>
     </button>
   `;
 
-  // Add animation styles if not already present
-  if (!document.getElementById('notification-styles')) {
-    const style = document.createElement('style');
-    style.id = 'notification-styles';
-    style.textContent = `
-      @keyframes slideIn {
-        from {
-          transform: translateX(400px);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
-      @keyframes slideOut {
-        from {
-          transform: translateX(0);
-          opacity: 1;
-        }
-        to {
-          transform: translateX(400px);
-          opacity: 0;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  }
+  const closeButton = notification.querySelector('.notification-close');
+  closeButton?.addEventListener('click', () => notification.remove());
 
   container.appendChild(notification);
 
   // Auto-remove after duration
   setTimeout(() => {
-    notification.style.animation = 'slideOut 0.3s ease-in';
+    notification.classList.remove('show');
     setTimeout(() => notification.remove(), 300);
   }, duration);
 
   console.log(`[Notification] ${type.toUpperCase()}: ${message}`);
-}
-
-/**
- * Get color based on notification type
- */
-function getTypeColor(type) {
-  const colors = {
-    success: '#10B981',
-    error: '#EF4444',
-    warning: '#F59E0B',
-    info: '#3B82F6'
-  };
-  return colors[type] || colors.info;
 }
 
 /**

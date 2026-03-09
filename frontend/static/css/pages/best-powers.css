@@ -1861,15 +1861,18 @@ body.page-best-powers .bp-react-shell > :not(.bp-react-header):not(.bp-react-ove
 }
 
 .bp-react-metric-bar {
-  height: 8px;
-  background: var(--color-border);
   border-radius: 999px;
   overflow: hidden;
 }
 
-.bp-react-metric-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #0ea5e9, #22c55e);
+.bp-react-metric-progress-svg {
+  display: block;
+  width: 100%;
+  height: 8px;
+}
+
+.bp-react-metric-track {
+  fill: var(--color-border);
 }
 
 .bp-react-metric-meta {
@@ -1974,56 +1977,37 @@ body.page-best-powers .bp-react-shell > :not(.bp-react-header):not(.bp-react-ove
 }
 
 .bp-react-detail-bar {
-  position: relative;
-  height: 14px;
-  background: var(--color-border);
   border-radius: 999px;
   overflow: hidden;
 }
 
-.bp-react-detail-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #bae6fd 0%, #38bdf8 50%, #0ea5e9 100%);
-  position: relative;
-  overflow: hidden;
+.bp-react-detail-progress-svg {
+  display: block;
+  width: 100%;
+  height: 14px;
 }
 
-.bp-react-detail-fill::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 50%;
-  width: 28px;
-  height: 18px;
-  transform: translate(40%, -50%);
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
-  opacity: 0.6;
-  animation: bp-react-glint 1.8s ease-in-out infinite;
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+.bp-react-detail-track {
+  fill: var(--color-border);
 }
 
-.bp-react-detail-markers {
-  position: relative;
+.bp-react-detail-markers-svg {
+  display: block;
+  width: 100%;
   height: 22px;
 }
 
-.bp-react-marker {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  padding: 2px 6px;
-  border-radius: 999px;
+.bp-react-marker-label {
   font-size: 10px;
   font-weight: 700;
-  background: #0f172a;
   color: #ffffff;
 }
 
-.bp-react-marker--worldTour { background: #1d4ed8; }
-.bp-react-marker--pro { background: #2563eb; }
-.bp-react-marker--cat1 { background: #7c3aed; }
-.bp-react-marker--amateur { background: #f97316; }
-.bp-react-marker--club { background: #22c55e; }
+.bp-react-marker-shape--worldTour { fill: #1d4ed8; }
+.bp-react-marker-shape--pro { fill: #2563eb; }
+.bp-react-marker-shape--cat1 { fill: #7c3aed; }
+.bp-react-marker-shape--amateur { fill: #f97316; }
+.bp-react-marker-shape--club { fill: #22c55e; }
 
 .bp-react-detail-stats {
   display: grid;

@@ -6,7 +6,7 @@ const ActivityStats = ({ activity, distance }) => {
   return (
     <div className="activity-stats-grid">
       <div className="activity-stat-card activity-stat-card--primary">
-        <div className="activity-stat-icon" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)' }}>
+        <div className="activity-stat-icon activity-stat-icon--power">
           <Zap size={20} color="white" />
         </div>
         <div className="activity-stat-content">
@@ -17,7 +17,7 @@ const ActivityStats = ({ activity, distance }) => {
       </div>
 
       <div className="activity-stat-card">
-        <div className="activity-stat-icon" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
+        <div className="activity-stat-icon activity-stat-icon--normalized">
           <Activity size={20} color="white" />
         </div>
         <div className="activity-stat-content">
@@ -28,7 +28,7 @@ const ActivityStats = ({ activity, distance }) => {
       </div>
 
       <div className="activity-stat-card">
-        <div className="activity-stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
+        <div className="activity-stat-icon activity-stat-icon--duration">
           <Clock size={20} color="white" />
         </div>
         <div className="activity-stat-content">
@@ -39,7 +39,7 @@ const ActivityStats = ({ activity, distance }) => {
       </div>
 
       <div className="activity-stat-card">
-        <div className="activity-stat-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' }}>
+        <div className="activity-stat-icon activity-stat-icon--distance">
           <Map size={20} color="white" />
         </div>
         <div className="activity-stat-content">

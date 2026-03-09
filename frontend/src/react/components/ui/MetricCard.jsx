@@ -1,6 +1,22 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
+const ProgressBarSvg = ({ value, className = '', label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={`progress-metric__svg ${className}`.trim()}
+      viewBox="0 0 100 8"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <rect className="progress-metric__track-fill" x="0" y="0" width="100" height="8" rx="4" />
+      <rect className="progress-metric__value-fill" x="0" y="0" width={width} height="8" rx="4" />
+    </svg>
+  );
+};
+
 /**
  * Metric Card Component
  * KPI display with icon and trend
@@ -166,9 +182,10 @@ export function ProgressMetric({
         <span className="progress-metric__value">{value}{unit}</span>
       </div>
       <div className="progress-metric__bar">
-        <div
+        <ProgressBarSvg
+          value={percentage}
           className={`progress-metric__fill progress-metric__fill--${variant}`}
-          style={{ width: `${percentage}%` }}
+          label={`${label} progress`}
         />
       </div>
     </div>

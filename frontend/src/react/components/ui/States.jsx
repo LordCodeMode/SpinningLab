@@ -70,15 +70,9 @@ export function LoadingSpinner({
   size = 'md',
   className = ''
 }) {
-  const sizes = {
-    sm: '32px',
-    md: '44px',
-    lg: '64px'
-  };
-
   return (
     <div className={`loading ${className}`}>
-      <div className="spinner" style={{ width: sizes[size], height: sizes[size] }} />
+      <div className={`spinner spinner--${size}`} />
       {text && <p className="loading__text">{text}</p>}
     </div>
   );
@@ -114,7 +108,7 @@ export function EmptyState({
       <h3 className="empty-state__title">{title}</h3>
       {message && <p className="empty-state__message">{message}</p>}
       {action && (
-        <div className="empty-state__action" style={{ marginTop: 'var(--space-4)' }}>
+        <div className="empty-state__action empty-state__action--spaced">
           {action}
         </div>
       )}
@@ -144,36 +138,20 @@ export function ErrorState({
   );
 
   return (
-    <div className={`error-state ${className}`} style={{ textAlign: 'center', padding: 'var(--space-10)' }}>
-      <div style={{
-        width: '64px',
-        height: '64px',
-        margin: '0 auto var(--space-4)',
-        color: 'var(--color-danger-500)',
-        opacity: 0.8
-      }}>
+    <div className={`error-state error-state--panel ${className}`}>
+      <div className="error-state__icon">
         {errorIcon}
       </div>
-      <h3 style={{
-        fontSize: 'var(--font-size-xl)',
-        fontWeight: 'var(--font-weight-bold)',
-        color: 'var(--color-text-primary)',
-        marginBottom: 'var(--space-2)'
-      }}>
+      <h3 className="error-state__title">
         {title}
       </h3>
       {message && (
-        <p style={{
-          fontSize: 'var(--font-size-sm)',
-          color: 'var(--color-text-secondary)',
-          maxWidth: '400px',
-          margin: '0 auto var(--space-4)'
-        }}>
+        <p className="error-state__message">
           {message}
         </p>
       )}
       {action && (
-        <div style={{ marginTop: 'var(--space-4)' }}>
+        <div className="error-state__action">
           {action}
         </div>
       )}
@@ -239,35 +217,20 @@ export function SuccessState({
   );
 
   return (
-    <div className={`success-state ${className}`} style={{ textAlign: 'center', padding: 'var(--space-10)' }}>
-      <div style={{
-        width: '64px',
-        height: '64px',
-        margin: '0 auto var(--space-4)',
-        color: 'var(--color-success-500)'
-      }}>
+    <div className={`success-state success-state--panel ${className}`}>
+      <div className="success-state__icon">
         {successIcon}
       </div>
-      <h3 style={{
-        fontSize: 'var(--font-size-xl)',
-        fontWeight: 'var(--font-weight-bold)',
-        color: 'var(--color-text-primary)',
-        marginBottom: 'var(--space-2)'
-      }}>
+      <h3 className="success-state__title">
         {title}
       </h3>
       {message && (
-        <p style={{
-          fontSize: 'var(--font-size-sm)',
-          color: 'var(--color-text-secondary)',
-          maxWidth: '400px',
-          margin: '0 auto'
-        }}>
+        <p className="success-state__message">
           {message}
         </p>
       )}
       {action && (
-        <div style={{ marginTop: 'var(--space-4)' }}>
+        <div className="success-state__action">
           {action}
         </div>
       )}

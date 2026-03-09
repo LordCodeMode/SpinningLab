@@ -10,8 +10,9 @@ Tests:
 """
 
 import pytest
+from datetime import datetime, timedelta, timezone
 from app.services.auth_service import AuthService
-from app.core.security import verify_password, get_password_hash
+from app.core.security import verify_password, get_password_hash, get_token_hash
 
 
 @pytest.mark.auth
@@ -253,3 +254,119 @@ class TestUserAuthentication:
         assert user is not None
         assert user.id == test_user.id
         assert user.username == test_user.username
+
+
+@pytest.mark.auth
+@pytest.mark.unit
+class TestPasswordReset:
+    """Test password reset token issuance and password changes."""
+
+    def test_create_password_reset_stores_hashed_token(self, test_db, test_user, monkeypatch):
+        auth_service = AuthService(test_db)
+        monkeypatch.setattr("app.services.auth_service.generate_one_time_token", lambda: "fixed-reset-token")
+
+        user, token = auth_service.create_password_reset(test_user.email, 30)
+
+        assert token == "fixed-reset-token"
+        assert user.id == test_user.id
+        assert user.password_reset_token_hash == get_token_hash("fixed-reset-token")
+        assert user.password_reset_expires_at is not None
+
+    def test_create_password_reset_unknown_email_returns_none(self, test_db):
+        auth_service = AuthService(test_db)
+
+        user, token = auth_service.create_password_reset("missing@example.com", 30)
+
+        assert user is None
+        assert token is None
+
+    def test_reset_password_updates_hash_and_clears_token(self, test_db, test_user, test_user_data, monkeypatch):
+        auth_service = AuthService(test_db)
+        monkeypatch.setattr("app.services.auth_service.generate_one_time_token", lambda: "fixed-reset-token")
+        auth_service.create_password_reset(test_user.email, 30)
+
+        updated_user = auth_service.reset_password("fixed-reset-token", "NewReset123!")
+
+        assert updated_user is not None
+        assert verify_password("NewReset123!", updated_user.hashed_password) is True
+        assert verify_password(test_user_data["password"], updated_user.hashed_password) is False
+        assert updated_user.password_reset_token_hash is None
+        assert updated_user.password_reset_expires_at is None
+
+    def test_reset_password_rejects_expired_token(self, test_db, test_user):
+        auth_service = AuthService(test_db)
+        test_user.password_reset_token_hash = get_token_hash("expired-token")
+        test_user.password_reset_expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        test_db.commit()
+
+        updated_user = auth_service.reset_password("expired-token", "NewReset123!")
+
+        assert updated_user is None
+
+    def test_reset_password_accepts_timezone_aware_expiry(self, test_db, test_user):
+        auth_service = AuthService(test_db)
+        test_user.password_reset_token_hash = get_token_hash("aware-token")
+        test_user.password_reset_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+        test_db.commit()
+
+        updated_user = auth_service.reset_password("aware-token", "AwareReset123!")
+
+        assert updated_user is not None
+
+
+@pytest.mark.auth
+@pytest.mark.unit
+class TestEmailVerification:
+    def test_create_email_verification_stores_hashed_token(self, test_db, monkeypatch):
+        auth_service = AuthService(test_db)
+        user = auth_service.create_user(
+            username="pending@example.com",
+            password="PendingPass123!",
+            email="pending@example.com",
+            is_email_verified=False,
+        )
+        monkeypatch.setattr("app.services.auth_service.generate_one_time_token", lambda: "fixed-verify-token")
+
+        updated_user, token = auth_service.create_email_verification(user.email, 60)
+
+        assert token == "fixed-verify-token"
+        assert updated_user.email_verification_token_hash == get_token_hash("fixed-verify-token")
+
+    def test_verify_email_marks_user_verified(self, test_db):
+        auth_service = AuthService(test_db)
+        user = auth_service.create_user(
+            username="pending2@example.com",
+            password="PendingPass123!",
+            email="pending2@example.com",
+            is_email_verified=False,
+        )
+        _, token = auth_service.create_email_verification(user.email, 60)
+
+        verified_user = auth_service.verify_email(token)
+
+        assert verified_user is not None
+        assert verified_user.is_email_verified is True
+        assert verified_user.email_verification_token_hash is None
+
+
+@pytest.mark.auth
+@pytest.mark.unit
+class TestRefreshSessions:
+    def test_create_refresh_session_persists_hash(self, test_db, test_user):
+        auth_service = AuthService(test_db)
+
+        session, raw_token = auth_service.create_refresh_session(test_user, expires_days=30)
+
+        assert session.id is not None
+        assert session.token_hash == get_token_hash(raw_token)
+
+    def test_rotate_refresh_session_revokes_previous_token(self, test_db, test_user):
+        auth_service = AuthService(test_db)
+        original_session, raw_token = auth_service.create_refresh_session(test_user, expires_days=30)
+
+        user, next_token = auth_service.rotate_refresh_session(raw_token, expires_days=30)
+
+        assert user is not None
+        assert next_token is not None
+        test_db.refresh(original_session)
+        assert original_session.revoked_at is not None

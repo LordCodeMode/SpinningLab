@@ -39,6 +39,10 @@
   border-bottom: 1px solid var(--border-card-soft, #e5e7eb);
 }
 
+.card__content {
+  flex: 1;
+}
+
 .card__body {
   padding: var(--space-5, 20px) var(--space-6, 24px);
 }
@@ -429,6 +433,71 @@
 
 .compact-card {
   min-height: auto;
+}
+
+.compact-card__body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.compact-card__icon {
+  flex-shrink: 0;
+}
+
+.compact-card__content {
+  flex: 1;
+}
+
+.compact-card__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.compact-card__value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-text-primary);
+  margin-top: var(--space-1);
+}
+
+.progress-metric__bar {
+  overflow: hidden;
+  border-radius: 999px;
+}
+
+.progress-metric__svg {
+  display: block;
+  width: 100%;
+  height: 8px;
+}
+
+.progress-metric__track-fill {
+  fill: var(--color-border, #d1d5db);
+}
+
+.progress-metric__value-fill {
+  fill: var(--color-primary, #3b82f6);
+}
+
+.progress-metric__fill--success .progress-metric__value-fill {
+  fill: #22c55e;
+}
+
+.progress-metric__fill--warning .progress-metric__value-fill {
+  fill: #f59e0b;
+}
+
+.progress-metric__fill--danger .progress-metric__value-fill,
+.progress-metric__fill--error .progress-metric__value-fill {
+  fill: #ef4444;
+}
+
+.progress-metric__fill--secondary .progress-metric__value-fill {
+  fill: #8b5cf6;
 }
 
 .compact-card__trend {

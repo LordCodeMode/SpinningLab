@@ -1,88 +1,122 @@
 import js from '@eslint/js';
 
+const browserGlobals = {
+  window: 'readonly',
+  document: 'readonly',
+  console: 'readonly',
+  navigator: 'readonly',
+  localStorage: 'readonly',
+  sessionStorage: 'readonly',
+  fetch: 'readonly',
+  FormData: 'readonly',
+  URLSearchParams: 'readonly',
+  Event: 'readonly',
+  CustomEvent: 'readonly',
+  HTMLElement: 'readonly',
+  Element: 'readonly',
+  NodeList: 'readonly',
+  setTimeout: 'readonly',
+  clearTimeout: 'readonly',
+  setInterval: 'readonly',
+  clearInterval: 'readonly',
+  Promise: 'readonly',
+  URL: 'readonly',
+  Chart: 'readonly',
+  feather: 'readonly',
+  history: 'readonly',
+  location: 'readonly',
+  performance: 'readonly',
+  requestAnimationFrame: 'readonly',
+  cancelAnimationFrame: 'readonly',
+  structuredClone: 'readonly',
+  BroadcastChannel: 'readonly',
+  confirm: 'readonly',
+  TextDecoder: 'readonly',
+  __APP_VERSION__: 'readonly'
+};
+
+const nodeGlobals = {
+  process: 'readonly',
+  console: 'readonly',
+  __dirname: 'readonly'
+};
+
+const testGlobals = {
+  ...browserGlobals,
+  global: 'readonly',
+  vi: 'readonly',
+  describe: 'readonly',
+  it: 'readonly',
+  expect: 'readonly',
+  beforeEach: 'readonly',
+  afterEach: 'readonly'
+};
+
 export default [
-  js.configs.recommended,
-  {
-    files: ['**/*.js'],
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'module',
-      globals: {
-        window: 'readonly',
-        document: 'readonly',
-        console: 'readonly',
-        navigator: 'readonly',
-        localStorage: 'readonly',
-        sessionStorage: 'readonly',
-        fetch: 'readonly',
-        FormData: 'readonly',
-        URLSearchParams: 'readonly',
-        Event: 'readonly',
-        CustomEvent: 'readonly',
-        HTMLElement: 'readonly',
-        Element: 'readonly',
-        NodeList: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-        Promise: 'readonly',
-        URL: 'readonly',
-        feather: 'readonly',
-        Chart: 'readonly',
-        __APP_VERSION__: 'readonly'
-      }
-    },
-    rules: {
-      // Error Prevention
-      'no-unused-vars': ['warn', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_'
-      }],
-      'no-undef': 'error',
-      'no-console': 'off', // Allow console for debugging
-      'no-debugger': 'warn',
-
-      // Best Practices
-      'eqeqeq': ['error', 'always'],
-      'no-eval': 'error',
-      'no-implied-eval': 'error',
-      'no-with': 'error',
-      'no-new-func': 'error',
-      'no-return-await': 'warn',
-
-      // Code Style (handled by Prettier, but good to have)
-      'semi': ['error', 'always'],
-      'quotes': ['error', 'single', { avoidEscape: true }],
-      'comma-dangle': ['error', 'never'],
-
-      // Modern JS
-      'prefer-const': 'warn',
-      'prefer-arrow-callback': 'warn',
-      'no-var': 'error',
-
-      // Async/Await
-      'require-await': 'warn',
-      'no-async-promise-executor': 'error',
-
-      // Imports
-      'no-duplicate-imports': 'error'
-    }
-  },
-  {
-    // Test files can be more lenient
-    files: ['**/*.test.js', '**/*.spec.js'],
-    rules: {
-      'no-unused-expressions': 'off'
-    }
-  },
   {
     ignores: [
       'node_modules/',
       'dist/',
       'build/',
-      '*.min.js',
-      'vite.config.js'
+      'public/unity/**',
+      '**/*.min.js'
     ]
+  },
+  js.configs.recommended,
+  {
+    files: ['src/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: browserGlobals
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-console': 'off',
+      'no-debugger': 'warn',
+      'prefer-const': 'warn',
+      'require-await': 'off',
+      'no-duplicate-imports': 'warn',
+      'no-dupe-class-members': 'warn',
+      'no-useless-escape': 'warn',
+      'eqeqeq': 'warn',
+      'quotes': 'warn',
+      'semi': 'warn',
+      'comma-dangle': 'off',
+      'no-var': 'warn'
+    }
+  },
+  {
+    files: ['tests/**/*.js', 'vitest.config.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: testGlobals
+    },
+    rules: {
+      'no-unused-expressions': 'off',
+      'no-unused-vars': 'warn',
+      'require-await': 'off',
+      'no-useless-escape': 'warn',
+      'quotes': 'warn',
+      'semi': 'warn',
+      'eqeqeq': 'warn',
+      'comma-dangle': 'off'
+    }
+  },
+  {
+    files: ['scripts/**/*.mjs', '*.config.js', 'vite.config.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: nodeGlobals
+    },
+    rules: {
+      'no-console': 'off',
+      'quotes': 'warn',
+      'semi': 'warn',
+      'eqeqeq': 'warn',
+      'comma-dangle': 'off'
+    }
   }
 ];

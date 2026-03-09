@@ -13,6 +13,24 @@ import {
 
 const mapboxgl = mapboxglModule.default || mapboxglModule;
 
+const LegendGradient = ({ colors, label }) => {
+  const safeColors = colors.length ? colors : ['#9ca3af', '#111827'];
+  const gradientId = `activity-map-gradient-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+  return (
+    <svg className="activity-map-legend-bar" viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label={label}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+          {safeColors.map((color, index) => {
+            const offset = safeColors.length === 1 ? 0 : (index / (safeColors.length - 1)) * 100;
+            return <stop key={`${color}-${offset}`} offset={`${offset}%`} stopColor={color} />;
+          })}
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="100" height="12" rx="6" fill={`url(#${gradientId})`} />
+    </svg>
+  );
+};
+
 const ActivityMap = ({ 
   activity, 
   streams, 
@@ -26,7 +44,7 @@ const ActivityMap = ({
   const mapRef = useRef(null);
   const [mapError, setMapError] = React.useState('');
 
-  const mapLegendGradient = useMemo(() => {
+  const mapLegendColors = useMemo(() => {
     const isHeartRate = routeMetric === 'hr';
     const zoneSource = isHeartRate ? AppConfig?.HR_ZONES : AppConfig?.POWER_ZONES;
     const palette = isHeartRate ? MAP_HR_COLORS : MAP_POWER_COLORS;
@@ -34,15 +52,9 @@ const ActivityMap = ({
       palette[index] || zone.color
     )).filter(Boolean);
     if (!zoneColors.length) {
-      return isHeartRate
-        ? 'linear-gradient(90deg, #fecdd3 0%, #e11d48 100%)'
-        : 'linear-gradient(90deg, #9ca3af 0%, #111827 100%)';
+      return isHeartRate ? ['#fecdd3', '#e11d48'] : ['#9ca3af', '#111827'];
     }
-    const stops = zoneColors.map((color, index) => {
-      const percent = zoneColors.length === 1 ? 0 : (index / (zoneColors.length - 1)) * 100;
-      return `${color} ${percent}%`;
-    });
-    return `linear-gradient(90deg, ${stops.join(', ')})`;
+    return zoneColors;
   }, [routeMetric]);
 
   const mapLegendZones = useMemo(() => {
@@ -217,7 +229,7 @@ const ActivityMap = ({
             <div className="activity-map" ref={mapContainerRef}></div>
           </div>
           <div className="activity-map-legend">
-            <div className="activity-map-legend-bar" style={{ background: mapLegendGradient }}></div>
+            <LegendGradient colors={mapLegendColors} label={`${routeMetricLabel} legend`} />
             <div className="activity-map-legend-labels">
               <span>{legendLowLabel}</span>
               <span>{legendHighLabel}</span>
@@ -225,7 +237,9 @@ const ActivityMap = ({
             <div className="activity-map-legend-zones">
               {mapLegendZones.map((zone) => (
                 <div className="activity-map-legend-zone" key={zone.label} title={zone.tooltip}>
-                  <span className="activity-map-legend-swatch" style={{ background: zone.color }}></span>
+                  <svg className="activity-map-legend-swatch" viewBox="0 0 12 12" aria-hidden="true">
+                    <rect x="0" y="0" width="12" height="12" rx="6" fill={zone.color} />
+                  </svg>
                   <span className="activity-map-legend-text">
                     {zone.label} {zone.rangeLabel}
                   </span>

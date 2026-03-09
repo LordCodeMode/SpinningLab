@@ -1,6 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Services from '../../lib/services/index.js';
 
+const ProgressBarSvg = ({ value, className = '', label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={`upload-progress__svg ${className}`.trim()}
+      viewBox="0 0 100 14"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <defs>
+        <linearGradient id="upload-progress-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#8b5cf6" />
+        </linearGradient>
+      </defs>
+      <rect className="upload-progress__track-fill" x="0" y="0" width="100" height="14" rx="7" />
+      <rect x="0" y="0" width={width} height="14" rx="7" fill="url(#upload-progress-gradient)" />
+    </svg>
+  );
+};
+
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -335,7 +357,7 @@ const UploadApp = () => {
             <div className="upload-progress-percent">{progress}%</div>
           </div>
           <div className="upload-progress-bar">
-            <div className="upload-progress-fill" style={{ width: `${progress}%` }}></div>
+            <ProgressBarSvg value={progress} className="upload-progress-fill" label="Upload progress" />
           </div>
         </div>
       )}

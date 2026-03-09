@@ -146,7 +146,13 @@ class TrainingPlanService:
         return entry, None
 
     @staticmethod
-    def _find_workout(db: Session, user_id: int, workout_type: Optional[str], workout_name: Optional[str]) -> Optional[Workout]:
+    def _find_workout(
+        db: Session,
+        user_id: int,
+        workout_type: Optional[str],
+        workout_name: Optional[str],
+        allow_type_fallback: bool = True
+    ) -> Optional[Workout]:
         query = db.query(Workout).filter(Workout.user_id == user_id)
 
         if workout_name:
@@ -156,7 +162,7 @@ class TrainingPlanService:
             if workout:
                 return workout
 
-        if workout_type:
+        if workout_type and allow_type_fallback:
             return query.filter(
                 Workout.workout_type == workout_type
             ).order_by(Workout.is_template.desc(), Workout.created_at.desc()).first()
@@ -245,6 +251,60 @@ class TrainingPlanService:
             return None
 
     @staticmethod
+    def ensure_template_workouts(
+        db: Session,
+        user_id: int,
+        template_id: Optional[str] = None
+    ) -> List[str]:
+        templates = TrainingPlanService.get_templates()
+        if template_id:
+            template = TrainingPlanService.get_template(template_id)
+            templates = [template] if template else []
+
+        missing_types: List[str] = []
+        seen_entries = set()
+
+        for template in templates:
+            if not template:
+                continue
+
+            total_days = int(template.get("weeks", 0)) * 7
+            for day_offset in range(total_days):
+                week_index = day_offset // 7
+                day_index = day_offset % 7
+                workout_entry = TrainingPlanService._resolve_week_entry(template, week_index, day_index)
+                workout_type, workout_name = TrainingPlanService._parse_workout_entry(workout_entry)
+                if not workout_type and not workout_name:
+                    continue
+
+                entry_key = (
+                    (workout_type or "").strip().lower(),
+                    (workout_name or "").strip().lower(),
+                )
+                if entry_key in seen_entries:
+                    continue
+                seen_entries.add(entry_key)
+
+                workout = TrainingPlanService._find_workout(
+                    db,
+                    user_id,
+                    workout_type,
+                    workout_name,
+                    allow_type_fallback=not bool(workout_name)
+                )
+                if not workout:
+                    workout = TrainingPlanService._ensure_workout_template(db, user_id, workout_type, workout_name)
+
+                if workout:
+                    continue
+
+                missing_key = workout_name or workout_type
+                if missing_key and missing_key not in missing_types:
+                    missing_types.append(missing_key)
+
+        return missing_types
+
+    @staticmethod
     def create_plan_from_template(
         db: Session,
         user_id: int,
@@ -256,6 +316,8 @@ class TrainingPlanService:
         template = TrainingPlanService.get_template(template_id)
         if not template:
             raise ValueError("Template not found")
+
+        TrainingPlanService.ensure_template_workouts(db, user_id, template_id=template_id)
 
         plan_name = name or template["name"]
         total_days = template["weeks"] * 7
@@ -331,6 +393,8 @@ class TrainingPlanService:
         template = TrainingPlanService.get_template(resolved_template_id)
         if not template:
             raise ValueError("Template not found for this plan")
+
+        TrainingPlanService.ensure_template_workouts(db, plan.user_id, template_id=resolved_template_id)
 
         # Delete existing scheduled workouts for this plan
         if plan.start_date and plan.end_date:

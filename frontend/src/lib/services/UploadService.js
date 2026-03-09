@@ -3,7 +3,7 @@
 // Updated upload handling with cache management
 // ============================================
 
-import { API } from '../core/api.js';
+import { API, JobsAPI } from '../core/api.js';
 import { eventBus, EVENTS } from '../core/eventBus.js';
 import { notify } from '../utils/notifications.js';
 import state from '../core/state.js';
@@ -143,8 +143,23 @@ class UploadService {
     try {
       console.log(`[Upload] Uploading ${files.length} files...`);
       
-      // Call API upload endpoint
-      const result = await API.uploadFitFiles(files);
+      const queued = await API.uploadFitFiles(files);
+      let result = queued;
+      if (queued?.job_id) {
+        notify('Upload queued. Processing files in the background...', 'info', 4000);
+        const job = await JobsAPI.waitForCompletion(queued.job_id);
+        if (job.status === 'failed') {
+          throw new Error(job.error || 'Upload job failed');
+        }
+        result = {
+          ...(job.result || {}),
+          results: [
+            ...((job.result && Array.isArray(job.result.results)) ? job.result.results : []),
+            ...((queued.preflight_duplicates || []).map((item) => ({ ...item, success: false }))),
+            ...((queued.preflight_errors || []).map((item) => ({ ...item, success: false })))
+          ]
+        };
+      }
       
       // Update progress
       state.updateUploadProgress({

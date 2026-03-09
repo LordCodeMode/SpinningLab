@@ -24,10 +24,12 @@ import {
   Moon,
   Sun
 } from 'lucide-react';
+import { DASHBOARD_NAV_SECTIONS } from '../../lib/pages/registry.js';
 
 const DashboardShell = ({
   children,
   activePage = 'overview',
+  activePageMeta = null,
   displayName = 'User',
   avatarInitial = 'U',
   onNavigate,
@@ -44,6 +46,25 @@ const DashboardShell = ({
     return 'light';
   });
   const isDark = theme === 'dark';
+  const iconMap = useMemo(() => ({
+    home: Home,
+    'trending-up': TrendingUp,
+    'bar-chart-2': BarChart2,
+    activity: Activity,
+    target: Target,
+    percent: Percent,
+    award: Award,
+    layers: Layers,
+    heart: Heart,
+    wind: Wind,
+    calendar: Calendar,
+    book: Book,
+    edit: Edit,
+    bluetooth: Bluetooth,
+    list: List,
+    upload: Upload,
+    settings: Settings
+  }), []);
 
   const handleNavClick = (event, pageKey) => {
     if (!onNavigate) return;
@@ -126,7 +147,7 @@ const DashboardShell = ({
 
   return (
     <>
-      <div className="loading-overlay" id="loading-overlay" style={{ display: 'none' }}>
+      <div className="loading-overlay loading-overlay--hidden" id="loading-overlay">
         <div className="loading-spinner"></div>
       </div>
 
@@ -139,13 +160,13 @@ const DashboardShell = ({
               <svg className="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
                 <defs>
                   <linearGradient id="sidebarRimGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" style={{ stopColor: '#5b8cff', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#7c5cff', stopOpacity: 1 }} />
+                    <stop offset="0%" stopColor="#5b8cff" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#7c5cff" stopOpacity="1" />
                   </linearGradient>
                   <linearGradient id="sidebarHubGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: '#5b8cff', stopOpacity: 1 }} />
-                    <stop offset="60%" style={{ stopColor: '#7c5cff', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#f08fdc', stopOpacity: 1 }} />
+                    <stop offset="0%" stopColor="#5b8cff" stopOpacity="1" />
+                    <stop offset="60%" stopColor="#7c5cff" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#f08fdc" stopOpacity="1" />
                   </linearGradient>
                   <filter id="sidebarGlow">
                     <feGaussianBlur stdDeviation="1.2" result="coloredBlur" />
@@ -186,43 +207,25 @@ const DashboardShell = ({
           </div>
 
           <nav className="sidebar-nav">
-            <div className="nav-section">
-              <div className="nav-section-title">Dashboard</div>
-              <NavItem page="overview" icon={Home} label="Overview" delay={0.1} />
-            </div>
+            {DASHBOARD_NAV_SECTIONS.map((section, sectionIndex) => (
+              <div className="nav-section" key={section.id}>
+                <div className="nav-section-title">{section.label}</div>
+                {section.pages.map((page, pageIndex) => {
+                  const Icon = iconMap[page.icon] || Activity;
+                  const delay = 0.1 + ((sectionIndex * 5) + pageIndex) * 0.05;
 
-            <div className="nav-section">
-              <div className="nav-section-title">Performance</div>
-              <NavItem page="training-load" icon={TrendingUp} label="Training Load" delay={0.15} />
-              <NavItem page="comparisons" icon={BarChart2} label="Comparisons" delay={0.2} />
-              <NavItem page="power-curve" icon={Activity} label="Power Curve" delay={0.25} />
-              <NavItem page="critical-power" icon={Target} label="Critical Power" delay={0.3} />
-              <NavItem page="efficiency" icon={Percent} label="Efficiency" delay={0.35} />
-              <NavItem page="best-powers" icon={Award} label="Best Powers" delay={0.4} />
-            </div>
-
-            <div className="nav-section">
-              <div className="nav-section-title">Analysis</div>
-              <NavItem page="zones" icon={Layers} label="Power Zones" delay={0.45} />
-              <NavItem page="hr-zones" icon={Heart} label="HR Zones" delay={0.5} />
-              <NavItem page="vo2max" icon={Wind} label="VO2 Max" delay={0.55} />
-            </div>
-
-            <div className="nav-section">
-              <div className="nav-section-title">Workout Planning</div>
-              <NavItem page="calendar" icon={Calendar} label="Calendar" delay={0.6} />
-              <NavItem page="workout-library" icon={Book} label="Workout Library" delay={0.65} />
-              <NavItem page="workout-builder" icon={Edit} label="Workout Builder" delay={0.7} />
-              <NavItem page="live-training" icon={Bluetooth} label="Live Training" delay={0.75} />
-              <NavItem page="training-plans" icon={Layers} label="Training Plans" delay={0.8} />
-            </div>
-
-            <div className="nav-section">
-              <div className="nav-section-title">Data</div>
-              <NavItem page="activities" icon={List} label="Activities" delay={0.85} />
-              <NavItem page="upload" icon={Upload} label="Upload" delay={0.9} />
-              <NavItem page="settings" icon={Settings} label="Settings" delay={0.95} />
-            </div>
+                  return (
+                    <NavItem
+                      key={page.id}
+                      page={page.id}
+                      icon={Icon}
+                      label={page.navLabel}
+                      delay={delay}
+                    />
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
           <div className="sidebar-footer">
@@ -259,8 +262,8 @@ const DashboardShell = ({
         <main className="main-content" id="main-content">
           <header className="main-header hidden" ref={mainHeaderRef}>
             <div>
-              <h1 id="page-title">Overview</h1>
-              <p id="page-subtitle" className="main-subtitle"></p>
+              <h1 id="page-title">{activePageMeta?.title || 'Overview'}</h1>
+              <p id="page-subtitle" className="main-subtitle">{activePageMeta?.subtitle || ''}</p>
             </div>
             <div className="header-actions">
               <button className="btn btn--secondary btn--sm" id="refresh-btn" title="Refresh Page">
@@ -284,9 +287,9 @@ const DashboardShell = ({
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 {children || (
-                  <div style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8' }}>
-                    <div className="loading-spinner" style={{ margin: '0 auto 20px' }}></div>
-                    <p style={{ fontSize: '15px', fontWeight: 500 }}>Loading dashboard...</p>
+                  <div className="dashboard-loading-state">
+                    <div className="loading-spinner dashboard-loading-state__spinner"></div>
+                    <p className="dashboard-loading-state__text">Loading dashboard...</p>
                   </div>
                 )}
               </motion.div>

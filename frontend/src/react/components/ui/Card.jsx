@@ -61,7 +61,7 @@ export function CardHeader({
   return (
     <div className="card__header">
       {icon && <div className="card__icon">{icon}</div>}
-      <div style={{ flex: 1 }}>
+      <div className="card__content">
         {title && <h3 className="card__title">{title}</h3>}
         {subtitle && <p className="card__subtitle">{subtitle}</p>}
         {children}
@@ -191,28 +191,17 @@ export function CompactCard({
 }) {
   return (
     <div id={id} className={`card compact-card ${className}`}>
-      <div className="card__body" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+      <div className="card__body compact-card__body">
         {icon && (
-          <div className="card__icon" style={{ flexShrink: 0 }}>
+          <div className="card__icon compact-card__icon">
             {icon}
           </div>
         )}
-        <div style={{ flex: 1 }}>
-          <div style={{
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-secondary)',
-            fontWeight: 'var(--font-weight-semibold)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px'
-          }}>
+        <div className="compact-card__content">
+          <div className="compact-card__label">
             {title}
           </div>
-          <div style={{
-            fontSize: 'var(--font-size-2xl)',
-            fontWeight: 'var(--font-weight-extrabold)',
-            color: 'var(--color-text-primary)',
-            marginTop: 'var(--space-1)'
-          }}>
+          <div className="compact-card__value">
             {value}
           </div>
           {trend && (

@@ -61,6 +61,43 @@ const calculateBpmRange = (rangeStr, maxHR) => {
   return '—';
 };
 
+const MetricBarSvg = ({ value, className = '', label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 100 8"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <rect className="hrz-progress-track" x="0" y="0" width="100" height="8" rx="4" />
+      <rect className="hrz-progress-fill" x="0" y="0" width={width} height="8" rx="4" />
+    </svg>
+  );
+};
+
+const HighlightBarSvg = ({ value, label, markers = [] }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg className="hrz-highlight-svg" viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label={label}>
+      <rect className="hrz-highlight-svg__track" x="0" y="0" width="100" height="12" rx="6" />
+      <rect className="hrz-highlight-svg__fill" x="0" y="0" width={width} height="12" rx="6" />
+      {markers.map((marker) => (
+        <rect
+          key={marker}
+          className={`hrz-highlight-marker hrz-highlight-marker--${marker}`}
+          x={Math.max(0, Math.min(100, marker)) - 1}
+          y="-2"
+          width="2"
+          height="16"
+          rx="1"
+        />
+      ))}
+    </svg>
+  );
+};
+
 const HrZonesApp = () => {
   const [currentDays, setCurrentDays] = useState(60);
   const [raw, setRaw] = useState({});
@@ -467,7 +504,7 @@ const HrZonesApp = () => {
             <ul className="hrz-chart-legend">
               {metrics.zoneDetails.map((zone) => (
                 <li key={zone.id}>
-                  <span className="hrz-legend-dot" style={{ background: zone.color }}></span>
+                  <span className={`hrz-legend-dot hrz-legend-dot--${zone.id.toLowerCase()}`}></span>
                   <span>{zone.displayName} · {formatNumber(zone.percent, 1)}%</span>
                 </li>
               ))}
@@ -511,7 +548,7 @@ const HrZonesApp = () => {
               {metrics.zoneDetails.map((zone) => {
                 const barWidth = maxPercent > 0 ? (zone.percent / maxPercent) * 100 : 0;
                 return (
-                  <article key={zone.id} className="hrz-zone-card" style={{ '--zone-color': zone.color }}>
+                  <article key={zone.id} className="hrz-zone-card" data-zone={zone.id.toLowerCase()}>
                     <div className="hrz-zone-card-header">
                       <span className="hrz-zone-num">Zone {zone.num}</span>
                       <span className="hrz-zone-percent">{formatNumber(zone.percent, 1)}%</span>
@@ -520,7 +557,11 @@ const HrZonesApp = () => {
                     <div className="hrz-zone-range">{zone.range}</div>
                     <div className="hrz-zone-bpm">{calculateBpmRange(zone.range, metrics.maxHR)}</div>
                     <div className="hrz-zone-bar">
-                      <div className="hrz-zone-bar-fill" style={{ width: `${barWidth}%`, background: zone.color }}></div>
+                      <MetricBarSvg
+                        value={barWidth}
+                        className="hrz-zone-bar-fill"
+                        label={`${zone.name} heart rate zone share`}
+                      />
                     </div>
                     <div className="hrz-zone-time">{zone.formattedTime}</div>
                   </article>
@@ -543,9 +584,11 @@ const HrZonesApp = () => {
               <span className="hrz-highlight-value">{formatNumber(metrics.polarizationScore, 0)}</span>
             </div>
             <div className="hrz-highlight-bar">
-              <div className="hrz-highlight-fill" style={{ width: `${Math.max(0, Math.min(100, metrics.polarizationScore))}%` }}></div>
-              <span className="hrz-highlight-marker" style={{ left: '70%' }}></span>
-              <span className="hrz-highlight-marker" style={{ left: '85%' }}></span>
+              <HighlightBarSvg
+                value={Math.max(0, Math.min(100, metrics.polarizationScore))}
+                label="Polarisation score"
+                markers={[70, 85]}
+              />
             </div>
             <p className="hrz-highlight-footer">{polarizationDescriptor}</p>
             <footer className="hrz-highlight-footer">(Low + High) ÷ Tempo ratio: {formatNumber(metrics.polarizationRatio, 2)}</footer>
@@ -556,9 +599,11 @@ const HrZonesApp = () => {
               <span className="hrz-highlight-value">{formatNumber(metrics.aerobicPercent, 1)}%</span>
             </div>
             <div className="hrz-highlight-bar">
-              <div className="hrz-highlight-fill" style={{ width: `${Math.max(0, Math.min(100, metrics.aerobicPercent))}%` }}></div>
-              <span className="hrz-highlight-marker" style={{ left: '45%' }}></span>
-              <span className="hrz-highlight-marker" style={{ left: '60%' }}></span>
+              <HighlightBarSvg
+                value={Math.max(0, Math.min(100, metrics.aerobicPercent))}
+                label="Aerobic base percentage"
+                markers={[45, 60]}
+              />
             </div>
             <p className="hrz-highlight-footer">{aerobicDescriptor}</p>
           </article>
@@ -568,8 +613,11 @@ const HrZonesApp = () => {
               <span className="hrz-highlight-value">{formatNumber(metrics.recoveryPercent, 1)}%</span>
             </div>
             <div className="hrz-highlight-bar">
-              <div className="hrz-highlight-fill" style={{ width: `${Math.max(0, Math.min(100, metrics.recoveryPercent))}%` }}></div>
-              <span className="hrz-highlight-marker" style={{ left: '20%' }}></span>
+              <HighlightBarSvg
+                value={Math.max(0, Math.min(100, metrics.recoveryPercent))}
+                label="Recovery share percentage"
+                markers={[20]}
+              />
             </div>
             <p className="hrz-highlight-footer">{recoveryDescriptor}</p>
             <footer className="hrz-highlight-footer">Redline minutes this block: {formatNumber(metrics.redlineMinutes, 0)} min</footer>

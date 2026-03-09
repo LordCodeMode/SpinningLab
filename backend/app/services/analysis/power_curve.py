@@ -4,9 +4,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from ...database.models import User, Activity
 from fitparse import FitFile
-import os
 from ...core.config import settings
-import json
+from ..storage_service import storage_service
 
 class PowerCurveService:
     def __init__(self, db: Session):
@@ -173,11 +172,12 @@ class PowerCurveService:
     
     def get_power_series(self, activity: Activity) -> List[float]:
         """Return per-second power samples from FIT file/Strava streams, fallback to synthetic."""
-        fit_path = getattr(activity, 'get_fit_path', lambda: None)()
-        if fit_path and os.path.exists(fit_path):
-            series = self.extract_power_series_from_file(fit_path)
-            if series:
-                return series
+        fit_key = getattr(activity, "get_fit_storage_key", lambda: None)()
+        if fit_key and storage_service.exists(fit_key):
+            with storage_service.download_to_temp_path(fit_key, suffix=".fit") as fit_path:
+                series = self.extract_power_series_from_file(fit_path)
+                if series:
+                    return series
         stream_series = self._extract_power_from_stream_json(activity)
         if stream_series:
             return stream_series
@@ -185,12 +185,11 @@ class PowerCurveService:
 
     def _extract_power_from_stream_json(self, activity: Activity) -> List[float]:
         """Extract power series from stored Strava stream JSON (resampled to 1 Hz)."""
-        stream_path = os.path.join(settings.FIT_FILES_DIR, "streams", f"{activity.strava_activity_id or activity.id}.json")
-        if not os.path.exists(stream_path):
+        stream_key = getattr(activity, "get_stream_storage_key", lambda: None)()
+        if not stream_key or not storage_service.exists(stream_key):
             return []
         try:
-            with open(stream_path, "r") as f:
-                raw = json.load(f)
+            raw = storage_service.get_json(stream_key)
         except Exception:
             return []
 

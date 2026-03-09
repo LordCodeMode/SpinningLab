@@ -3,7 +3,7 @@
 // API calls with caching and data transformation
 // ============================================
 
-import { API, AnalysisAPI } from '../core/api.js';
+import { API, AnalysisAPI, JobsAPI } from '../core/api.js';
 import { CacheService } from './CacheService.js';
 import { eventBus, EVENTS } from '../core/eventBus.js';
 import CONFIG from '../core/config.js';
@@ -76,12 +76,20 @@ class DataService {
   async rebuildBackendCache() {
     try {
       console.log('[DataService] Triggering backend cache rebuild...');
-      const result = await API.rebuildCache();
+      const queued = await API.rebuildCache();
+      const result = queued?.job_id ? await JobsAPI.waitForCompletion(queued.job_id) : { result: queued };
       
       // Clear frontend cache too
       this.clearAllCaches();
-      
-      return result;
+
+      if (result.status === 'failed') {
+        return {
+          success: false,
+          message: result.error || 'Failed to trigger backend cache rebuild.'
+        };
+      }
+
+      return result.result || queued;
     } catch (error) {
       console.error('[DataService] Failed to trigger cache rebuild:', error);
       return {
@@ -1100,12 +1108,6 @@ class DataService {
       
       // Clear all analysis caches since FTP/weight affects calculations
       this.clearAllCaches();
-      
-      // Trigger backend cache rebuild
-      const rebuildResult = await this.rebuildBackendCache();
-      if (rebuildResult && rebuildResult.success === false) {
-        console.warn('[DataService] Settings were saved, but cache rebuild failed:', rebuildResult.message);
-      }
       
       // Emit event
       eventBus.emit(EVENTS.SETTINGS_UPDATED, data);

@@ -32,6 +32,20 @@ def test_prepare_power_series_resamples():
     assert series
     assert duration is not None
 
+def test_prepare_power_series_handles_smart_recording_gaps_conservatively():
+    df = pd.DataFrame({
+        "time": [0, 3, 6, 20],
+        "power": [200, 210, 220, 0],
+        "moving": [1, 1, 1, 0],
+    })
+
+    series, duration = power_metrics._prepare_power_series(df["power"], df["time"], df["moving"])
+
+    assert series[:7] == [200.0, 200.0, 200.0, 210.0, 210.0, 210.0, 220.0]
+    assert all(value == 0.0 for value in series[9:])
+    assert duration is not None
+    assert duration < len(series)
+
 
 def test_calculate_np_and_ef():
     series = [200.0] * 60
@@ -43,8 +57,10 @@ def test_calculate_np_and_ef():
 
 def test_compute_hr_and_power_zones():
     df = pd.DataFrame({
+        "time": [0, 2, 4, 6, 8],
         "power": [100, 150, 200, 250, 300],
         "heart_rate": [110, 130, 150, 170, 180],
+        "moving": [1, 1, 1, 1, 1],
     })
 
     hr_series = extract_hr_series(df)
@@ -56,4 +72,3 @@ def test_compute_hr_and_power_zones():
 
     power_zones = compute_power_zones(df, ftp=250)
     assert power_zones
-

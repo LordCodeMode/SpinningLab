@@ -29,7 +29,7 @@ const ActivityMetrics = ({ activity, heroSummary }) => {
         </div>
       </div>
 
-      <h2 className="activity-section-title section-title" style={{ marginTop: 28 }}>Heart Rate</h2>
+      <h2 className="activity-section-title section-title activity-section-title--spaced">Heart Rate</h2>
       <div className="activity-metrics-list">
         <div className="activity-metric-row">
           <span className="activity-metric-label">

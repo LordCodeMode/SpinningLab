@@ -1,6 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, ArrowUpDown, ChevronLeft, ChevronRight, XCircle, Bookmark, Save } from 'lucide-react';
+import {
+  Search,
+  Filter,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  XCircle,
+  Save,
+  SlidersHorizontal,
+  CalendarRange,
+  Flame,
+  Gauge,
+  Compass
+} from 'lucide-react';
 import Services from '../../lib/services/index.js';
 import { LoadingSkeleton } from '../components/ui';
 import { notify } from '../../lib/core/utils.js';
@@ -56,6 +69,15 @@ const parseNumber = (value) => {
   if (value === null || value === undefined || value === '') return null;
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
+};
+
+const countActiveFilters = (filters) => {
+  const filterKeys = Object.keys(DEFAULT_FILTERS).filter((key) => key !== 'sortBy' && key !== 'sortOrder');
+  return filterKeys.reduce((count, key) => {
+    const value = filters[key];
+    if (value === null || value === undefined || value === '') return count;
+    return count + 1;
+  }, 0);
 };
 
 const ActivitiesApp = () => {
@@ -194,6 +216,27 @@ const ActivitiesApp = () => {
     return filteredActivities.slice(start, start + PAGE_SIZE);
   }, [filteredActivities, currentPage]);
 
+  const activeFilterCount = useMemo(() => countActiveFilters(filters), [filters]);
+  const filterHighlights = useMemo(() => {
+    const dateValue = (!filters.startDate && !filters.endDate)
+      ? 'All sessions'
+      : `${filters.startDate ? formatDate(filters.startDate) : 'Any start'} - ${filters.endDate ? formatDate(filters.endDate) : 'Today'}`;
+
+    const tssValue = (filters.tssMin || filters.tssMax)
+      ? `${filters.tssMin || '0'}-${filters.tssMax || 'max'} TSS`
+      : 'Any load';
+
+    const powerValue = (filters.powerMin || filters.powerMax)
+      ? `${filters.powerMin || '0'}-${filters.powerMax || 'max'} W`
+      : 'Any output';
+
+    return [
+      { icon: CalendarRange, label: 'Window', value: dateValue, tone: 'blue' },
+      { icon: Flame, label: 'Training load', value: tssValue, tone: 'violet' },
+      { icon: Gauge, label: 'Power target', value: powerValue, tone: 'sky' }
+    ];
+  }, [filters.endDate, filters.powerMax, filters.powerMin, filters.startDate, filters.tssMax, filters.tssMin]);
+
   const handleSavePreset = () => {
     if (!presetName.trim()) {
       notify('Please enter a name for the preset', 'warning');
@@ -256,18 +299,65 @@ const ActivitiesApp = () => {
 
       <div className="actx-layout">
         <aside className="actx-filters">
-          <div className="actx-filter-card">
-            <div className="actx-filter-title">
-              <Search size={14} />
-              Search
+          <div className="actx-filter-card actx-filter-card--hero">
+            <div className="actx-filter-panel-head">
+              <div className="actx-filter-hero-copy">
+                <div className="actx-filter-kicker">Activity control</div>
+                <div className="actx-filter-hero-title">
+                  <span className="actx-filter-heading__icon actx-filter-heading__icon--hero">
+                    <SlidersHorizontal size={18} />
+                  </span>
+                  <div>
+                    <h2>Refine the ride list</h2>
+                    <p className="actx-filter-hero-note">A tighter cockpit for searching, sorting and slicing the training archive.</p>
+                  </div>
+                </div>
+              </div>
+              <div className="actx-filter-counter">{activeFilterCount}</div>
             </div>
-            <input
-              type="text"
-              value={filters.search}
-              onChange={handleFilterChange('search')}
-              placeholder="Ride name..."
-              className="actx-input"
-            />
+            <p className="actx-filter-summary">
+              Narrow down sessions by date, load, power, naming and reusable presets without turning the page into a wall of controls.
+            </p>
+            <div className="actx-filter-pills">
+              <span className="actx-filter-pill actx-filter-pill--accent">Filtered {filteredActivities.length}</span>
+              <span className="actx-filter-pill">Total {allActivities.length}</span>
+              <span className="actx-filter-pill">{activeFilterCount} active filters</span>
+            </div>
+            <div className="actx-filter-spotlight">
+              {filterHighlights.map(({ icon: Icon, label, value, tone }) => (
+                <div key={label} className={`actx-filter-spotlight__item actx-filter-spotlight__item--${tone}`}>
+                  <span className="actx-filter-spotlight__icon">
+                    <Icon size={14} />
+                  </span>
+                  <div className="actx-filter-spotlight__copy">
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="actx-filter-card">
+            <div className="actx-filter-heading">
+              <span className="actx-filter-heading__icon">
+                <Search size={16} />
+              </span>
+              <div className="actx-filter-heading__copy">
+                <span className="actx-filter-heading__eyebrow">Discover</span>
+                <span className="actx-filter-heading__title">Quick search</span>
+              </div>
+            </div>
+            <p className="actx-filter-caption">Jump to rides by title, naming pattern or saved tags.</p>
+            <div className="actx-search-shell">
+              <input
+                type="text"
+                value={filters.search}
+                onChange={handleFilterChange('search')}
+                placeholder="Ride name..."
+                className="actx-input actx-input--search"
+              />
+            </div>
             <div className="actx-field">
               <label htmlFor="actx-tags-input">Tags</label>
               <input
@@ -282,10 +372,16 @@ const ActivitiesApp = () => {
           </div>
 
           <div className="actx-filter-card">
-            <div className="actx-filter-title">
-              <ArrowUpDown size={14} />
-              Sort
+            <div className="actx-filter-heading">
+              <span className="actx-filter-heading__icon">
+                <ArrowUpDown size={16} />
+              </span>
+              <div className="actx-filter-heading__copy">
+                <span className="actx-filter-heading__eyebrow">View logic</span>
+                <span className="actx-filter-heading__title">Sort order</span>
+              </div>
             </div>
+            <p className="actx-filter-caption">Reorder the list by date, naming, output, duration or distance.</p>
             <div className="actx-row">
               <select className="actx-select" value={filters.sortBy} onChange={handleFilterChange('sortBy')}>
                 <option value="date">Date</option>
@@ -302,46 +398,84 @@ const ActivitiesApp = () => {
           </div>
 
           <div className="actx-filter-card">
-            <div className="actx-filter-title">
-              <Filter size={14} />
-              Filters
+            <div className="actx-filter-heading">
+              <span className="actx-filter-heading__icon">
+                <Filter size={16} />
+              </span>
+              <div className="actx-filter-heading__copy">
+                <span className="actx-filter-heading__eyebrow">Analysis</span>
+                <span className="actx-filter-heading__title">Performance filters</span>
+              </div>
             </div>
-            <div className="actx-field">
-              <label>Date range</label>
+            <p className="actx-filter-caption">Focus the archive by timeframe, stress and average ride intensity.</p>
+            <div className="actx-filter-group">
+              <div className="actx-filter-group__header">
+                <span className="actx-filter-group__icon">
+                  <CalendarRange size={15} />
+                </span>
+                <div>
+                  <span>Date range</span>
+                  <small>Focus the history window</small>
+                </div>
+              </div>
               <div className="actx-row">
                 <input type="date" className="actx-input" value={filters.startDate} onChange={handleFilterChange('startDate')} />
                 <input type="date" className="actx-input" value={filters.endDate} onChange={handleFilterChange('endDate')} />
               </div>
             </div>
-            <div className="actx-field">
-              <label>TSS range</label>
+            <div className="actx-filter-group">
+              <div className="actx-filter-group__header">
+                <span className="actx-filter-group__icon actx-filter-group__icon--violet">
+                  <Flame size={15} />
+                </span>
+                <div>
+                  <span>TSS range</span>
+                  <small>Find easy, steady or demanding rides</small>
+                </div>
+              </div>
               <div className="actx-row">
                 <input type="number" className="actx-input" placeholder="Min" value={filters.tssMin} onChange={handleFilterChange('tssMin')} />
                 <input type="number" className="actx-input" placeholder="Max" value={filters.tssMax} onChange={handleFilterChange('tssMax')} />
               </div>
             </div>
-            <div className="actx-field">
-              <label>Power range (W)</label>
+            <div className="actx-filter-group">
+              <div className="actx-filter-group__header">
+                <span className="actx-filter-group__icon actx-filter-group__icon--sky">
+                  <Gauge size={15} />
+                </span>
+                <div>
+                  <span>Power range (W)</span>
+                  <small>Highlight sessions by average output</small>
+                </div>
+              </div>
               <div className="actx-row">
                 <input type="number" className="actx-input" placeholder="Min" value={filters.powerMin} onChange={handleFilterChange('powerMin')} />
                 <input type="number" className="actx-input" placeholder="Max" value={filters.powerMax} onChange={handleFilterChange('powerMax')} />
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="actx-btn actx-btn--ghost"
-            >
-              <XCircle size={14} />
-              Reset filters
-            </button>
+            <div className="actx-filter-actions">
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="actx-btn actx-btn--ghost"
+              >
+                <XCircle size={14} />
+                Reset filters
+              </button>
+            </div>
           </div>
 
           <div className="actx-filter-card">
-            <div className="actx-filter-title">
-              <Bookmark size={14} />
-              Presets
+            <div className="actx-filter-heading">
+              <span className="actx-filter-heading__icon">
+                <Compass size={16} />
+              </span>
+              <div className="actx-filter-heading__copy">
+                <span className="actx-filter-heading__eyebrow">Workflow</span>
+                <span className="actx-filter-heading__title">Presets</span>
+              </div>
             </div>
+            <p className="actx-filter-caption">Save recurring filter setups for race blocks, endurance phases or review sessions.</p>
             <div className="actx-field">
               <label>Apply preset</label>
               <select className="actx-select" value={selectedPreset} onChange={handleApplyPreset}>

@@ -3,6 +3,8 @@
  * Gracefully handle errors and prevent app crashes
  */
 
+import { captureError } from './monitoring.js';
+
 class ErrorBoundary {
   constructor() {
     this.errorHandlers = new Map();
@@ -74,6 +76,7 @@ class ErrorBoundary {
       timestamp: new Date().toISOString(),
       ...context
     };
+    captureError(error, errorInfo);
 
     // Try scope-specific handlers first
     if (context.scope && this.errorHandlers.has(context.scope)) {
@@ -197,49 +200,18 @@ export function renderError(container, error, options = {}) {
       : '';
 
   const stackHtml = showStack && error?.stack
-    ? `<pre style="
-        margin-top: 16px;
-        padding: 12px;
-        background: var(--color-gray-100);
-        border-radius: var(--radius-md);
-        font-size: 12px;
-        overflow-x: auto;
-        max-height: 200px;
-      ">${escapeHtml(error.stack)}</pre>`
+    ? `<pre class="error-state__stack">${escapeHtml(error.stack)}</pre>`
     : '';
 
   element.innerHTML = `
-    <div class="error-state" style="
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: var(--space-10);
-      text-align: center;
-      min-height: 300px;
-    ">
-      <svg style="
-        width: 64px;
-        height: 64px;
-        margin-bottom: 16px;
-        color: var(--color-error-500);
-        opacity: 0.8;
-      " fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="error-state error-state--panel error-state--centered">
+      <svg class="error-state__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
-      <h3 style="
-        font-size: 1.25rem;
-        font-weight: 700;
-        margin-bottom: 8px;
-        color: var(--color-text-primary);
-      ">${escapeHtml(title)}</h3>
-      <p style="
-        margin-bottom: 16px;
-        color: var(--color-text-secondary);
-        max-width: 400px;
-      ">${escapeHtml(message)}</p>
-      <div style="display: flex; gap: 12px;">
+      <h3 class="error-state__title">${escapeHtml(title)}</h3>
+      <p class="error-state__message">${escapeHtml(message)}</p>
+      <div class="error-state__actions">
         ${actionsHtml}
       </div>
       ${stackHtml}

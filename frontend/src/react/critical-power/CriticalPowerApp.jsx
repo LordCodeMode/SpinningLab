@@ -477,10 +477,9 @@ const CriticalPowerApp = () => {
         <h3>Failed to Load Critical Power Data</h3>
         <p>{error.message || 'Unable to calculate CP model. Please ensure you have sufficient power data.'}</p>
         <button
-          className="btn btn--primary"
+          className="btn btn--primary cp-retry-button"
           type="button"
           onClick={() => loadCriticalPower()}
-          style={{ marginTop: 20, padding: '12px 24px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
         >
           Try Again
         </button>

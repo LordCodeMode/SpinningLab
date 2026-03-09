@@ -385,6 +385,26 @@ body.page-hr-zones .hrz-empty {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.hrz-legend-dot--z1 {
+  background: #fee2e2;
+}
+
+.hrz-legend-dot--z2 {
+  background: #fecaca;
+}
+
+.hrz-legend-dot--z3 {
+  background: #fca5a5;
+}
+
+.hrz-legend-dot--z4 {
+  background: #f87171;
+}
+
+.hrz-legend-dot--z5 {
+  background: #ef4444;
+}
+
 /* Quick Stats Grid */
 .hrz-quick-grid {
   display: grid;
@@ -504,6 +524,26 @@ body.page-hr-zones .hrz-empty {
   background: var(--zone-color, #475569);
 }
 
+.hrz-zone-card[data-zone="z1"] {
+  --zone-color: #fee2e2;
+}
+
+.hrz-zone-card[data-zone="z2"] {
+  --zone-color: #fecaca;
+}
+
+.hrz-zone-card[data-zone="z3"] {
+  --zone-color: #fca5a5;
+}
+
+.hrz-zone-card[data-zone="z4"] {
+  --zone-color: #f87171;
+}
+
+.hrz-zone-card[data-zone="z5"] {
+  --zone-color: #ef4444;
+}
+
 .hrz-zone-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(51, 65, 85, 0.15);
@@ -560,10 +600,18 @@ body.page-hr-zones .hrz-empty {
 }
 
 .hrz-zone-bar-fill {
+  width: 100%;
   height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease-out;
-  box-shadow: 0 2px 4px rgba(51, 65, 85, 0.2);
+  display: block;
+}
+
+.hrz-progress-track {
+  fill: rgba(148, 163, 184, 0.18);
+}
+
+.hrz-progress-fill {
+  fill: var(--zone-color, #475569);
+  filter: drop-shadow(0 2px 4px rgba(51, 65, 85, 0.2));
 }
 
 .hrz-zone-time {
@@ -642,22 +690,22 @@ body.page-hr-zones .hrz-empty {
   margin-bottom: 16px;
 }
 
-.hrz-highlight-fill {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, #2563eb 0%, #7c3aed 100%);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-  transition: width 0.5s ease-out;
+.hrz-highlight-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hrz-highlight-svg__track {
+  fill: rgba(148, 163, 184, 0.18);
+}
+
+.hrz-highlight-svg__fill {
+  fill: #4f46e5;
 }
 
 .hrz-highlight-marker {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 2px;
-  height: 16px;
-  background: rgba(0, 0, 0, 0.3);
+  fill: rgba(15, 23, 42, 0.3);
 }
 
 .hrz-highlight-footer {

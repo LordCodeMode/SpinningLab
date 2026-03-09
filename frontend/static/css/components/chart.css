@@ -25,6 +25,22 @@
   .chart-container--lg {
     height: var(--chart-height-lg);
   }
+
+  .chart-container--300 {
+    height: 300px;
+  }
+
+  .chart-container--360 {
+    height: 360px;
+  }
+
+  .chart-container--400 {
+    height: 400px;
+  }
+
+  .chart-container--480 {
+    height: 480px;
+  }
   
   .chart-container--full {
     height: 100%;
@@ -89,6 +105,10 @@
     min-height: 300px;
     color: var(--color-text-secondary);
   }
+
+  .chart-loading--framed {
+    min-height: 100%;
+  }
   
   .chart-loading__spinner {
     width: 40px;
@@ -122,6 +142,16 @@
     margin-bottom: var(--space-4);
     color: var(--color-text-tertiary);
     opacity: 0.5;
+  }
+
+  .chart-empty__icon--sm {
+    width: 48px;
+    height: 48px;
+  }
+
+  .chart-empty--framed {
+    min-height: 100%;
+    color: var(--color-text-secondary);
   }
   
   .chart-empty__title {
@@ -171,6 +201,13 @@
   
   .chart-legend__label {
     font-weight: var(--font-weight-medium);
+  }
+
+  .chart-legend__marker {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
   }
   
   /* ========== CHART TOOLTIP ========== */

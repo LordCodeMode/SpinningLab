@@ -52,7 +52,7 @@ const CONFIG = {
     // Gradients
     gradientPower: ['#1f6feb', '#4dabf7'],
     gradientHR: ['#da3633', '#ff6b6b'],
-    gradientLoad: ['#8250df', '#a855f7'],
+    gradientLoad: ['#8250df', '#a855f7']
   },
   
   // Power Zones (relative to FTP)

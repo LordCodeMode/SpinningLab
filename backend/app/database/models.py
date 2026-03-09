@@ -1,4 +1,3 @@
-import os
 from sqlalchemy import Column, Integer, Float, String, DateTime, Text, ForeignKey, Boolean, Index, JSON, Date, Table, UniqueConstraint, BigInteger
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -21,7 +20,18 @@ class User(Base):
     name = Column(String, nullable=True)  # Full name of the user
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    is_email_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    password_reset_token_hash = Column(String, nullable=True, index=True)
+    password_reset_expires_at = Column(DateTime(timezone=True), nullable=True)
+    password_reset_requested_at = Column(DateTime(timezone=True), nullable=True)
+    email_verification_token_hash = Column(String, nullable=True, index=True)
+    email_verification_expires_at = Column(DateTime(timezone=True), nullable=True)
+    email_verification_requested_at = Column(DateTime(timezone=True), nullable=True)
+    failed_login_attempts = Column(Integer, default=0, nullable=False)
+    login_locked_until = Column(DateTime(timezone=True), nullable=True)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    last_login_ip = Column(String, nullable=True)
     
     # Settings
     ftp = Column(Float, default=250)
@@ -43,6 +53,8 @@ class User(Base):
     planned_workouts = relationship("PlannedWorkout", back_populates="user", cascade="all, delete-orphan")
     training_plans = relationship("TrainingPlan", back_populates="user", cascade="all, delete-orphan")
     activity_tags = relationship("ActivityTag", cascade="all, delete-orphan")
+    refresh_sessions = relationship("RefreshSession", back_populates="user", cascade="all, delete-orphan")
+    security_events = relationship("SecurityEvent", back_populates="user", cascade="all, delete-orphan")
 
 class Activity(Base):
     __tablename__ = "activities"
@@ -105,11 +117,25 @@ class Activity(Base):
     hr_zones = relationship("HrZone", back_populates="activity", cascade="all, delete-orphan")
     tags = relationship("ActivityTag", secondary=activity_tag_associations, back_populates="activities")
 
-    def get_fit_path(self):
-        from ..core.config import settings  # Local import to avoid circular dependency
+    def get_fit_storage_key(self):
         if not self.file_hash:
             return None
-        return os.path.join(settings.FIT_FILES_DIR, str(self.user_id), f"{self.file_hash}.fit")
+        from ..services.storage_service import build_fit_file_key
+        return build_fit_file_key(self.user_id, self.file_hash)
+
+    def get_stream_storage_key(self):
+        identifier = self.strava_activity_id or self.id
+        if not identifier:
+            return None
+        from ..services.storage_service import build_stream_key
+        return build_stream_key(identifier)
+
+    def get_fit_path(self):
+        from ..services.storage_service import storage_service
+        storage_key = self.get_fit_storage_key()
+        if not storage_key:
+            return None
+        return storage_service.resolve_local_path(storage_key)
 
 class PowerZone(Base):
     __tablename__ = "power_zones"
@@ -249,3 +275,45 @@ class TrainingPlan(Base):
 
     # Relationships
     user = relationship("User", back_populates="training_plans")
+
+
+class RefreshSession(Base):
+    __tablename__ = "refresh_sessions"
+    __table_args__ = (
+        Index("idx_refresh_sessions_user_active", "user_id", "revoked_at", "expires_at"),
+        Index("idx_refresh_sessions_token_hash", "token_hash"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String, nullable=False, unique=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    replaced_by_session_id = Column(Integer, ForeignKey("refresh_sessions.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+
+    user = relationship("User", back_populates="refresh_sessions", foreign_keys=[user_id])
+    replaced_by_session = relationship("RefreshSession", remote_side=[id], uselist=False)
+
+
+class SecurityEvent(Base):
+    __tablename__ = "security_events"
+    __table_args__ = (
+        Index("idx_security_events_user_created", "user_id", "created_at"),
+        Index("idx_security_events_type_created", "event_type", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    event_type = Column(String, nullable=False)
+    identifier = Column(String, nullable=True)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    success = Column(Boolean, nullable=False, default=True)
+    detail = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="security_events")

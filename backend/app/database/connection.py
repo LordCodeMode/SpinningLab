@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -50,6 +50,8 @@ def run_migrations():
         # Get the backend directory (where alembic.ini is)
         backend_dir = Path(__file__).resolve().parent.parent.parent
         alembic_cfg = Config(str(backend_dir / "alembic.ini"))
+        alembic_cfg.set_main_option("script_location", str(backend_dir / "alembic"))
+        alembic_cfg.set_main_option("prepend_sys_path", str(backend_dir))
 
         logger.info("Running database migrations...")
         command.upgrade(alembic_cfg, "head")
@@ -57,27 +59,33 @@ def run_migrations():
         return True
     except Exception as e:
         logger.error(f"Failed to run migrations: {e}")
-        # Fallback to basic table creation if migrations fail
-        logger.info("Falling back to basic table creation...")
-        Base.metadata.create_all(bind=engine)
+        if settings.is_dev:
+            logger.info("Falling back to basic table creation for local development...")
+            Base.metadata.create_all(bind=engine)
         return False
 
 
 def init_db():
     """
-    Initialize database automatically.
+    Initialize database automatically and keep schema at latest revision.
 
     This function:
-    1. Checks if database exists
-    2. If not, runs migrations to create all tables
-    3. For users: happens automatically on app startup
-    4. For developers: can also use 'alembic upgrade head' manually
+    1. Runs Alembic migrations on startup
+    2. Falls back to table creation if migrations are unavailable
+    3. Verifies essential tables exist afterwards
     """
-    if not check_database_exists():
-        logger.info("Database not found or incomplete. Initializing...")
+    logger.info("Ensuring database schema is up to date...")
+    if settings.is_dev:
         run_migrations()
+
+    if not check_database_exists():
+        if settings.is_dev:
+            logger.warning("Database schema still incomplete after migrations. Falling back to metadata creation...")
+            Base.metadata.create_all(bind=engine)
+        else:
+            raise RuntimeError("Database schema is not ready. Run migrations before starting the app.")
     else:
-        logger.info("Database already initialized")
+        logger.info("Database schema is ready")
 
 
 def get_db() -> Session:

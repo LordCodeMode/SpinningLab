@@ -62,6 +62,16 @@ const calculateWattRange = (rangeStr, ftp) => {
   return '—';
 };
 
+const ZoneProgressSvg = ({ value, color, label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg className="pz-zone-progress-svg" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" aria-label={label}>
+      <rect className="pz-zone-progress-track" x="0" y="0" width="100" height="8" rx="4" />
+      <rect x="0" y="0" width={width} height="8" rx="4" fill={color} />
+    </svg>
+  );
+};
+
 const ZonesApp = () => {
   const [currentDays, setCurrentDays] = useState(60);
   const [zonesResponse, setZonesResponse] = useState({});
@@ -487,7 +497,9 @@ const ZonesApp = () => {
             <ul className="pz-chart-legend">
               {metrics.zoneDetails.map((zone) => (
                 <li key={zone.id}>
-                  <span className="pz-legend-dot" style={{ background: zone.color }}></span>
+                  <svg className="pz-legend-dot" viewBox="0 0 12 12" aria-hidden="true">
+                    <rect x="0" y="0" width="12" height="12" rx="6" fill={zone.color} />
+                  </svg>
                   <span>{zone.displayName} · {formatNumber(zone.percent, 1)}%</span>
                 </li>
               ))}
@@ -530,7 +542,7 @@ const ZonesApp = () => {
               {metrics.zoneDetails.map((zone) => {
                 const barWidth = maxPercent > 0 ? (zone.percent / maxPercent) * 100 : 0;
                 return (
-                  <article key={zone.id} className="pz-zone-card" style={{ '--zone-color': zone.color }}>
+                  <article key={zone.id} className="pz-zone-card" data-zone={String(zone.id || '').toLowerCase()}>
                     <div className="pz-zone-card-header">
                       <span className="pz-zone-num">Zone {zone.num}</span>
                       <span className="pz-zone-percent">{formatNumber(zone.percent, 1)}%</span>
@@ -539,7 +551,7 @@ const ZonesApp = () => {
                     <div className="pz-zone-range">{zone.range}</div>
                     <div className="pz-zone-watts">{calculateWattRange(zone.range, metrics.ftp)}</div>
                     <div className="pz-zone-bar">
-                      <div className="pz-zone-bar-fill" style={{ width: `${barWidth}%`, background: zone.color }}></div>
+                      <ZoneProgressSvg value={barWidth} color={zone.color} label={`${zone.name} progress`} />
                     </div>
                     <div className="pz-zone-time">{zone.formattedTime}</div>
                   </article>

@@ -58,6 +58,22 @@ const formatNumber = (value, decimals = 0) => {
   return Number(value).toFixed(decimals);
 };
 
+const ProgressBarSvg = ({ value, className = '', label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 100 6"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <rect className="pc-progress-track" x="0" y="0" width="100" height="6" rx="3" />
+      <rect className="pc-progress-fill" x="0" y="0" width={width} height="6" rx="3" />
+    </svg>
+  );
+};
+
 const formatActivityTitle = (activity) => {
   if (!activity) return 'Activity';
   if (activity.custom_name) return activity.custom_name;
@@ -1389,12 +1405,12 @@ const PowerCurveApp = () => {
 
   if (error) {
     return (
-      <div className="no-data">
-        <svg style={{ width: 64, height: 64, marginBottom: 16, color: 'var(--text-tertiary)', opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="no-data pc-no-data">
+        <svg className="pc-no-data__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 8 }}>Failed to Load Power Curve</h3>
-        <p style={{ marginBottom: 16 }}>{error.message}</p>
+        <h3 className="pc-no-data__title">Failed to Load Power Curve</h3>
+        <p className="pc-no-data__message">{error.message}</p>
         <button className="btn btn--primary" type="button" onClick={() => window.router?.refresh()}>
           Try Again
         </button>
@@ -1446,7 +1462,7 @@ const PowerCurveApp = () => {
         </div>
       </div>
 
-      <div className="metrics-grid pc-section-block pc-section-block--soft" id="pc-stats-cards" style={{ display: data ? 'grid' : 'none' }}>
+      <div className={`metrics-grid pc-section-block pc-section-block--soft ${data ? '' : 'pc-section-block--hidden'}`} id="pc-stats-cards">
         <div className="metric-card">
           <div className="metric-header-row">
             <div className="metric-icon primary">
@@ -1528,7 +1544,7 @@ const PowerCurveApp = () => {
               <div className="pc-legend-title">Energy Systems</div>
               <div className="pc-legend-items">
                 <div className="pc-legend-item">
-                  <div className="pc-legend-marker" style={{ background: '#3b82f6' }}></div>
+                  <div className="pc-legend-marker pc-legend-marker--neuromuscular"></div>
                   <div className="pc-legend-content">
                     <div className="pc-legend-label">Neuromuscular</div>
                     <div className="pc-legend-range">1-10 seconds</div>
@@ -1536,7 +1552,7 @@ const PowerCurveApp = () => {
                   </div>
                 </div>
                 <div className="pc-legend-item">
-                  <div className="pc-legend-marker" style={{ background: '#8b5cf6' }}></div>
+                  <div className="pc-legend-marker pc-legend-marker--anaerobic"></div>
                   <div className="pc-legend-content">
                     <div className="pc-legend-label">Anaerobic</div>
                     <div className="pc-legend-range">10-60 seconds</div>
@@ -1544,7 +1560,7 @@ const PowerCurveApp = () => {
                   </div>
                 </div>
                 <div className="pc-legend-item">
-                  <div className="pc-legend-marker" style={{ background: '#10b981' }}></div>
+                  <div className="pc-legend-marker pc-legend-marker--vo2"></div>
                   <div className="pc-legend-content">
                     <div className="pc-legend-label">VO2max</div>
                     <div className="pc-legend-range">1-6 minutes</div>
@@ -1552,7 +1568,7 @@ const PowerCurveApp = () => {
                   </div>
                 </div>
                 <div className="pc-legend-item">
-                  <div className="pc-legend-marker" style={{ background: '#f59e0b' }}></div>
+                  <div className="pc-legend-marker pc-legend-marker--threshold"></div>
                   <div className="pc-legend-content">
                     <div className="pc-legend-label">Threshold</div>
                     <div className="pc-legend-range">6-30 minutes</div>
@@ -1560,7 +1576,7 @@ const PowerCurveApp = () => {
                   </div>
                 </div>
                 <div className="pc-legend-item">
-                  <div className="pc-legend-marker" style={{ background: '#6366f1' }}></div>
+                  <div className="pc-legend-marker pc-legend-marker--endurance"></div>
                   <div className="pc-legend-content">
                     <div className="pc-legend-label">Endurance</div>
                     <div className="pc-legend-range">30+ minutes</div>
@@ -1969,7 +1985,11 @@ const PowerCurveApp = () => {
                             {formatDateShort(activity.start_time)} &bull; {formatDurationCompact(activity.duration || 0)} &bull; Avg {formatNumber(activity.avg_power)} W
                           </div>
                           <div className="pc-insight-modal__bar">
-                            <span style={{ width: `${percent}%` }}></span>
+                            <ProgressBarSvg
+                              value={percent}
+                              className="pc-insight-modal__bar-fill"
+                              label={`${activity.custom_name || activity.file_name || 'Activity'} relative insight score`}
+                            />
                           </div>
                         </div>
                         <div className="pc-insight-modal__value">

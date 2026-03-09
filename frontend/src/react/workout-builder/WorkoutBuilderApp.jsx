@@ -178,6 +178,206 @@ const hexToRgba = (hex, alpha) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+const TimelineStage = ({
+  timeline,
+  timeMarks,
+  blocks,
+  dropIndex,
+  intervals,
+  selectedIndex,
+  draggingIndex,
+  getLeftForIndex,
+  handleCanvasClick,
+  startBlockDrag,
+  deleteInterval,
+  setSelectedIndex,
+  canvasRef
+}) => (
+  <svg
+    className="wb-timeline"
+    width={timeline.width}
+    height={timeline.height}
+    viewBox={`0 0 ${timeline.width} ${timeline.height}`}
+    ref={canvasRef}
+    onClick={handleCanvasClick}
+  >
+    <g className="wb-zone-layer">
+      {POWER_ZONES.map((zone) => {
+        const topPercent = Math.min(zone.max, MAX_POWER_PERCENT);
+        const bottomPercent = zone.min;
+        const top = timeline.height - (topPercent / MAX_POWER_PERCENT) * timeline.height;
+        const bandHeight = ((topPercent - bottomPercent) / MAX_POWER_PERCENT) * timeline.height;
+        return (
+          <g key={zone.id}>
+            <rect
+              className="wb-zone-band"
+              x="0"
+              y={top}
+              width={timeline.width}
+              height={bandHeight}
+              fill={hexToRgba(zone.color, 0.16)}
+            />
+            <text className="wb-zone-band__label" x="8" y={Math.max(14, top + 16)}>
+              {zone.id}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+
+    <g className="wb-grid">
+      {timeMarks.map((minute, index) => {
+        const left = Math.min(minute * timeline.scale, Math.max(0, timeline.width - 1));
+        const isFirst = index === 0;
+        const isLast = index === timeMarks.length - 1;
+        const textAnchor = isFirst ? 'start' : isLast ? 'end' : 'middle';
+        return (
+          <g key={`line-${minute}`}>
+            <line className="wb-grid__line" x1={left} y1="0" x2={left} y2={timeline.height} />
+            <text
+              className="wb-grid__label"
+              x={left}
+              y={timeline.height + 28}
+              textAnchor={textAnchor}
+            >
+              {formatMinuteLabel(minute)}
+            </text>
+          </g>
+        );
+      })}
+      {[30, 60, 90, 120, 150, MAX_POWER_PERCENT]
+        .filter((value, index, arr) => value <= MAX_POWER_PERCENT && arr.indexOf(value) === index)
+        .map((value) => {
+          const top = timeline.height - (value / MAX_POWER_PERCENT) * timeline.height;
+          return (
+            <line
+              key={`hline-${value}`}
+              className="wb-grid__line wb-grid__line--horizontal"
+              x1="0"
+              y1={top}
+              x2={timeline.width}
+              y2={top}
+            />
+          );
+        })}
+    </g>
+
+    {dropIndex !== null ? (
+      <rect
+        className="wb-drop-indicator"
+        x={getLeftForIndex(dropIndex) - 1.5}
+        y="0"
+        width="3"
+        height={timeline.height}
+        rx="1.5"
+      />
+    ) : null}
+
+    {intervals.length === 0 ? (
+      <foreignObject x="0" y="0" width={timeline.width} height={timeline.height}>
+        <div className="wb-empty" xmlns="http://www.w3.org/1999/xhtml">
+          Drag blocks here or click a block to start building.
+        </div>
+      </foreignObject>
+    ) : null}
+
+    {blocks.map((block) => (
+      <foreignObject
+        key={block.index}
+        x={block.left}
+        y={timeline.height - block.height}
+        width={block.width}
+        height={block.height}
+      >
+        <div
+          xmlns="http://www.w3.org/1999/xhtml"
+          className={`wb-block ${block.colorClass} ${selectedIndex === block.index ? 'is-selected' : ''} ${draggingIndex === block.index ? 'is-dragging' : ''} ${block.isCompact ? 'is-compact' : ''} ${block.isTiny ? 'is-tiny' : ''}`}
+          data-tooltip={block.width < 120 ? block.tooltip : undefined}
+          onPointerDown={(event) => startBlockDrag(event, block.index)}
+          onClick={(event) => {
+            event.stopPropagation();
+            setSelectedIndex(block.index);
+          }}
+        >
+          <button
+            type="button"
+            className="wb-block__delete"
+            data-action="delete"
+            onClick={(event) => {
+              event.stopPropagation();
+              deleteInterval(block.index);
+            }}
+            aria-label="Delete block"
+          >
+            x
+          </button>
+          {block.width >= 80 ? (
+            <div className="wb-block__label">{block.label}</div>
+          ) : null}
+          {block.width >= 120 ? (
+            <div className="wb-block__meta">{block.meta}</div>
+          ) : null}
+          <div className="wb-block__handle wb-block__handle--left" data-handle="left"></div>
+          <div className="wb-block__handle wb-block__handle--right" data-handle="right"></div>
+          <div className="wb-block__handle wb-block__handle--power" data-handle="power"></div>
+        </div>
+      </foreignObject>
+    ))}
+  </svg>
+);
+
+const PreviewStage = ({ previewBlocks }) => (
+  <svg
+    className="wb-preview"
+    width="100%"
+    height={PREVIEW_HEIGHT}
+    viewBox={`0 0 100 ${PREVIEW_HEIGHT}`}
+    preserveAspectRatio="none"
+  >
+    <g className="wb-preview__zones">
+      {POWER_ZONES.map((zone) => {
+        const topPercent = Math.min(zone.max, MAX_POWER_PERCENT);
+        const bottomPercent = zone.min;
+        const top = PREVIEW_HEIGHT - (topPercent / MAX_POWER_PERCENT) * PREVIEW_HEIGHT;
+        const bandHeight = ((topPercent - bottomPercent) / MAX_POWER_PERCENT) * PREVIEW_HEIGHT;
+        return (
+          <rect
+            key={`preview-${zone.id}`}
+            className="wb-preview__zone"
+            x="0"
+            y={top}
+            width="100"
+            height={bandHeight}
+            fill={hexToRgba(zone.color, 0.16)}
+          />
+        );
+      })}
+    </g>
+    {previewBlocks.map((block) => (
+      <g key={`preview-${block.index}`}>
+        <rect
+          className={`wb-preview__block ${block.colorClass}`}
+          x={block.left}
+          y={PREVIEW_HEIGHT - block.height}
+          width={block.width}
+          height={block.height}
+          rx="6"
+        />
+        {block.width > 12 ? (
+          <text
+            className="wb-preview__label"
+            x={block.left + block.width / 2}
+            y={PREVIEW_HEIGHT - block.height + 14}
+            textAnchor="middle"
+          >
+            {block.label}
+          </text>
+        ) : null}
+      </g>
+    ))}
+  </svg>
+);
+
 const WorkoutBuilderApp = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -876,112 +1076,21 @@ const WorkoutBuilderApp = () => {
                   }}
                   onDrop={handleCanvasDrop}
                 >
-                  <div
-                    className="wb-timeline"
-                    ref={canvasRef}
-                    style={{ width: `${timeline.width}px`, height: `${timeline.height}px` }}
-                    onClick={handleCanvasClick}
-                  >
-                    <div className="wb-zone-layer">
-                      {POWER_ZONES.map((zone) => {
-                        const topPercent = Math.min(zone.max, MAX_POWER_PERCENT);
-                        const bottomPercent = zone.min;
-                        const top = timeline.height - (topPercent / MAX_POWER_PERCENT) * timeline.height;
-                        const bandHeight = ((topPercent - bottomPercent) / MAX_POWER_PERCENT) * timeline.height;
-                        return (
-                          <div
-                            key={zone.id}
-                            className="wb-zone-band"
-                            style={{
-                              top: `${top}px`,
-                              height: `${bandHeight}px`,
-                              backgroundColor: hexToRgba(zone.color, 0.16),
-                            }}
-                            title={`${zone.name}: ${zone.min}-${zone.max}% FTP`}
-                          >
-                            <span>{zone.id}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="wb-grid">
-                      {timeMarks.map((minute, index) => {
-                        const left = Math.min(minute * timeline.scale, Math.max(0, timeline.width - 1));
-                        const isFirst = index === 0;
-                        const isLast = index === timeMarks.length - 1;
-                        const labelStyle = isFirst ? { transform: 'translateX(0)' } : isLast ? { transform: 'translateX(-100%)' } : undefined;
-                        return (
-                          <div key={`line-${minute}`} className="wb-grid__line" style={{ left: `${left}px` }}>
-                            <span className="wb-grid__label" style={labelStyle}>{formatMinuteLabel(minute)}</span>
-                          </div>
-                        );
-                      })}
-                      {[30, 60, 90, 120, 150, MAX_POWER_PERCENT]
-                        .filter((value, index, arr) => value <= MAX_POWER_PERCENT && arr.indexOf(value) === index)
-                        .map((value) => {
-                          const top = timeline.height - (value / MAX_POWER_PERCENT) * timeline.height;
-                          return (
-                            <div
-                              key={`hline-${value}`}
-                              className="wb-grid__line wb-grid__line--horizontal"
-                              style={{ top: `${top}px` }}
-                            ></div>
-                          );
-                        })}
-                    </div>
-
-                    {dropIndex !== null && (
-                      <div
-                        className="wb-drop-indicator"
-                        style={{ left: `${getLeftForIndex(dropIndex)}px` }}
-                      ></div>
-                    )}
-
-                    {intervals.length === 0 && (
-                      <div className="wb-empty">Drag blocks here or click a block to start building.</div>
-                    )}
-
-                    {blocks.map((block) => (
-                      <div
-                        key={block.index}
-                        className={`wb-block ${block.colorClass} ${selectedIndex === block.index ? 'is-selected' : ''} ${draggingIndex === block.index ? 'is-dragging' : ''} ${block.isCompact ? 'is-compact' : ''} ${block.isTiny ? 'is-tiny' : ''}`}
-                        style={{
-                          left: `${block.left}px`,
-                          width: `${block.width}px`,
-                          height: `${block.height}px`,
-                        }}
-                        data-tooltip={block.width < 120 ? block.tooltip : undefined}
-                        onPointerDown={(event) => startBlockDrag(event, block.index)}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setSelectedIndex(block.index);
-                        }}
-                      >
-                        <button
-                          type="button"
-                          className="wb-block__delete"
-                          data-action="delete"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            deleteInterval(block.index);
-                          }}
-                          aria-label="Delete block"
-                        >
-                          x
-                        </button>
-                        {block.width >= 80 && (
-                          <div className="wb-block__label">{block.label}</div>
-                        )}
-                        {block.width >= 120 && (
-                          <div className="wb-block__meta">{block.meta}</div>
-                        )}
-                        <div className="wb-block__handle wb-block__handle--left" data-handle="left"></div>
-                        <div className="wb-block__handle wb-block__handle--right" data-handle="right"></div>
-                        <div className="wb-block__handle wb-block__handle--power" data-handle="power"></div>
-                      </div>
-                    ))}
-                  </div>
+                  <TimelineStage
+                    timeline={timeline}
+                    timeMarks={timeMarks}
+                    blocks={blocks}
+                    dropIndex={dropIndex}
+                    intervals={intervals}
+                    selectedIndex={selectedIndex}
+                    draggingIndex={draggingIndex}
+                    getLeftForIndex={getLeftForIndex}
+                    handleCanvasClick={handleCanvasClick}
+                    startBlockDrag={startBlockDrag}
+                    deleteInterval={deleteInterval}
+                    setSelectedIndex={setSelectedIndex}
+                    canvasRef={canvasRef}
+                  />
                 </div>
               </div>
 
@@ -1225,41 +1334,7 @@ const WorkoutBuilderApp = () => {
                   </div>
                 </div>
                 <div className="wb-modal__preview-title">Workout Preview</div>
-                <div className="wb-preview" style={{ height: `${PREVIEW_HEIGHT}px` }}>
-                  <div className="wb-preview__zones">
-                    {POWER_ZONES.map((zone) => {
-                      const topPercent = Math.min(zone.max, MAX_POWER_PERCENT);
-                      const bottomPercent = zone.min;
-                      const top = PREVIEW_HEIGHT - (topPercent / MAX_POWER_PERCENT) * PREVIEW_HEIGHT;
-                      const bandHeight = ((topPercent - bottomPercent) / MAX_POWER_PERCENT) * PREVIEW_HEIGHT;
-                      return (
-                        <div
-                          key={`preview-${zone.id}`}
-                          className="wb-preview__zone"
-                          style={{
-                            top: `${top}px`,
-                            height: `${bandHeight}px`,
-                            backgroundColor: hexToRgba(zone.color, 0.16),
-                          }}
-                        ></div>
-                      );
-                    })}
-                  </div>
-                  {previewBlocks.map((block) => (
-                    <div
-                      key={`preview-${block.index}`}
-                      className={`wb-preview__block ${block.colorClass}`}
-                      style={{
-                        left: `${block.left}%`,
-                        width: `${block.width}%`,
-                        height: `${block.height}px`,
-                      }}
-                      title={block.meta}
-                    >
-                      {block.width > 12 && <span>{block.label}</span>}
-                    </div>
-                  ))}
-                </div>
+                <PreviewStage previewBlocks={previewBlocks} />
               </div>
               <div className="wb-modal__list">
                 {intervals.map((interval, idx) => (

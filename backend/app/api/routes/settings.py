@@ -1,9 +1,10 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ...database.connection import get_db
 from ...database.models import User
 from ...api.dependencies import get_current_active_user
+from ...core.config import settings as app_settings
 
 router = APIRouter()
 
@@ -61,7 +62,6 @@ async def get_user_settings(
 @router.put("/")
 async def update_user_settings(
     settings: dict,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -87,11 +87,10 @@ async def update_user_settings(
     db.commit()
     db.refresh(current_user)
 
-    if needs_rebuild:
+    if needs_rebuild and not app_settings.TESTING:
         try:
             from ...services.cache.cache_tasks import rebuild_user_caches_task
-            if background_tasks is not None:
-                background_tasks.add_task(rebuild_user_caches_task, current_user.id)
+            rebuild_user_caches_task(current_user.id)
         except Exception:
             pass
 

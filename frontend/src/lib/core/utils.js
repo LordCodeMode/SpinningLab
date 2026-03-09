@@ -5,6 +5,7 @@
 
 import CONFIG from './config.js';
 import { eventBus, EVENTS } from './eventBus.js';
+import fallbackNotify from '../utils/notifications.js';
 
 /**
  * Display a notification message
@@ -15,7 +16,7 @@ import { eventBus, EVENTS } from './eventBus.js';
 export function notify(message, type = 'info', duration = CONFIG.NOTIFICATION_DURATION) {
   const notification = document.getElementById('notification');
   if (!notification) {
-    console.warn('[Utils] Notification element not found');
+    fallbackNotify(message, type, duration);
     return;
   }
 
@@ -41,7 +42,7 @@ export function notify(message, type = 'info', duration = CONFIG.NOTIFICATION_DU
 export function setLoading(isLoading) {
   const overlay = document.getElementById('loading-overlay');
   if (overlay) {
-      overlay.style.display = isLoading ? 'flex' : 'none';
+      overlay.classList.toggle('loading-overlay--hidden', !isLoading);
   }
   
   // Emit event

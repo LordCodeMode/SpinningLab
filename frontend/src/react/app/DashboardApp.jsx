@@ -1,74 +1,24 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardShell from '../shell/DashboardShell.jsx';
 import { DashboardContext } from './DashboardContext.jsx';
-
-import OverviewApp from '../overview/OverviewApp.jsx';
-import TrainingLoadApp from '../training-load/TrainingLoadApp.jsx';
-import ComparisonsApp from '../comparisons/ComparisonsApp.jsx';
-import PowerCurveApp from '../power-curve/PowerCurveApp.jsx';
-import CriticalPowerApp from '../critical-power/CriticalPowerApp.jsx';
-import EfficiencyApp from '../efficiency/EfficiencyApp.jsx';
-import BestPowersApp from '../best-powers/BestPowersApp.jsx';
-import ZonesApp from '../zones/ZonesApp.jsx';
-import HrZonesApp from '../hr-zones/HrZonesApp.jsx';
-import Vo2maxApp from '../vo2max/Vo2maxApp.jsx';
-import CalendarApp from '../calendar/CalendarApp.jsx';
-import WorkoutLibraryApp from '../workout-library/WorkoutLibraryApp.jsx';
-import WorkoutBuilderApp from '../workout-builder/WorkoutBuilderApp.jsx';
-import TrainingPlansApp from '../training-plans/TrainingPlansApp.jsx';
-import LiveTrainingApp from '../live-training/LiveTrainingApp.jsx';
-import ActivitiesApp from '../activities/ActivitiesApp.jsx';
-import ActivityDetailApp from '../activity/ActivityDetailApp.jsx';
-import UploadApp from '../upload/UploadApp.jsx';
-import SettingsApp from '../settings/SettingsApp.jsx';
 
 import CONFIG from '../../lib/core/config.js';
 import Services from '../../lib/services/index.js';
 import { AuthAPI } from '../../lib/core/api.js';
 import { notify } from '../../lib/core/utils.js';
+import { setMonitoringUser, setMonitoringTag } from '../../lib/core/monitoring.js';
+import {
+  getDashboardPageComponent,
+  getDashboardPageMeta,
+  parseDashboardHash
+} from '../../lib/pages/registry.js';
 
-const TOKEN_STORAGE_KEY = CONFIG.TOKEN_STORAGE_KEY || 'training_dashboard_token';
 const DISPLAY_NAME_STORAGE_KEY = CONFIG.DISPLAY_NAME_STORAGE_KEY || 'training_dashboard_display_name';
-
-const ROUTES = {
-  overview: OverviewApp,
-  activities: ActivitiesApp,
-  activity: ActivityDetailApp,
-  settings: SettingsApp,
-  upload: UploadApp,
-  'training-load': TrainingLoadApp,
-  comparisons: ComparisonsApp,
-  'power-curve': PowerCurveApp,
-  'critical-power': CriticalPowerApp,
-  efficiency: EfficiencyApp,
-  'best-powers': BestPowersApp,
-  zones: ZonesApp,
-  'hr-zones': HrZonesApp,
-  vo2max: Vo2maxApp,
-  calendar: CalendarApp,
-  'workout-library': WorkoutLibraryApp,
-  'workout-builder': WorkoutBuilderApp,
-  'training-plans': TrainingPlansApp,
-  'live-training': LiveTrainingApp
-};
-
-const parseHash = () => {
-  const raw = window.location.hash || '';
-  const clean = raw.replace(/^#\/?/, '');
-  const [path, query] = clean.split('?');
-  const segments = (path || '').split('/').filter(Boolean);
-  const page = segments[0] || 'overview';
-  const params = new URLSearchParams(query || '');
-  if (segments[1] && page === 'activity') {
-    params.set('id', segments[1]);
-  }
-  return { page, params };
-};
 
 const DashboardApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [activePage, setActivePage] = useState(() => parseHash().page);
-  const [routeParams, setRouteParams] = useState(() => parseHash().params);
+  const [activePage, setActivePage] = useState(() => parseDashboardHash().page);
+  const [routeParams, setRouteParams] = useState(() => parseDashboardHash().params);
   const [isReady, setIsReady] = useState(false);
 
   const displayName = useMemo(() => {
@@ -89,7 +39,7 @@ const DashboardApp = () => {
   }, [displayName]);
 
   const syncHash = useCallback(() => {
-    const { page, params } = parseHash();
+    const { page, params } = parseDashboardHash();
     setActivePage(page);
     setRouteParams(params);
   }, []);
@@ -100,14 +50,13 @@ const DashboardApp = () => {
     if (window.location.hash !== nextHash) {
       window.location.hash = nextHash;
     }
-    const { page, params } = parseHash();
+    const { page, params } = parseDashboardHash();
     setActivePage(page);
     setRouteParams(params);
   }, []);
 
   const clearAuthStorage = useCallback(() => {
     const tokenKeys = [
-      TOKEN_STORAGE_KEY,
       'training_dashboard_token',
       'auth_token',
       'token',
@@ -142,6 +91,7 @@ const DashboardApp = () => {
         console.warn('[Dashboard] Backend logout failed (ignored):', error?.message || error);
       }
     } finally {
+      setMonitoringUser(null);
       clearAuthStorage();
       window.location.replace('/index.html');
     }
@@ -210,8 +160,15 @@ const DashboardApp = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const user = await AuthAPI.me();
+        let user = null;
+        try {
+          user = await AuthAPI.me();
+        } catch (error) {
+          await AuthAPI.refresh();
+          user = await AuthAPI.me();
+        }
         setCurrentUser(user);
+        setMonitoringUser(user);
         await handleStravaOAuth();
         setIsReady(true);
       } catch (error) {
@@ -224,7 +181,12 @@ const DashboardApp = () => {
     init();
   }, [clearAuthStorage, handleStravaOAuth]);
 
-  const PageComponent = ROUTES[activePage] || null;
+  useEffect(() => {
+    setMonitoringTag('dashboard_route', activePage);
+  }, [activePage]);
+
+  const pageMeta = getDashboardPageMeta(activePage);
+  const PageComponent = getDashboardPageComponent(activePage);
   const activityId = routeParams?.get('id') || routeParams?.get('activity_id');
 
   const contextValue = useMemo(() => ({
@@ -238,16 +200,19 @@ const DashboardApp = () => {
     <DashboardContext.Provider value={contextValue}>
       <DashboardShell
         activePage={activePage}
+        activePageMeta={pageMeta}
         displayName={displayName}
         avatarInitial={avatarInitial}
         onNavigate={handleNavigate}
         onLogout={handleLogout}
       >
-        {isReady && PageComponent
-          ? (activePage === 'activity'
-            ? <PageComponent activityId={activityId} />
-            : <PageComponent />)
-          : null}
+        <Suspense fallback={null}>
+          {isReady && PageComponent
+            ? (activePage === 'activity'
+              ? <PageComponent activityId={activityId} />
+              : <PageComponent />)
+            : null}
+        </Suspense>
       </DashboardShell>
     </DashboardContext.Provider>
   );

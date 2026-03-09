@@ -59,6 +59,32 @@ const shiftYear = (date, delta) => {
   }
 };
 
+const ProgressBarSvg = ({ value, tone = 'positive', label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  const gradientId = `comparisons-delta-${tone}`;
+  return (
+    <svg className="comparisons-delta-svg" viewBox="0 0 100 6" preserveAspectRatio="none" role="img" aria-label={label}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+          {tone === 'negative' ? (
+            <>
+              <stop offset="0%" stopColor="#f97316" />
+              <stop offset="100%" stopColor="#ef4444" />
+            </>
+          ) : (
+            <>
+              <stop offset="0%" stopColor="#22c55e" />
+              <stop offset="100%" stopColor="#3b82f6" />
+            </>
+          )}
+        </linearGradient>
+      </defs>
+      <rect className="comparisons-delta-track-fill" x="0" y="0" width="100" height="6" rx="3" />
+      <rect x="0" y="0" width={width} height="6" rx="3" fill={`url(#${gradientId})`} />
+    </svg>
+  );
+};
+
 const getComparisonPeriods = (range, compareMode) => {
   if (!range.start || !range.end) return null;
   const currentStart = new Date(range.start);
@@ -1011,7 +1037,7 @@ const ComparisonsApp = () => {
                 <div className="comparisons-delta-label">{card.label}</div>
                 <div className="comparisons-delta-value">{sign}{card.format(card.value)}</div>
                 <div className="comparisons-delta-bar">
-                  <span style={{ width: `${barWidth}%` }}></span>
+                  <ProgressBarSvg value={barWidth} tone={tone} label={`${card.label} delta`} />
                 </div>
               </div>
             );

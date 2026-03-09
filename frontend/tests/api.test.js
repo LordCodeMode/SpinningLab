@@ -21,15 +21,14 @@ const createResponse = ({
 describe('API client', () => {
   beforeEach(() => {
     fetch.mockReset();
-    localStorage.getItem.mockReset();
+    document.cookie = 'td_csrf=test-csrf-token';
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('adds auth header and query params', async () => {
-    localStorage.getItem.mockReturnValue('token123');
+  it('keeps credentials and query params on API requests', async () => {
     fetch.mockResolvedValue(createResponse({ jsonData: { ok: true } }));
 
     await API.getActivities({ limit: 2, skip: 1 });
@@ -37,7 +36,24 @@ describe('API client', () => {
     const [url, config] = fetch.mock.calls[0];
     expect(url).toContain('/api/activities/');
     expect(url).toContain('limit=2');
-    expect(config.headers.Authorization).toBe('Bearer token123');
+    expect(config.credentials).toBe('include');
+  });
+
+  it('tries one refresh cycle after a 401', async () => {
+    fetch
+      .mockResolvedValueOnce(createResponse({
+        status: 401,
+        ok: false,
+        jsonData: { detail: 'Session expired' }
+      }))
+      .mockResolvedValueOnce(createResponse({ jsonData: { message: 'Session refreshed' } }))
+      .mockResolvedValueOnce(createResponse({ jsonData: { ok: true } }));
+
+    const result = await API.getSettings();
+
+    expect(result).toEqual({ ok: true });
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch.mock.calls[1][0]).toContain('/api/auth/refresh');
   });
 
   it('handles JSON error responses', async () => {
@@ -61,13 +77,22 @@ describe('API client', () => {
   });
 
   it('submits login with FormData', async () => {
-    fetch.mockResolvedValue(createResponse({ jsonData: { access_token: 'abc' } }));
+    fetch.mockResolvedValue(createResponse({ jsonData: { message: 'Authenticated successfully' } }));
 
     await AuthAPI.login('user', 'pass');
 
     const [, config] = fetch.mock.calls[0];
     expect(config.body).toBeInstanceOf(FormData);
     expect(config.headers['Content-Type']).toBeUndefined();
+  });
+
+  it('adds CSRF header to mutating JSON requests', async () => {
+    fetch.mockResolvedValue(createResponse({ jsonData: { success: true } }));
+
+    await API.rebuildCache();
+
+    const [, config] = fetch.mock.calls[0];
+    expect(config.headers['X-CSRF-Token']).toBe('test-csrf-token');
   });
 
   it('transforms training load responses', async () => {

@@ -21,9 +21,10 @@ backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
 
 from app.database.connection import Base, get_db
-from app.database.models import User, Activity, TrainingLoad
 from app.main import app
 from app.services.auth_service import AuthService
+from app.core.security import create_access_token
+from app.services.storage_service import storage_service
 
 
 # Test database setup
@@ -75,6 +76,23 @@ def client(test_db):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(autouse=True)
+def isolated_storage(tmp_path):
+    """Isolate local storage artifacts per test."""
+    original_backend = storage_service.backend
+    original_root = storage_service.local_root
+
+    storage_service.backend = "local"
+    storage_service.local_root = tmp_path / "fit_files"
+    storage_service.local_root.mkdir(parents=True, exist_ok=True)
+
+    try:
+        yield storage_service.local_root
+    finally:
+        storage_service.backend = original_backend
+        storage_service.local_root = original_root
+
+
 @pytest.fixture
 def test_user_data():
     """Sample user data for testing."""
@@ -94,7 +112,8 @@ def test_user(test_db, test_user_data):
         username=test_user_data["username"],
         password=test_user_data["password"],
         email=test_user_data["email"],
-        name=test_user_data["name"]
+        name=test_user_data["name"],
+        is_email_verified=True,
     )
     test_db.commit()
     test_db.refresh(user)
@@ -103,17 +122,8 @@ def test_user(test_db, test_user_data):
 
 @pytest.fixture
 def auth_headers(client, test_user, test_user_data):
-    """Get authentication headers with valid JWT token."""
-    # Login to get token
-    response = client.post(
-        "/api/auth/login",
-        data={
-            "username": test_user_data["username"],
-            "password": test_user_data["password"]
-        }
-    )
-    assert response.status_code == 200
-    token = response.json()["access_token"]
+    """Get authentication headers with a valid access token."""
+    token = create_access_token({"sub": test_user.username})
     return {"Authorization": f"Bearer {token}"}
 
 

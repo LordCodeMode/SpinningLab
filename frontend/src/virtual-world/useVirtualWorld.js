@@ -14,6 +14,7 @@ export const useVirtualWorld = ({
   stepElapsed = 0,
   stepRemaining = 0,
   distance = 0,
+  sessionDistance = 0,
   routeId = 'route-valley',
   runtime = 'unity',
   presentation = 'popup',
@@ -32,6 +33,45 @@ export const useVirtualWorld = ({
   const [isLaunching, setIsLaunching] = useState(false);
   const [activeRuntime, setActiveRuntime] = useState('three');
   const [launchReason, setLaunchReason] = useState('idle');
+
+  const buildLiveDataPayload = useCallback((overrides = {}) => {
+    const cadence = Number(liveMetrics.cadence) || 0;
+    const cadenceSmoothed = Number(liveMetrics.cadenceSmoothed) || 0;
+    const virtualSpeedKph = Number(liveMetrics.virtualSpeedKph) || Number(liveMetrics.speed) || 0;
+    const trainerSpeedKph = Number(liveMetrics.trainerSpeedKph) || 0;
+    const routeGradePct = Number(liveMetrics.routeGradePct) || 0;
+    const routeAltitudeM = Number(liveMetrics.routeAltitudeM) || 0;
+    const distanceMeters = Number(distance) || 0;
+    const sessionDistanceMeters = Number(sessionDistance);
+
+    return {
+      power: Number(liveMetrics.power) || 0,
+      cadence,
+      cadenceRpm: cadence,
+      cadenceSmoothed,
+      smoothedCadenceRpm: cadenceSmoothed,
+      pedalingActive: Boolean(liveMetrics.pedalingActive),
+      effortBand: String(liveMetrics.effortBand || 'idle'),
+      heartRate: Number(liveMetrics.heartRate) || 0,
+      speed: Number(liveMetrics.speed) || 0,
+      speedKph: virtualSpeedKph,
+      virtualSpeedKph,
+      trainerSpeedKph,
+      routeGradePct,
+      gradePct: routeGradePct,
+      routeAltitudeM,
+      altitudeMeters: routeAltitudeM,
+      distance: distanceMeters,
+      distanceMeters,
+      sessionDistanceMeters: Number.isFinite(sessionDistanceMeters) ? sessionDistanceMeters : distanceMeters,
+      elapsed: Number(elapsed) || 0,
+      stepElapsed: Number(stepElapsed) || 0,
+      stepRemaining: Number(stepRemaining) || 0,
+      sessionState,
+      routeId,
+      ...overrides
+    };
+  }, [distance, elapsed, liveMetrics, routeId, sessionDistance, sessionState, stepElapsed, stepRemaining]);
 
   const syncLauncherState = useCallback(() => {
     const launcher = launcherRef.current;
@@ -119,7 +159,8 @@ export const useVirtualWorld = ({
     const launcher = launcherRef.current;
     if (!launcher || !isOpen || !routeId) return;
     launcher.sendRouteChange(routeId);
-  }, [isOpen, routeId]);
+    launcher.sendLiveData(buildLiveDataPayload({ routeId }));
+  }, [buildLiveDataPayload, isOpen, routeId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -131,25 +172,7 @@ export const useVirtualWorld = ({
       if (now - lastSendRef.current < SEND_INTERVAL_MS) return;
       lastSendRef.current = now;
 
-      launcher.sendLiveData({
-        power: Number(liveMetrics.power) || 0,
-        cadence: Number(liveMetrics.cadence) || 0,
-        cadenceSmoothed: Number(liveMetrics.cadenceSmoothed) || 0,
-        pedalingActive: Boolean(liveMetrics.pedalingActive),
-        effortBand: String(liveMetrics.effortBand || 'idle'),
-        heartRate: Number(liveMetrics.heartRate) || 0,
-        speed: Number(liveMetrics.speed) || 0,
-        virtualSpeedKph: Number(liveMetrics.virtualSpeedKph) || Number(liveMetrics.speed) || 0,
-        trainerSpeedKph: Number(liveMetrics.trainerSpeedKph) || 0,
-        routeGradePct: Number(liveMetrics.routeGradePct) || 0,
-        routeAltitudeM: Number(liveMetrics.routeAltitudeM) || 0,
-        distance: Number(distance) || 0,
-        elapsed: Number(elapsed) || 0,
-        stepElapsed: Number(stepElapsed) || 0,
-        stepRemaining: Number(stepRemaining) || 0,
-        sessionState,
-        routeId
-      });
+      launcher.sendLiveData(buildLiveDataPayload());
     };
 
     sendData();
@@ -161,7 +184,7 @@ export const useVirtualWorld = ({
     stepElapsed,
     stepRemaining,
     isOpen,
-    liveMetrics,
+    buildLiveDataPayload,
     routeId,
     sessionState
   ]);
@@ -180,24 +203,44 @@ export const useVirtualWorld = ({
     if (sessionState === 'running') {
       if (previous === 'paused') {
         launcher.sendSessionResume({ routeId });
+        launcher.sendLiveData(buildLiveDataPayload({ routeId, sessionState: 'running' }));
       } else {
+        const initialLiveData = buildLiveDataPayload({ routeId, sessionState: 'running' });
         launcher.sendSessionStart({
           routeId,
           mode,
           workoutSelected: Boolean(workoutSelected),
           workoutName: workoutName || '',
           currentStep,
-          workoutSteps
+          workoutSteps,
+          ...initialLiveData
         });
+        launcher.sendLiveData(initialLiveData);
       }
     } else if (sessionState === 'paused') {
       launcher.sendSessionPause({ routeId });
     } else if (sessionState === 'idle' || sessionState === 'stopped') {
       launcher.sendSessionStop({ routeId });
+      launcher.sendLiveData(buildLiveDataPayload({
+        power: 0,
+        cadence: 0,
+        cadenceRpm: 0,
+        cadenceSmoothed: 0,
+        smoothedCadenceRpm: 0,
+        pedalingActive: false,
+        effortBand: 'idle',
+        speed: 0,
+        speedKph: 0,
+        virtualSpeedKph: 0,
+        trainerSpeedKph: 0,
+        sessionState,
+        routeId
+      }));
     }
 
     previousSessionStateRef.current = sessionState;
   }, [
+    buildLiveDataPayload,
     currentStep,
     isOpen,
     mode,

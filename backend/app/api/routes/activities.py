@@ -1,6 +1,4 @@
 import math
-import os
-import json
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -12,12 +10,12 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session, selectinload
 
 from ...api.dependencies import get_current_active_user
-from ...core.config import settings
 from ...database.connection import get_db
 from ...database.models import Activity, ActivityTag, User, PowerZone, HrZone
 from ...services.fit_processing.power_metrics import extract_power_metrics, rolling_best_powers
 from ...services.fit_processing.heart_rate_metrics import compute_hr_zones, extract_hr_series, compute_avg_hr
 from ...services.fit_processing.zones import compute_power_zones
+from ...services.storage_service import storage_service
 
 router = APIRouter()
 
@@ -242,116 +240,116 @@ async def get_activity_streams(
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
 
-    file_path = activity.get_fit_path()
-    stream_path = _get_stream_path(activity)
+    fit_key = activity.get_fit_storage_key()
+    stream_key = activity.get_stream_storage_key()
 
-    if file_path and os.path.exists(file_path):
+    if fit_key and storage_service.exists(fit_key):
         source = "fit"
-    elif stream_path and os.path.exists(stream_path):
+    elif stream_key and storage_service.exists(stream_key):
         source = "stream_json"
     else:
         raise HTTPException(status_code=404, detail="Activity file not available")
 
     try:
         if source == "fit":
-            stream_payload = _extract_activity_streams_from_fit(file_path)
+            stream_payload = _extract_activity_streams_from_fit(fit_key)
         else:
-            stream_payload = _extract_activity_streams_from_json(stream_path)
+            stream_payload = _extract_activity_streams_from_json(stream_key)
         return stream_payload
     except Exception as exc:  # pylint: disable=broad-except
         raise HTTPException(status_code=500, detail=f"Failed to read activity file: {exc}") from exc
 
 
-def _extract_activity_streams_from_fit(file_path: str) -> dict:
-    fitfile = FitFile(file_path)
-    time_stream: List[float] = []
-    power_stream: List[Optional[float]] = []
-    hr_stream: List[Optional[float]] = []
-    latlng_stream: List[Optional[List[float]]] = []
-    moving_stream: List[bool] = []
+def _extract_activity_streams_from_fit(storage_key: str) -> dict:
+    with storage_service.download_to_temp_path(storage_key, suffix=".fit") as file_path:
+        fitfile = FitFile(file_path)
+        time_stream: List[float] = []
+        power_stream: List[Optional[float]] = []
+        hr_stream: List[Optional[float]] = []
+        latlng_stream: List[Optional[List[float]]] = []
+        moving_stream: List[bool] = []
 
-    start_timestamp = None
-    for record in fitfile.get_messages("record"):
-        data = {field.name: field.value for field in record if field.value is not None}
-        timestamp = data.get("timestamp")
-        if timestamp:
-            if start_timestamp is None:
-                start_timestamp = timestamp
-            elapsed = (timestamp - start_timestamp).total_seconds()
-        else:
-            elapsed = time_stream[-1] + 1 if time_stream else 0
+        start_timestamp = None
+        for record in fitfile.get_messages("record"):
+            data = {field.name: field.value for field in record if field.value is not None}
+            timestamp = data.get("timestamp")
+            if timestamp:
+                if start_timestamp is None:
+                    start_timestamp = timestamp
+                elapsed = (timestamp - start_timestamp).total_seconds()
+            else:
+                elapsed = time_stream[-1] + 1 if time_stream else 0
 
-        time_stream.append(float(elapsed))
-        power_value = _coerce_numeric(data.get("power"))
-        hr_value = _coerce_numeric(data.get("heart_rate"))
-        speed_value = _coerce_numeric(data.get("enhanced_speed") or data.get("speed"))
-        cadence_value = _coerce_numeric(data.get("cadence"))
+            time_stream.append(float(elapsed))
+            power_value = _coerce_numeric(data.get("power"))
+            hr_value = _coerce_numeric(data.get("heart_rate"))
+            speed_value = _coerce_numeric(data.get("enhanced_speed") or data.get("speed"))
+            cadence_value = _coerce_numeric(data.get("cadence"))
 
-        power_stream.append(power_value)
-        hr_stream.append(hr_value)
+            power_stream.append(power_value)
+            hr_stream.append(hr_value)
 
-        if speed_value is not None:
-            moving_stream.append(speed_value > 0.5)
-        elif cadence_value is not None:
-            moving_stream.append(cadence_value > 0)
-        elif power_value is not None:
-            moving_stream.append(power_value > 0)
-        else:
-            moving_stream.append(False)
+            if speed_value is not None:
+                moving_stream.append(speed_value > 0.5)
+            elif cadence_value is not None:
+                moving_stream.append(cadence_value > 0)
+            elif power_value is not None:
+                moving_stream.append(power_value > 0)
+            else:
+                moving_stream.append(False)
 
-        lat_val = data.get("position_lat")
-        lon_val = data.get("position_long")
-        if lat_val is not None and lon_val is not None:
-            latlng_stream.append([
-                _semicircle_to_degrees(lat_val),
-                _semicircle_to_degrees(lon_val)
-            ])
-        else:
-            latlng_stream.append(None)
+            lat_val = data.get("position_lat")
+            lon_val = data.get("position_long")
+            if lat_val is not None and lon_val is not None:
+                latlng_stream.append([
+                    _semicircle_to_degrees(lat_val),
+                    _semicircle_to_degrees(lon_val)
+                ])
+            else:
+                latlng_stream.append(None)
 
-    if not time_stream:
+        if not time_stream:
+            return {
+                "time": [],
+                "power": [],
+                "heart_rate": [],
+                "power_curve": None,
+                "metadata": {"sample_count": 0, "downsampled_count": 0}
+            }
+
+        filtered = _filter_moving_samples(
+            time_stream,
+            moving_stream,
+            power_stream,
+            hr_stream,
+            latlng_stream
+        )
+
+        if filtered:
+            time_stream, power_stream, hr_stream, latlng_stream = filtered
+
+        downsampled_time, [downsampled_power, downsampled_hr], indices = _downsample_streams_with_indices(
+            time_stream,
+            [power_stream, hr_stream]
+        )
+
+        power_curve = _build_power_curve(power_stream)
+
         return {
-            "time": [],
-            "power": [],
-            "heart_rate": [],
-            "power_curve": None,
-            "metadata": {"sample_count": 0, "downsampled_count": 0}
+            "time": downsampled_time,
+            "power": downsampled_power,
+            "heart_rate": downsampled_hr,
+            "latlng": _downsample_latlng(latlng_stream, indices),
+            "power_curve": power_curve,
+            "metadata": {
+                "sample_count": len(time_stream),
+                "downsampled_count": len(downsampled_time)
+            }
         }
 
-    filtered = _filter_moving_samples(
-        time_stream,
-        moving_stream,
-        power_stream,
-        hr_stream,
-        latlng_stream
-    )
 
-    if filtered:
-        time_stream, power_stream, hr_stream, latlng_stream = filtered
-
-    downsampled_time, [downsampled_power, downsampled_hr], indices = _downsample_streams_with_indices(
-        time_stream,
-        [power_stream, hr_stream]
-    )
-
-    power_curve = _build_power_curve(power_stream)
-
-    return {
-        "time": downsampled_time,
-        "power": downsampled_power,
-        "heart_rate": downsampled_hr,
-        "latlng": _downsample_latlng(latlng_stream, indices),
-        "power_curve": power_curve,
-        "metadata": {
-            "sample_count": len(time_stream),
-            "downsampled_count": len(downsampled_time)
-        }
-    }
-
-
-def _extract_activity_streams_from_json(stream_path: str) -> dict:
-    with open(stream_path, "r") as f:
-        raw = json.load(f)
+def _extract_activity_streams_from_json(stream_key: str) -> dict:
+    raw = storage_service.get_json(stream_key)
 
     def get_stream(name):
         stream = raw.get(name, {})
@@ -567,12 +565,6 @@ def _build_power_curve(power_stream: List[Optional[float]]):
     }
 
 
-def _get_stream_path(activity: Activity) -> Optional[str]:
-    base_dir = os.path.join(settings.FIT_FILES_DIR, "streams")
-    candidate = os.path.join(base_dir, f"{activity.strava_activity_id or activity.id}.json")
-    return candidate
-
-
 @router.delete("/{activity_id}")
 async def delete_activity(
     activity_id: int,
@@ -589,7 +581,8 @@ async def delete_activity(
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
 
-    stream_path = _get_stream_path(activity)
+    stream_key = activity.get_stream_storage_key()
+    fit_key = activity.get_fit_storage_key()
     try:
         db.delete(activity)
         db.commit()
@@ -598,10 +591,16 @@ async def delete_activity(
         raise HTTPException(status_code=500, detail=f"Failed to delete activity: {exc}")
 
     # Clean up stored stream file if present
-    if stream_path and os.path.exists(stream_path):
+    if stream_key and storage_service.exists(stream_key):
         try:
-            os.remove(stream_path)
-        except OSError:
+            storage_service.delete(stream_key)
+        except Exception:
+            pass
+
+    if fit_key and storage_service.exists(fit_key):
+        try:
+            storage_service.delete(fit_key)
+        except Exception:
             pass
 
     try:
@@ -826,9 +825,8 @@ async def save_live_training_session(
     db.flush()
 
     try:
-        stream_path = _get_stream_path(activity)
-        if stream_path:
-            os.makedirs(os.path.dirname(stream_path), exist_ok=True)
+        stream_key = activity.get_stream_storage_key()
+        if stream_key:
             stream_payload = {
                 "time": {"data": time_stream},
                 "watts": {"data": power_stream},
@@ -838,8 +836,7 @@ async def save_live_training_session(
                 "distance": {"data": distance_stream},
                 "speed": {"data": speed_stream}
             }
-            with open(stream_path, "w") as f:
-                json.dump(stream_payload, f)
+            storage_service.put_json(stream_key, stream_payload)
     except Exception:
         pass
 
@@ -942,25 +939,26 @@ def _hydrate_hr_metrics(activity: Activity, user: User) -> dict:
     if not any([needs_avg, needs_max, needs_zones]):
         return {}
 
-    file_path = activity.get_fit_path()
-    if not file_path or not os.path.exists(file_path):
+    fit_key = activity.get_fit_storage_key()
+    if not fit_key or not storage_service.exists(fit_key):
         return {}
 
     try:
-        fitfile = FitFile(file_path)
-        hr_values = []
-        records = []
+        with storage_service.download_to_temp_path(fit_key, suffix=".fit") as file_path:
+            fitfile = FitFile(file_path)
+            hr_values = []
+            records = []
 
-        for record in fitfile.get_messages("record"):
-            data = {field.name: field.value for field in record if field.value is not None}
-            hr = data.get("heart_rate")
-            if hr is not None:
-                try:
-                    hr_float = float(hr)
-                except (TypeError, ValueError):
-                    continue
-                hr_values.append(hr_float)
-                records.append({"heart_rate": hr_float})
+            for record in fitfile.get_messages("record"):
+                data = {field.name: field.value for field in record if field.value is not None}
+                hr = data.get("heart_rate")
+                if hr is not None:
+                    try:
+                        hr_float = float(hr)
+                    except (TypeError, ValueError):
+                        continue
+                    hr_values.append(hr_float)
+                    records.append({"heart_rate": hr_float})
 
         if not hr_values:
             return {}

@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -6,11 +6,13 @@ from typing import Optional
 from ..database.connection import get_db
 from ..database.models import User
 from ..core.security import verify_token
+from ..core.config import settings
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), 
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
     """Get current user from JWT token."""
@@ -19,9 +21,13 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
+    access_token = request.cookies.get(settings.SESSION_COOKIE_NAME) or token
+    if not access_token:
+        raise credentials_exception
+
     try:
-        username = verify_token(token)
+        username = verify_token(access_token)
         if username is None:
             raise credentials_exception
     except Exception:

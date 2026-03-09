@@ -13,6 +13,10 @@ const ROUTE_ALIASES = {
 };
 
 const TWO_PI = Math.PI * 2;
+const LOOP_CLOSURE_STEP_METERS = 2;
+const LOOP_CLOSURE_MIN_GAP_METERS = 1.5;
+const LOOP_CLOSURE_MAX_GAP_METERS = 120;
+const LOOP_CLOSURE_MAX_RATIO = 0.12;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -86,10 +90,40 @@ const normalizeProfilePoints = (points, totalDistanceMeters = null) => {
 
   if (maxDistance < 1) return null;
 
-  return normalized.map((point) => ({
+  const clampedPoints = normalized.map((point) => ({
     ...point,
     distanceMeters: clamp(point.distanceMeters, 0, maxDistance)
   }));
+
+  const first = clampedPoints[0];
+  const last = clampedPoints[clampedPoints.length - 1];
+  const dx = first.x - last.x;
+  const dy = first.y - last.y;
+  const dz = first.z - last.z;
+  const loopGapMeters = Math.sqrt((dx ** 2) + (dy ** 2) + (dz ** 2));
+  const shouldCloseLoop = loopGapMeters >= LOOP_CLOSURE_MIN_GAP_METERS
+    && loopGapMeters <= LOOP_CLOSURE_MAX_GAP_METERS
+    && loopGapMeters <= (maxDistance * LOOP_CLOSURE_MAX_RATIO);
+
+  if (!shouldCloseLoop) {
+    return clampedPoints;
+  }
+
+  const closureSegments = Math.max(2, Math.ceil(loopGapMeters / LOOP_CLOSURE_STEP_METERS));
+  const closedPoints = [...clampedPoints];
+
+  for (let i = 1; i <= closureSegments; i += 1) {
+    const t = i / closureSegments;
+    closedPoints.push({
+      x: last.x + (dx * t),
+      y: last.y + (dy * t),
+      z: last.z + (dz * t),
+      elevationMeters: last.elevationMeters + ((first.elevationMeters - last.elevationMeters) * t),
+      distanceMeters: maxDistance + (loopGapMeters * t)
+    });
+  }
+
+  return closedPoints;
 };
 
 const normalizeRoute = (route, fallback = null) => {

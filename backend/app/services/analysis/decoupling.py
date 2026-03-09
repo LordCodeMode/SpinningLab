@@ -8,13 +8,11 @@ from __future__ import annotations
 from typing import Dict, Optional, List
 from sqlalchemy.orm import Session
 from fitparse import FitFile
-import os
-import json
 import pandas as pd
 
 from .power_curve import PowerCurveService
 from ...database.models import Activity
-from ...core.config import settings
+from ..storage_service import storage_service
 
 
 class DecouplingService:
@@ -63,9 +61,10 @@ class DecouplingService:
         }
 
     def _get_hr_series(self, activity: Activity) -> List[float]:
-        fit_path = getattr(activity, "get_fit_path", lambda: None)()
-        if fit_path and os.path.exists(fit_path):
-            return self._extract_hr_from_fit(fit_path)
+        fit_key = getattr(activity, "get_fit_storage_key", lambda: None)()
+        if fit_key and storage_service.exists(fit_key):
+            with storage_service.download_to_temp_path(fit_key, suffix=".fit") as fit_path:
+                return self._extract_hr_from_fit(fit_path)
 
         stream = self._extract_hr_from_stream_json(activity)
         if stream:
@@ -89,12 +88,11 @@ class DecouplingService:
 
     @staticmethod
     def _extract_hr_from_stream_json(activity: Activity) -> List[float]:
-        stream_path = os.path.join(settings.FIT_FILES_DIR, "streams", f"{activity.strava_activity_id or activity.id}.json")
-        if not os.path.exists(stream_path):
+        stream_key = getattr(activity, "get_stream_storage_key", lambda: None)()
+        if not stream_key or not storage_service.exists(stream_key):
             return []
         try:
-            with open(stream_path, "r") as f:
-                raw = json.load(f)
+            raw = storage_service.get_json(stream_key)
         except Exception:
             return []
 

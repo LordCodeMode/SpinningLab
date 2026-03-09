@@ -327,20 +327,17 @@ body.page-comparisons .comparisons-summary-card__stats div {
 
 .comparisons-delta-bar {
   margin-top: 10px;
-  height: 6px;
-  background: var(--color-border);
-  border-radius: 999px;
   overflow: hidden;
 }
 
-.comparisons-delta-bar span {
+.comparisons-delta-svg {
   display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #22c55e 0%, #3b82f6 100%);
+  width: 100%;
+  height: 6px;
 }
 
-.comparisons-delta-card.negative .comparisons-delta-bar span {
-  background: linear-gradient(90deg, #f97316 0%, #ef4444 100%);
+.comparisons-delta-track-fill {
+  fill: var(--color-border);
 }
 
 .comparisons-section {

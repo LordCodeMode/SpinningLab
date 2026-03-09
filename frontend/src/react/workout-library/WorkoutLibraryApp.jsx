@@ -212,34 +212,70 @@ const hexToRgba = (hex, alpha) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+const INTERVAL_FILL_MAP = {
+  'workout-card__interval-bar--warmup': '#34d399',
+  'workout-card__interval-bar--cooldown': '#34d399',
+  'workout-card__interval-bar--recovery': '#4ade80',
+  'workout-card__interval-bar--endurance': '#3b82f6',
+  'workout-card__interval-bar--tempo': '#f59e0b',
+  'workout-card__interval-bar--sweetspot': '#f97316',
+  'workout-card__interval-bar--threshold': '#ef4444',
+  'workout-card__interval-bar--vo2max': '#b91c1c',
+  'workout-card__interval-bar--anaerobic': '#7f1d1d',
+  'workout-card__interval-bar--sprint': '#8b5cf6',
+  'workout-card__interval-bar--default': '#8b5cf6'
+};
+
+const getIntervalFill = (barClass) => INTERVAL_FILL_MAP[barClass] || INTERVAL_FILL_MAP['workout-card__interval-bar--default'];
+
 const buildIntervalPreview = (intervals, ftp) => {
   if (!intervals.length) return null;
 
   const maxIntervals = 12;
   const displayIntervals = intervals.slice(0, maxIntervals);
   const hasMore = intervals.length > maxIntervals;
+  const totalDuration = displayIntervals.reduce((sum, interval) => sum + Math.max(1, interval.duration || 0), 0) || 1;
+  let currentOffset = 0;
 
   return (
     <div className="workout-card__intervals">
       <div className="workout-card__intervals-label">Workout Structure</div>
-      <div className="workout-card__intervals-viz">
+      <svg
+        className="workout-card__intervals-viz"
+        viewBox="0 0 100 60"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="Workout structure preview"
+      >
         {displayIntervals.map((interval, index) => {
           const duration = Math.max(1, interval.duration || 0);
           const powerPercent = getIntervalPowerPercent(interval, ftp);
           const barClass = getIntervalColorClass(interval, powerPercent);
-          const relativeHeight = Math.min(100, Math.max(20, (powerPercent / 120) * 100));
+          const relativeHeight = Math.min(100, Math.max(20, (powerPercent / 120) * 100)) / 100;
+          const width = (duration / totalDuration) * 100;
+          const x = currentOffset;
+          const height = Math.max(12, 60 * relativeHeight);
+          const y = 60 - height;
+          currentOffset += width;
           return (
-            <div
+            <rect
               key={`${interval.interval_type || 'interval'}-${index}`}
               className={`workout-card__interval-bar ${barClass}`}
-              style={{ height: `${relativeHeight}%`, flex: `${duration} 0 0` }}
-            ></div>
+              x={x}
+              y={y}
+              width={Math.max(width, 1)}
+              height={height}
+              rx="2"
+              fill={getIntervalFill(barClass)}
+            />
           );
         })}
         {hasMore && (
-          <div className="workout-card__intervals-more">+{intervals.length - maxIntervals}</div>
+          <text className="workout-card__intervals-more" x="98" y="14" textAnchor="end">
+            +{intervals.length - maxIntervals}
+          </text>
         )}
-      </div>
+      </svg>
     </div>
   );
 };
@@ -256,6 +292,7 @@ const buildStructurePreview = (intervals, ftp) => {
   const totalDuration = orderedIntervals.reduce((sum, interval) => sum + (interval.duration || 0), 0);
   if (!totalDuration) return null;
 
+  let currentOffset = 0;
   const blocks = orderedIntervals.map((interval, index) => {
     const duration = interval.duration || 0;
     if (!duration) return null;
@@ -264,45 +301,56 @@ const buildStructurePreview = (intervals, ftp) => {
     const clampedPower = Math.min(MAX_POWER_PERCENT, Math.max(30, powerPercent));
     const height = Math.max(18, (clampedPower / MAX_POWER_PERCENT) * PREVIEW_HEIGHT);
     const colorClass = getIntervalColorClass(interval, clampedPower);
+    const width = (duration / totalDuration) * 100;
+    const x = currentOffset;
+    currentOffset += width;
 
     return (
-      <div
+      <rect
         key={`chart-${index}`}
         className={`wl-preview__block ${colorClass}`}
-        style={{
-          height: `${height}px`,
-          flex: `${duration} 1 0`
-        }}
+        x={x}
+        y={PREVIEW_HEIGHT - height}
+        width={Math.max(width, 1)}
+        height={height}
+        rx="2"
+        fill={getIntervalFill(colorClass)}
         title={`${formatIntervalType(interval.interval_type)} • ${getIntervalPowerDetail(interval, ftp)}`}
-      ></div>
+      />
     );
   });
 
   return (
-    <div className="wb-preview" style={{ height: `${PREVIEW_HEIGHT}px` }}>
-      <div className="wb-preview__zones">
+    <svg
+      className="wb-preview wl-preview-svg"
+      viewBox={`0 0 100 ${PREVIEW_HEIGHT}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="Workout structure"
+    >
+      <g className="wb-preview__zones">
         {POWER_ZONES.map((zone) => {
           const topPercent = Math.min(zone.max, MAX_POWER_PERCENT);
           const bottomPercent = zone.min;
           const top = PREVIEW_HEIGHT - (topPercent / MAX_POWER_PERCENT) * PREVIEW_HEIGHT;
           const bandHeight = ((topPercent - bottomPercent) / MAX_POWER_PERCENT) * PREVIEW_HEIGHT;
           return (
-            <div
+            <rect
               key={`preview-${zone.id}`}
               className="wb-preview__zone"
-              style={{
-                top: `${top}px`,
-                height: `${bandHeight}px`,
-                backgroundColor: hexToRgba(zone.color, 0.16)
-              }}
-            ></div>
+              x="0"
+              y={top}
+              width="100"
+              height={bandHeight}
+              fill={hexToRgba(zone.color, 0.16)}
+            />
           );
         })}
-      </div>
-      <div className="wl-preview__bars">
+      </g>
+      <g className="wl-preview__bars">
         {blocks}
-      </div>
-    </div>
+      </g>
+    </svg>
   );
 };
 
@@ -502,7 +550,7 @@ const WorkoutLibraryApp = () => {
         </div>
         <div className="page-header__actions">
           <button className="btn btn--primary" type="button" onClick={() => (window.location.hash = '#/workout-builder')}>
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ width: '20px', height: '20px' }}>
+            <svg className="workout-library-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
             </svg>
             Create Workout
@@ -563,7 +611,7 @@ const WorkoutLibraryApp = () => {
                   <div className={`workout-card__icon ${getWorkoutTypeClass(workoutType)}`}>
                     {getWorkoutTypeIcon(workoutType)}
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div className="workout-library-card__content">
                     <h3 className="card__title">{workout.name}</h3>
                     <div className="workout-card__meta">
                       {workoutType && <span className="workout-card__type">{workoutType}</span>}

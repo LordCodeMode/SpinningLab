@@ -1,6 +1,16 @@
 import React from 'react';
 import { LoadingSpinner } from './States.jsx';
 
+const HEIGHT_CLASS_MAP = {
+  '300px': 'chart-container--300',
+  '360px': 'chart-container--360',
+  '400px': 'chart-container--400',
+  '480px': 'chart-container--480',
+  '100%': 'chart-container--full'
+};
+
+const getHeightClass = (height) => HEIGHT_CLASS_MAP[height] || 'chart-container--400';
+
 /**
  * Chart Card Component
  * Card container for charts with controls
@@ -43,7 +53,7 @@ export function ChartCard({
         </div>
       )}
 
-      <div className="chart-container" style={{ height: chartHeight }}>
+      <div className={`chart-container ${getHeightClass(chartHeight)}`}>
         {loading ? (
           <ChartLoading />
         ) : children ? (
@@ -91,13 +101,7 @@ export function ChartControls({
  */
 export function ChartLoading() {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100%',
-      color: 'var(--color-text-secondary)'
-    }}>
+    <div className="chart-loading chart-loading--framed">
       <LoadingSpinner text="Loading chart..." size="md" />
     </div>
   );
@@ -123,25 +127,11 @@ export function ChartEmpty({
   );
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100%',
-      color: 'var(--color-text-secondary)',
-      textAlign: 'center',
-      padding: 'var(--space-8)'
-    }}>
-      <div style={{
-        width: '48px',
-        height: '48px',
-        marginBottom: 'var(--space-4)',
-        opacity: 0.5
-      }}>
+    <div className="chart-empty chart-empty--framed">
+      <div className="chart-empty__icon chart-empty__icon--sm">
         {icon || defaultIcon}
       </div>
-      <p style={{ fontSize: 'var(--font-size-sm)' }}>{message}</p>
+      <p className="chart-empty__message">{message}</p>
     </div>
   );
 }
@@ -162,8 +152,7 @@ export function ChartLegend({
         <div key={index} className="chart-legend__item">
           {item.color && (
             <div
-              className="chart-legend__marker"
-              style={{ backgroundColor: item.color }}
+              className={`chart-legend__marker ${item.className || ''}`.trim()}
             />
           )}
           <span className="chart-legend__label">{item.label}</span>
@@ -264,7 +253,7 @@ export function ChartContainer({
   className = ''
 }) {
   return (
-    <div className={`chart-container ${className}`} style={{ height }}>
+    <div className={`chart-container ${getHeightClass(height)} ${className}`.trim()}>
       {children}
     </div>
   );
@@ -279,15 +268,9 @@ export function ChartGrid({
   children,
   className = ''
 }) {
+  const columnsClass = columns === 1 ? 'charts-grid--single' : columns === 3 ? 'charts-grid--triple' : '';
   return (
-    <div
-      className={`chart-grid ${className}`}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${columns}, 1fr)`,
-        gap: 'var(--space-4)'
-      }}
-    >
+    <div className={`charts-grid ${columnsClass} ${className}`.trim()}>
       {children}
     </div>
   );

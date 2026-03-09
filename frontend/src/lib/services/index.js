@@ -67,7 +67,7 @@ if (typeof window !== 'undefined') {
 export default Services;
 
 // ========== CONVENIENCE RE-EXPORTS ==========
-export { API, AnalysisAPI, AuthAPI } from '../core/api.js';
+export { API, AnalysisAPI, AuthAPI, JobsAPI } from '../core/api.js';
 export { eventBus, EVENTS } from '../core/eventBus.js';
 export { state } from '../core/state.js';
 export { default as CONFIG } from '../core/config.js';

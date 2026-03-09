@@ -1,23 +1,19 @@
 import logging
-import threading
 from datetime import datetime
 
 from ...database.connection import SessionLocal
 from ...database.models import User
 from .cache_builder import CacheBuilder
-from ...tasks.queue import enqueue_job
+from ...tasks.queue import enqueue_job, set_job_progress
 
 logger = logging.getLogger(__name__)
 
 
 def rebuild_user_caches_task(user_id: int, mode: str = "full") -> None:
     """
-    Queue cache rebuild in a detached thread to avoid blocking the request thread.
+    Queue cache rebuild in the configured background worker.
     """
-    if enqueue_job(run_cache_rebuild_job, user_id, mode=mode):
-        return
-    thread = threading.Thread(target=_rebuild_user_caches, args=(user_id, mode), daemon=True)
-    thread.start()
+    enqueue_job(run_cache_rebuild_job, user_id, mode=mode, meta={"user_id": user_id})
 
 
 def _rebuild_user_caches(user_id: int, mode: str = "full") -> None:
@@ -37,6 +33,7 @@ def _rebuild_user_caches(user_id: int, mode: str = "full") -> None:
             user_id,
             {"status": "running", "mode": mode, "started_at": started_at},
         )
+        set_job_progress(progress=0.1, message=f"Cache rebuild started ({mode})")
 
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
@@ -45,6 +42,7 @@ def _rebuild_user_caches(user_id: int, mode: str = "full") -> None:
 
         cache_builder = CacheBuilder(db)
         result = cache_builder.rebuild_after_import(user, mode=mode)
+        set_job_progress(progress=0.9, message=f"Cache rebuild finishing ({mode})")
 
         if result["success"]:
             logger.info(
@@ -63,6 +61,7 @@ def _rebuild_user_caches(user_id: int, mode: str = "full") -> None:
                     "duration_seconds": result.get("duration_seconds", 0.0),
                 },
             )
+            set_job_progress(progress=1.0, message="Cache rebuild completed", result=result)
         else:
             failed_ops = [
                 name for name, op in result["operations"].items()
@@ -86,6 +85,7 @@ def _rebuild_user_caches(user_id: int, mode: str = "full") -> None:
                     "failed_operations": failed_ops,
                 },
             )
+            set_job_progress(progress=1.0, message="Cache rebuild completed with warnings", result=result)
 
         db.commit()
     except Exception as exc:
@@ -101,6 +101,7 @@ def _rebuild_user_caches(user_id: int, mode: str = "full") -> None:
                 "error": str(exc),
             },
         )
+        set_job_progress(progress=1.0, message="Cache rebuild failed", error=str(exc))
         db.rollback()
     finally:
         db.close()
@@ -111,10 +112,7 @@ def rebuild_user_caches_two_stage(user_id: int) -> None:
     Run a fast rebuild immediately, then a full rebuild right after.
     Keeps the UI responsive while still guaranteeing full accuracy.
     """
-    if enqueue_job(run_cache_rebuild_two_stage_job, user_id):
-        return
-    thread = threading.Thread(target=_rebuild_user_caches_two_stage, args=(user_id,), daemon=True)
-    thread.start()
+    enqueue_job(run_cache_rebuild_two_stage_job, user_id, meta={"user_id": user_id})
 
 
 def _rebuild_user_caches_two_stage(user_id: int) -> None:
@@ -138,6 +136,7 @@ def _rebuild_user_caches_two_stage(user_id: int) -> None:
         cache_builder = CacheBuilder(db)
 
         logger.info("[Background] Starting cache rebuild for user %s (mode=fast)", user_id)
+        set_job_progress(progress=0.05, message="Fast cache rebuild started")
         cache_manager.set(
             "cache_rebuild_status",
             user_id,
@@ -154,6 +153,7 @@ def _rebuild_user_caches_two_stage(user_id: int) -> None:
             logger.warning("[Background] Fast cache rebuild completed with failures for user %s", user_id)
 
         logger.info("[Background] Starting cache rebuild for user %s (mode=full)", user_id)
+        set_job_progress(progress=0.45, message="Full cache rebuild started")
         cache_manager.set(
             "cache_rebuild_status",
             user_id,
@@ -188,8 +188,11 @@ def _rebuild_user_caches_two_stage(user_id: int) -> None:
                     "failed_operations": failed_ops,
                 },
             )
+            set_job_progress(progress=1.0, message="Two-stage cache rebuild completed with warnings", result=full_result)
 
         db.commit()
+        if full_result.get("success"):
+            set_job_progress(progress=1.0, message="Two-stage cache rebuild completed", result=full_result)
     except Exception as exc:
         logger.error("[Background] Two-stage cache rebuild failed for user %s: %s", user_id, exc, exc_info=True)
         cache_manager.set(
@@ -203,6 +206,7 @@ def _rebuild_user_caches_two_stage(user_id: int) -> None:
                 "error": str(exc),
             },
         )
+        set_job_progress(progress=1.0, message="Two-stage cache rebuild failed", error=str(exc))
         db.rollback()
     finally:
         if cache_manager.redis and lock_acquired:
@@ -211,11 +215,8 @@ def _rebuild_user_caches_two_stage(user_id: int) -> None:
 
 
 def rebuild_power_curve_cache_task(user_id: int) -> None:
-    """Queue a power curve cache rebuild in a detached thread."""
-    if enqueue_job(run_power_curve_rebuild_job, user_id):
-        return
-    thread = threading.Thread(target=_rebuild_power_curve_cache, args=(user_id,), daemon=True)
-    thread.start()
+    """Queue a power curve cache rebuild in the configured background worker."""
+    enqueue_job(run_power_curve_rebuild_job, user_id, meta={"user_id": user_id})
 
 
 def run_cache_rebuild_job(user_id: int, mode: str = "full") -> None:

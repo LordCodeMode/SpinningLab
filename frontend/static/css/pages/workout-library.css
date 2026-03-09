@@ -119,22 +119,22 @@ body.page-workout-library .workout-library-empty {
 }
 
 .wl-preview__bars {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  align-items: flex-end;
-  overflow: hidden;
+  pointer-events: none;
 }
 
-.wl-preview__block {
-  min-width: 1px;
-  box-sizing: border-box;
-  border-right: 1px solid rgba(15, 23, 42, 0.12);
+.wl-preview-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-.wl-preview__block:last-child {
-  border-right: 0;
+.workout-library-action-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.workout-library-card__content {
+  flex: 1;
 }
 
 @media (max-width: 768px) {

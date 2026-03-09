@@ -157,7 +157,9 @@ const ZoneDistribution = ({ activity, settings }) => {
                 const { baseLabel, zoneName } = getZoneDisplayParts(zone.zone_label, 'power');
                 return (
                   <div key={zone.zone_label} className="activity-zone-row">
-                    <div className="activity-zone-color" style={{ background: getZoneColor(zone.zone_label, CONFIG.POWER_ZONE_COLORS) }}></div>
+                    <svg className="activity-zone-color" viewBox="0 0 12 12" aria-hidden="true">
+                      <rect x="0" y="0" width="12" height="12" rx="6" fill={getZoneColor(zone.zone_label, CONFIG.POWER_ZONE_COLORS)} />
+                    </svg>
                     <div className="activity-zone-label-block">
                       <span className="activity-zone-label">{baseLabel}</span>
                       {zoneName && <span className="activity-zone-name">{zoneName}</span>}
@@ -193,7 +195,9 @@ const ZoneDistribution = ({ activity, settings }) => {
                 const { baseLabel, zoneName } = getZoneDisplayParts(zone.zone_label, 'hr');
                 return (
                   <div key={zone.zone_label} className="activity-zone-row">
-                    <div className="activity-zone-color" style={{ background: getZoneColor(zone.zone_label, CONFIG.HR_ZONE_COLORS) }}></div>
+                    <svg className="activity-zone-color" viewBox="0 0 12 12" aria-hidden="true">
+                      <rect x="0" y="0" width="12" height="12" rx="6" fill={getZoneColor(zone.zone_label, CONFIG.HR_ZONE_COLORS)} />
+                    </svg>
                     <div className="activity-zone-label-block">
                       <span className="activity-zone-label">{baseLabel}</span>
                       {zoneName && <span className="activity-zone-name">{zoneName}</span>}

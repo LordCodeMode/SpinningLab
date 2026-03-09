@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from typing import List, Dict, Optional
 
+SMART_RECORDING_MAX_GAP_SECONDS = 3
+
 def extract_power_metrics(df: pd.DataFrame, hr_avg: Optional[float] = None, user = None) -> Dict:
     """Extract power metrics from DataFrame."""
     if df.empty or "power" not in df.columns:
@@ -45,25 +47,32 @@ def extract_power_metrics(df: pd.DataFrame, hr_avg: Optional[float] = None, user
 
 def _prepare_power_series(power_col: pd.Series, time_col: Optional[pd.Series], moving_col: Optional[pd.Series]) -> tuple[list, Optional[float]]:
     """
-    Build a 1Hz power series aligned to elapsed time so rolling windows reflect real duration.
+    Build a 1 Hz power series aligned to elapsed time so rolling windows reflect real duration.
+
+    Small smart-recording gaps are forward-filled with the last observed power.
+    Larger gaps are treated as zero-power idle time to avoid interpolating phantom work
+    across pauses or sparse recording segments.
+
     Returns (power_series, duration_seconds)
     """
     if power_col.isna().all():
         return [], None
 
-    # If we have a time axis, resample to 1Hz using interpolation
+    # If we have a time axis, expand to a conservative 1 Hz series.
     if time_col is not None and time_col.notna().any():
         try:
-            time_clean = time_col.astype(float)
-            base_time = time_clean.min()
-            elapsed = time_clean - base_time
-            power_series = pd.Series(power_col.values, index=pd.to_timedelta(elapsed, unit="s"))
-            power_series = power_series.sort_index()
-            resampled = power_series.resample("1S").mean().interpolate(limit_direction="both")
-            resampled = resampled.dropna()
-            moving_seconds = _estimate_moving_seconds(time_clean, moving_col) if moving_col is not None else None
-            duration_s = moving_seconds or resampled.index.max().total_seconds()
-            return resampled.tolist(), duration_s
+            expanded_power, moving_seconds = _expand_time_series(
+                value_col=power_col,
+                time_col=time_col,
+                moving_col=moving_col,
+                fill_value=0.0,
+                apply_moving_mask=True,
+            )
+            if expanded_power.empty:
+                return [], None
+
+            duration_s = moving_seconds or float(len(expanded_power))
+            return expanded_power.tolist(), duration_s
         except Exception:
             pass
 
@@ -85,6 +94,75 @@ def _estimate_moving_seconds(time_series: pd.Series, moving_col: Optional[pd.Ser
         return float(sum(delta for delta, is_moving in zip(deltas, moving_flags) if is_moving))
     except Exception:
         return None
+
+def _expand_time_series(
+    value_col: pd.Series,
+    time_col: pd.Series,
+    moving_col: Optional[pd.Series] = None,
+    *,
+    fill_value: float | None = 0.0,
+    apply_moving_mask: bool = False,
+    smart_recording_gap_seconds: int = SMART_RECORDING_MAX_GAP_SECONDS,
+) -> tuple[pd.Series, Optional[float]]:
+    """
+    Expand smart-recorded stream samples to a conservative 1 Hz time series.
+
+    Short gaps are forward-filled to preserve realistic workload during smart recording.
+    Longer gaps are left empty and then filled with ``fill_value`` (typically zero for power)
+    so pauses do not become interpolated efforts.
+    """
+    if value_col is None or time_col is None:
+        return pd.Series(dtype="float64"), None
+
+    frame = pd.DataFrame({
+        "value": value_col,
+        "time": time_col,
+    })
+
+    if moving_col is not None:
+        frame["moving"] = moving_col
+
+    frame = frame.dropna(subset=["value", "time"])
+    if frame.empty:
+        return pd.Series(dtype="float64"), None
+
+    frame["time"] = frame["time"].astype(float)
+    frame["elapsed_second"] = (frame["time"] - frame["time"].min()).round().astype(int)
+    frame["value"] = frame["value"].astype(float)
+
+    group_columns = {"value": "mean"}
+    if "moving" in frame.columns:
+        frame["moving_flag"] = frame["moving"].apply(
+            lambda value: 1 if pd.notna(value) and bool(value) else 0 if pd.notna(value) else pd.NA
+        )
+        group_columns["moving_flag"] = "max"
+
+    grouped = frame.groupby("elapsed_second", as_index=True).agg(group_columns).sort_index()
+    if grouped.empty:
+        return pd.Series(dtype="float64"), None
+
+    full_index = pd.RangeIndex(start=0, stop=int(grouped.index.max()) + 1)
+    forward_fill_limit = max(int(smart_recording_gap_seconds) - 1, 0)
+
+    expanded = grouped["value"].reindex(full_index)
+    if forward_fill_limit > 0:
+        expanded = expanded.ffill(limit=forward_fill_limit)
+    if fill_value is not None:
+        expanded = expanded.fillna(fill_value)
+
+    moving_seconds = None
+    if "moving_flag" in grouped.columns:
+        expanded_moving = grouped["moving_flag"].reindex(full_index)
+        if forward_fill_limit > 0:
+            expanded_moving = expanded_moving.ffill(limit=forward_fill_limit)
+        expanded_moving = expanded_moving.fillna(0).astype(bool)
+        moving_seconds = float(expanded_moving.sum())
+
+        if apply_moving_mask:
+            inactive_fill = fill_value if fill_value is not None else np.nan
+            expanded = expanded.where(expanded_moving, inactive_fill)
+
+    return expanded.astype(float), moving_seconds
 
 def calculate_np(power_series: List[float]) -> Optional[float]:
     """Calculate Normalized Power."""

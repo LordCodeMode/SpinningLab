@@ -146,6 +146,44 @@ const hexToRgba = (hex, alpha) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+const INTERVAL_FILL_MAP = {
+  'workout-card__interval-bar--warmup': '#34d399',
+  'workout-card__interval-bar--cooldown': '#34d399',
+  'workout-card__interval-bar--recovery': '#4ade80',
+  'workout-card__interval-bar--endurance': '#3b82f6',
+  'workout-card__interval-bar--tempo': '#f59e0b',
+  'workout-card__interval-bar--sweetspot': '#f97316',
+  'workout-card__interval-bar--threshold': '#ef4444',
+  'workout-card__interval-bar--vo2max': '#b91c1c',
+  'workout-card__interval-bar--anaerobic': '#7f1d1d',
+  'workout-card__interval-bar--sprint': '#8b5cf6',
+  'workout-card__interval-bar--default': '#8b5cf6'
+};
+
+const getIntervalFill = (barClass) => INTERVAL_FILL_MAP[barClass] || INTERVAL_FILL_MAP['workout-card__interval-bar--default'];
+
+const ProgressBarSvg = ({ value, label, className = '' }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={`calendar-progress-svg ${className}`.trim()}
+      viewBox="0 0 100 6"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <defs>
+        <linearGradient id="calendar-progress-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgba(16, 185, 129, 0.9)" />
+          <stop offset="100%" stopColor="rgba(59, 130, 246, 0.9)" />
+        </linearGradient>
+      </defs>
+      <rect className="calendar-progress-svg__track" x="0" y="0" width="100" height="6" rx="3" />
+      <rect x="0" y="0" width={width} height="6" rx="3" fill="url(#calendar-progress-gradient)" />
+    </svg>
+  );
+};
+
 const CalendarApp = () => {
   const [currentView, setCurrentView] = useState(CONFIG.DEFAULT_VIEW || 'week');
   const [currentWeekStart, setCurrentWeekStart] = useState(null);
@@ -978,42 +1016,49 @@ const CalendarApp = () => {
       currentTime += duration;
 
       return (
-        <div
+        <rect
           key={`chart-${index}`}
           className={`wb-preview__block ${colorClass}`}
-          style={{
-            left: `${left}%`,
-            width: `${widthPercent}%`,
-            height: `${height}px`
-          }}
+          x={left}
+          y={PREVIEW_HEIGHT - height}
+          width={Math.max(widthPercent, 1)}
+          height={height}
+          rx="2"
+          fill={getIntervalFill(colorClass)}
           title={`${formatIntervalType(interval.interval_type)} • ${getIntervalPowerDetail(interval)}`}
-        ></div>
+        />
       );
     });
 
     return (
-      <div className="wb-preview" style={{ height: `${PREVIEW_HEIGHT}px` }}>
-        <div className="wb-preview__zones">
+      <svg
+        className="wb-preview calendar-workout-preview"
+        viewBox={`0 0 100 ${PREVIEW_HEIGHT}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="Workout structure"
+      >
+        <g className="wb-preview__zones">
           {POWER_ZONES.map((zone) => {
             const topPercent = Math.min(zone.max, MAX_POWER_PERCENT);
             const bottomPercent = zone.min;
             const top = PREVIEW_HEIGHT - (topPercent / MAX_POWER_PERCENT) * PREVIEW_HEIGHT;
             const bandHeight = ((topPercent - bottomPercent) / MAX_POWER_PERCENT) * PREVIEW_HEIGHT;
             return (
-              <div
+              <rect
                 key={`preview-${zone.id}`}
                 className="wb-preview__zone"
-                style={{
-                  top: `${top}px`,
-                  height: `${bandHeight}px`,
-                  backgroundColor: hexToRgba(zone.color, 0.16)
-                }}
-              ></div>
+                x="0"
+                y={top}
+                width="100"
+                height={bandHeight}
+                fill={hexToRgba(zone.color, 0.16)}
+              />
             );
           })}
-        </div>
+        </g>
         {blocks}
-      </div>
+      </svg>
     );
   }, [getIntervalPowerDetail, userFtp]);
 
@@ -1192,12 +1237,12 @@ const CalendarApp = () => {
             <button className="btn btn--secondary calendar-nav__today" type="button" onClick={handleToday}>Today</button>
             <div className="calendar-nav__arrows">
               <button className="btn btn--secondary calendar-nav__arrow" type="button" onClick={handlePrevious}>
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ width: 20, height: 20 }}>
+                <svg className="calendar-nav__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <button className="btn btn--secondary calendar-nav__arrow" type="button" onClick={handleNext}>
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ width: 20, height: 20 }}>
+                <svg className="calendar-nav__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
@@ -1224,7 +1269,7 @@ const CalendarApp = () => {
                 <span className="calendar-stat__value">{totals.actual.toFixed(0)}</span>
                 <span className="calendar-stat__meta">Completed load</span>
                 <div className="calendar-stat__progress" aria-hidden="true">
-                  <div className="calendar-stat__progress-bar" style={{ width: `${progressPercent}%` }}></div>
+                  <ProgressBarSvg value={progressPercent} label="Completed load progress" className="calendar-stat__progress-bar" />
                 </div>
                 <span className="calendar-stat__progress-label">{progressPercent}% of plan</span>
               </div>

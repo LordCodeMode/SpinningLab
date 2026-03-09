@@ -7,10 +7,18 @@
   transition: all var(--transition-normal);
 }
 
+.workout-card--interactive {
+  cursor: pointer;
+}
+
 .workout-card .card__title {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.workout-card__title-block {
+  flex: 1;
 }
 
 .workout-card__icon {
@@ -148,26 +156,21 @@
 }
 
 .workout-card__intervals-viz {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
+  display: block;
+  width: 100%;
   height: 60px;
   padding: var(--space-2);
   background: var(--color-surface);
   border-radius: var(--radius-md);
   position: relative;
+  overflow: hidden;
 }
 
 .workout-card__interval-bar {
-  flex: 1;
-  border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
-  min-height: 20%;
-  min-width: 4px;
 }
 
 .workout-card__interval-bar:hover {
-  transform: scaleY(1.1);
   opacity: 0.8;
 }
 
@@ -214,13 +217,10 @@
 }
 
 .workout-card__intervals-more {
-  position: absolute;
-  right: var(--space-2);
-  top: 50%;
-  transform: translateY(-50%);
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   font-weight: var(--font-weight-semibold);
+  dominant-baseline: hanging;
 }
 
 /* Compact Workout Card */
@@ -233,6 +233,10 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.compact-workout-card--interactive {
   cursor: pointer;
 }
 

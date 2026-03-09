@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Services from '../../lib/services/index.js';
+import { JobsAPI } from '../../lib/core/api.js';
 import { LoadingSkeleton } from '../components/ui';
 import { notify } from '../../lib/core/utils.js';
 import { eventBus } from '../../lib/core/eventBus.js';
@@ -44,6 +45,28 @@ const extractStravaParams = () => {
     return new URLSearchParams(query);
   }
   return new URLSearchParams();
+};
+
+const ProgressBarSvg = ({ value, className = '', label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={`settings-progress__svg ${className}`.trim()}
+      viewBox="0 0 100 8"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <defs>
+        <linearGradient id="settings-progress-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#6366f1" />
+        </linearGradient>
+      </defs>
+      <rect className="settings-progress__track-fill" x="0" y="0" width="100" height="8" rx="4" />
+      <rect x="0" y="0" width={width} height="8" rx="4" fill="url(#settings-progress-gradient)" />
+    </svg>
+  );
 };
 
 const SettingsApp = () => {
@@ -241,8 +264,14 @@ const SettingsApp = () => {
     if (syncState === 'syncing') return;
     try {
       setSyncState('syncing');
-      const result = await Services.api.syncStravaActivities();
-      notify(result.message, 'success');
+      const queued = await Services.api.syncStravaActivities();
+      notify(queued.message || 'Strava sync queued.', 'info');
+      const job = queued?.job_id ? await JobsAPI.waitForCompletion(queued.job_id) : { result: queued };
+      if (job.status === 'failed') {
+        throw new Error(job.error || 'Strava sync failed');
+      }
+      const result = job.result || {};
+      notify(result.message || 'Strava sync complete.', 'success');
       Services.data.clearCache();
       if (forceUpdateHeaderStats) {
         await forceUpdateHeaderStats();
@@ -276,6 +305,8 @@ const SettingsApp = () => {
     : syncState === 'success'
       ? 'Sync Complete!'
       : 'Sync Activities from Strava';
+  const stravaConnected = Boolean(stravaStatus?.connected);
+  const readinessLabel = completion >= 100 ? 'Dialed in' : completion >= 60 ? 'Nearly ready' : 'Needs setup';
 
   if (loading) {
     return (
@@ -324,6 +355,21 @@ const SettingsApp = () => {
           <div className="settings-hero__eyebrow">Performance calibration</div>
           <h1 className="settings-hero__title page-title">Settings Studio</h1>
           <p className="settings-hero__subtitle page-description">Tune your profile and training inputs so every chart, zone, and insight stays accurate.</p>
+          <div className="settings-hero__underline" aria-hidden="true" />
+          <div className="settings-hero__stats">
+            <div className="settings-hero-stat">
+              <span className="settings-hero-stat__label">Profile readiness</span>
+              <strong className="settings-hero-stat__value">{completion}%</strong>
+            </div>
+            <div className="settings-hero-stat">
+              <span className="settings-hero-stat__label">Current w/kg</span>
+              <strong className="settings-hero-stat__value">{wkg || '--'}</strong>
+            </div>
+            <div className="settings-hero-stat">
+              <span className="settings-hero-stat__label">Connected app</span>
+              <strong className="settings-hero-stat__value">{stravaConnected ? 'Strava' : 'None'}</strong>
+            </div>
+          </div>
           <div className="settings-hero__chips page-header__meta">
             <span className="settings-chip page-pill">FTP {form.ftp || '--'} W</span>
             <span className="settings-chip page-pill">Weight {form.weight || '--'} kg</span>
@@ -332,6 +378,41 @@ const SettingsApp = () => {
           </div>
           <div className="settings-hero__note">
             <strong>Why these settings matter:</strong> FTP and weight drive power zones and w/kg, while heart-rate metrics keep training load and intensity tracking precise.
+          </div>
+        </div>
+        <div className="settings-hero__panel">
+          <div className="settings-hero-panel__header">
+            <h3>Calibration Pulse</h3>
+            <span className={`settings-chip ${stravaConnected ? 'settings-chip--success' : 'settings-chip--muted'}`}>
+              {stravaConnected ? 'Connected' : 'Offline'}
+            </span>
+          </div>
+          <div className="settings-hero-panel__grid">
+            <div className="settings-hero-panel__item">
+              <span>Readiness</span>
+              <strong>{readinessLabel}</strong>
+            </div>
+            <div className="settings-hero-panel__item">
+              <span>Display name</span>
+              <strong>{form.display_name || 'Not set'}</strong>
+            </div>
+            <div className="settings-hero-panel__item">
+              <span>Power model</span>
+              <strong>{form.ftp ? `${form.ftp} W FTP` : 'Set FTP'}</strong>
+            </div>
+            <div className="settings-hero-panel__item">
+              <span>Heart rate</span>
+              <strong>{form.hr_max && form.hr_rest ? `${form.hr_rest}-${form.hr_max} bpm` : 'Incomplete'}</strong>
+            </div>
+          </div>
+          <div className="settings-hero-panel__progress">
+            <div className="settings-hero-panel__progress-label">
+              <span>Profile readiness</span>
+              <strong>{completion}%</strong>
+            </div>
+            <div className="settings-progress__track">
+              <ProgressBarSvg value={completion} className="settings-progress__fill" label="Profile readiness" />
+            </div>
           </div>
         </div>
       </header>
@@ -698,7 +779,7 @@ const SettingsApp = () => {
         </form>
 
         <aside className="settings-side">
-          <div className="settings-side-card">
+          <div className="settings-side-card settings-side-card--snapshot">
             <div className="settings-side-header">
               <h3>Calibration Snapshot</h3>
               <span className="settings-chip settings-chip--muted">{completion}% complete</span>
@@ -728,7 +809,7 @@ const SettingsApp = () => {
             <div className="settings-progress">
               <div className="settings-progress__label">Profile readiness</div>
               <div className="settings-progress__track">
-                <div className="settings-progress__fill" style={{ width: `${completion}%` }}></div>
+                <ProgressBarSvg value={completion} className="settings-progress__fill" label="Profile readiness" />
               </div>
             </div>
           </div>
@@ -739,7 +820,7 @@ const SettingsApp = () => {
                 <h3>Power Zones</h3>
                 <span className="settings-chip">FTP {form.ftp}W</span>
               </div>
-              <div className="settings-zones-list">
+              <div className="settings-zones-list settings-zones-list--power">
                 {powerZones.map((zone) => (
                   <div key={zone.name} className="settings-zone-item">
                     <span className="settings-zone-name">{zone.name}</span>
@@ -756,7 +837,7 @@ const SettingsApp = () => {
                 <h3>Heart Rate Zones</h3>
                 <span className="settings-chip">HR Max {form.hr_max} bpm</span>
               </div>
-              <div className="settings-zones-list">
+              <div className="settings-zones-list settings-zones-list--hr">
                 {hrZones.map((zone) => (
                   <div key={zone.name} className="settings-zone-item">
                     <span className="settings-zone-name">{zone.name}</span>
@@ -771,7 +852,7 @@ const SettingsApp = () => {
             <div className="settings-side-header">
               <h3>Training Load Rules</h3>
             </div>
-            <div className="settings-zones-list">
+            <div className="settings-zones-list settings-zones-list--rules">
               <div className="settings-zone-item">
                 <span className="settings-zone-name">CTL Time Constant</span>
                 <span className="settings-zone-range">42 days</span>

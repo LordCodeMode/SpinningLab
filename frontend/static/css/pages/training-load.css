@@ -404,6 +404,18 @@ body.page-training-load .tl-week-grid {
   display: block;
 }
 
+.tl-legend-swatch--ctl {
+  background: #3b82f6;
+}
+
+.tl-legend-swatch--atl {
+  background: #f59e0b;
+}
+
+.tl-legend-swatch--tsb {
+  background: #10b981;
+}
+
 .tl-chart-canvas-wrapper {
   position: relative;
   height: 340px;
@@ -616,6 +628,22 @@ body.page-training-load .tl-week-grid {
   stroke-width: 2.5px;
 }
 
+.tl-insight-icon--distribution {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.tl-insight-icon--consistency {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.tl-insight-icon--streak {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.tl-insight-icon--polarized {
+  background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+}
+
 .tl-insight-content {
   flex: 1;
 }
@@ -643,21 +671,22 @@ body.page-training-load .tl-week-grid {
   margin-top: 10px;
 }
 
-.tl-polarized-bar span {
-  display: block;
+.tl-polarized-bar-svg {
+  width: 100%;
   height: 100%;
+  display: block;
 }
 
-.tl-polarized-bar__low {
-  background: #22c55e;
+.tl-polarized-segment--low {
+  fill: #22c55e;
 }
 
-.tl-polarized-bar__mid {
-  background: #f59e0b;
+.tl-polarized-segment--mid {
+  fill: #f59e0b;
 }
 
-.tl-polarized-bar__high {
-  background: #ef4444;
+.tl-polarized-segment--high {
+  fill: #ef4444;
 }
 
 .tl-polarized-score {

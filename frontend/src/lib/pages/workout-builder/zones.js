@@ -116,16 +116,16 @@ export function renderZoneBands(height, maxPower = 200) {
     const bandHeight = ((topPercent - bottomPercent) / maxPower) * height;
 
     bands.push(`
-      <div class="timeline-zone-band"
-           style="top: ${top}px; height: ${bandHeight}px; color: ${zone.color};"
-           data-zone-id="${zone.id}"
-           title="${zone.name}: ${zone.min}-${zone.max}% FTP">
-        <span class="timeline-zone-label">${zone.id}</span>
-      </div>
+      <g class="timeline-zone-band"
+         data-zone-id="${zone.id}"
+         aria-label="${zone.name}: ${zone.min}-${zone.max}% FTP">
+        <rect x="0" y="${top}" width="100%" height="${bandHeight}" fill="${zone.color}" opacity="0.05"></rect>
+        <text class="timeline-zone-label" x="8" y="${Math.max(14, top + 16)}">${zone.id}</text>
+      </g>
     `);
   }
 
-  return `<div class="timeline-zone-bands">${bands.join('')}</div>`;
+  return `<svg class="timeline-zone-bands" viewBox="0 0 100 ${height}" preserveAspectRatio="none">${bands.join('')}</svg>`;
 }
 
 /**
@@ -138,8 +138,7 @@ export function renderZoneBadge(powerPercent) {
   if (!zone) return '';
 
   return `
-    <div class="timeline-block__zone-badge"
-         style="background-color: ${zone.color}; color: #000;">
+    <div class="timeline-block__zone-badge timeline-block__zone-badge--${zone.id.toLowerCase()}">
       ${zone.id}
     </div>
   `;

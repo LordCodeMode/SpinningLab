@@ -90,6 +90,28 @@ const computePlanProgress = (startDate, endDate) => {
   return Math.round((elapsed / total) * 100);
 };
 
+const ProgressBarSvg = ({ value, className = '', label }) => {
+  const width = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <svg
+      className={`tp-plan-progress__svg ${className}`.trim()}
+      viewBox="0 0 100 6"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <defs>
+        <linearGradient id="training-plan-progress-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#0ea5e9" />
+        </linearGradient>
+      </defs>
+      <rect className="tp-plan-progress__track-fill" x="0" y="0" width="100" height="6" rx="3" />
+      <rect x="0" y="0" width={width} height="6" rx="3" fill="url(#training-plan-progress-gradient)" />
+    </svg>
+  );
+};
+
 export default function TrainingPlansApp() {
   const templatesRef = useRef(null);
   const [loading, setLoading] = useState(true);
@@ -303,11 +325,16 @@ export default function TrainingPlansApp() {
     const weekData = parseWeekStructure(template.week_structure || []);
     const stats = getWeekStats(weekData);
     const tone = getTemplateTone(template, stats.focus);
+    const focusLabel = stats.focus || template.phase || template.plan_type || 'Structured block';
 
     return (
       <div className={`tp-template-card ${tone}`} key={template.id}>
         <div className="tp-template-card__header">
           <div>
+            <div className="tp-template-card__eyebrow">
+              <span className="tp-template-card__eyebrow-dot" aria-hidden="true" />
+              <span>{focusLabel}</span>
+            </div>
             <h3>{template.name}</h3>
             <p>{template.description}</p>
           </div>
@@ -370,6 +397,7 @@ export default function TrainingPlansApp() {
           <div className="tp-hero-eyebrow">Training Plans Studio</div>
           <h1 className="tp-hero-title page-title">{CONFIG.PAGE_TITLE}</h1>
           <p className="tp-hero-copy page-description">{CONFIG.PAGE_DESCRIPTION}</p>
+          <div className="tp-hero-underline" aria-hidden="true" />
 
           <div className="tp-hero-stats">
             <div className="tp-stat-card">
@@ -493,14 +521,14 @@ export default function TrainingPlansApp() {
               const progress = computePlanProgress(plan.start_date, plan.end_date);
               return (
                 <div className={`tp-plan-row ${plan.is_active ? 'is-active' : ''}`} key={plan.id}>
-                  <div>
+                  <div className="tp-plan-main">
                     <div className="tp-plan-title">{plan.name}</div>
                     <div className="tp-plan-meta">
                       {plan.plan_type || 'Plan'} · {formatDateLabel(plan.start_date)} → {formatDateLabel(plan.end_date)}
                     </div>
                     {progress !== null ? (
                       <div className="tp-plan-progress">
-                        <div className="tp-plan-progress__fill" style={{ width: `${progress}%` }} />
+                        <ProgressBarSvg value={progress} className="tp-plan-progress__fill" label={`${plan.name} progress`} />
                         <span>{progress}%</span>
                       </div>
                     ) : null}

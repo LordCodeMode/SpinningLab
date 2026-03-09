@@ -20,6 +20,8 @@ psycopg2-binary==2.9.9
 redis==5.0.4
 rq==1.16.2
 websockets==11.0.3
+boto3==1.37.11
+sentry-sdk[fastapi]==2.25.0
 
 # Testing
 pytest==7.4.3

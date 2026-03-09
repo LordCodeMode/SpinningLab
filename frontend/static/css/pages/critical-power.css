@@ -771,6 +771,17 @@
     max-width: 500px;
     margin: 0 auto;
   }
+
+  .cp-retry-button {
+    margin-top: 20px;
+    padding: 12px 24px;
+    background: #8b5cf6;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
   
   /* ============================================
      RESPONSIVE

@@ -491,6 +491,14 @@ body.page-zones .pz-empty {
   gap: 10px;
 }
 
+.pz-zone-card[data-zone='z1'] { --zone-color: #c7d2fe; }
+.pz-zone-card[data-zone='z2'] { --zone-color: #a5bdfd; }
+.pz-zone-card[data-zone='z3'] { --zone-color: #7fa6fa; }
+.pz-zone-card[data-zone='z4'] { --zone-color: #5c8cf3; }
+.pz-zone-card[data-zone='z5'] { --zone-color: #3f73e6; }
+.pz-zone-card[data-zone='z6'] { --zone-color: #2b5bd6; }
+.pz-zone-card[data-zone='z7'] { --zone-color: #1e3a8a; }
+
 .pz-zone-card::before {
   content: '';
   position: absolute;
@@ -549,18 +557,19 @@ body.page-zones .pz-empty {
 
 .pz-zone-bar {
   width: 100%;
-  height: 8px;
-  background: var(--color-surface-soft);
   border-radius: 4px;
   overflow: hidden;
   margin: 4px 0;
 }
 
-.pz-zone-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease-out;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.pz-zone-progress-svg {
+  display: block;
+  width: 100%;
+  height: 8px;
+}
+
+.pz-zone-progress-track {
+  fill: var(--color-surface-soft);
 }
 
 .pz-zone-time {

@@ -112,7 +112,16 @@ async def test_import_user_activities(monkeypatch, test_db):
 
     async def fake_fetch_activities(token, after=None, per_page=200, limit=None):
         return [
-            {"id": 111, "start_date": "2024-01-01T10:00:00Z", "moving_time": 3600, "distance": 20000, "type": "Ride", "sport_type": "Ride"},
+            {
+                "id": 111,
+                "start_date": "2024-01-01T10:00:00Z",
+                "moving_time": 3600,
+                "distance": 20000,
+                "type": "Ride",
+                "sport_type": "Ride",
+                "average_watts": 189,
+                "average_heartrate": 147,
+            },
             {"id": 222, "start_date": "2024-01-02T10:00:00Z", "moving_time": 1800, "distance": 5000, "type": "Run", "sport_type": "Run"},
             {"id": 111, "start_date": "2024-01-01T10:00:00Z", "moving_time": 3600, "distance": 20000, "type": "Ride", "sport_type": "Ride"},
         ]
@@ -129,6 +138,7 @@ async def test_import_user_activities(monkeypatch, test_db):
         "_process_streams",
         lambda streams, user: {
             "avg_power": 200,
+            "avg_heart_rate": 140,
             "normalized_power": 210,
             "tss": 50,
             "intensity_factor": 0.8,
@@ -140,4 +150,10 @@ async def test_import_user_activities(monkeypatch, test_db):
     result = await service.import_user_activities(user, test_db)
     assert result["imported"] == 1
     assert result["skipped"] >= 1
-    assert test_db.query(Activity).filter(Activity.user_id == user.id).count() == 1
+    activity = test_db.query(Activity).filter(Activity.user_id == user.id).one()
+    assert activity.avg_power == 189
+    assert activity.avg_heart_rate == 147
+    assert activity.normalized_power == 210
+    assert round(activity.intensity_factor, 3) == 0.84
+    assert round(activity.tss, 2) == 70.56
+    assert round(activity.efficiency_factor, 3) == 1.429
