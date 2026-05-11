@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Plyometrisches Training im Fußball – Fact Sheet</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 210mm;
+      height: 297mm;
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 6.8pt;
+      line-height: 1.32;
+      color: #1c1c2e;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .page {
+      width: 210mm;
+      height: 297mm;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: linear-gradient(135deg, #0a2e1a 0%, #1a5c35 55%, #0d3d22 100%);
+      color: white;
+      padding: 4.5mm 7mm 4mm;
+      flex-shrink: 0;
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .title-block h1 {
+      font-size: 15.5pt;
+      font-weight: 900;
+      letter-spacing: 0.4pt;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    .title-block h1 span {
+      color: #f5c842;
+    }
+
+    .title-block .subtitle {
+      font-size: 7pt;
+      color: #9fd4b2;
+      margin-top: 1.5mm;
+      font-weight: 300;
+      letter-spacing: 0.5pt;
+    }
+
+    .header-right {
+      text-align: right;
+      font-size: 5.8pt;
+      color: #9fd4b2;
+      line-height: 1.65;
+    }
+
+    .header-right strong {
+      color: #f5c842;
+      font-size: 6.5pt;
+    }
+
+    /* ── GOLD STRIP ── */
+    .accent-strip {
+      height: 1.8mm;
+      background: linear-gradient(90deg, #f5c842, #e8a800, #f5c842);
+      flex-shrink: 0;
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main-content {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0;
+      overflow: hidden;
+      padding: 0 5mm;
+    }
+
+    .column {
+      padding: 2.8mm 2.5mm;
+      border-right: 0.3pt solid #d4e8da;
+    }
+
+    .column:last-child {
+      border-right: none;
+    }
+
+    /* ── SECTION HEADINGS ── */
+    .section-title {
+      font-size: 6.8pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.7pt;
+      color: #0a2e1a;
+      border-bottom: 1.5pt solid #1a5c35;
+      padding-bottom: 0.9mm;
+      margin-bottom: 2mm;
+      display: flex;
+      align-items: center;
+      gap: 1.5mm;
+    }
+
+    .section-icon {
+      width: 4.2mm;
+      height: 4.2mm;
+      background: #1a5c35;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 5pt;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+
+    .sub-title {
+      font-size: 6.2pt;
+      font-weight: 700;
+      color: #1a5c35;
+      margin-top: 2mm;
+      margin-bottom: 0.7mm;
+      text-transform: uppercase;
+      letter-spacing: 0.3pt;
+    }
+
+    p {
+      margin-bottom: 1.3mm;
+      text-align: justify;
+      hyphens: auto;
+    }
+
+    /* ── SSC DIAGRAM ── */
+    .ssc-diagram {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0.5mm;
+      margin: 1.8mm 0;
+      background: #f0f7f3;
+      padding: 1.8mm 1mm;
+      border-radius: 2pt;
+    }
+
+    .ssc-phase {
+      text-align: center;
+      flex: 1;
+    }
+
+    .ssc-phase .phase-num {
+      width: 4.8mm;
+      height: 4.8mm;
+      background: #1a5c35;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7pt;
+      font-weight: 900;
+      margin: 0 auto 0.5mm;
+    }
+
+    .ssc-phase .phase-name {
+      font-size: 5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #0a2e1a;
+    }
+
+    .ssc-phase .phase-desc {
+      font-size: 4.6pt;
+      color: #555;
+      margin-top: 0.4mm;
+      line-height: 1.25;
+    }
+
+    .ssc-arrow {
+      font-size: 8pt;
+      color: #f5c842;
+      font-weight: 900;
+      margin-top: 2mm;
+      flex-shrink: 0;
+    }
+
+    /* ── STAT BOXES ── */
+    .stats-row {
+      display: flex;
+      gap: 1.5mm;
+      margin: 1.8mm 0;
+    }
+
+    .stat-item {
+      flex: 1;
+      background: #0a2e1a;
+      color: white;
+      padding: 1.5mm 1mm;
+      border-radius: 1.5pt;
+      text-align: center;
+    }
+
+    .stat-item .num {
+      font-size: 9.5pt;
+      font-weight: 900;
+      color: #f5c842;
+      line-height: 1;
+    }
+
+    .stat-item .lbl {
+      font-size: 4.3pt;
+      color: #9fd4b2;
+      text-transform: uppercase;
+      letter-spacing: 0.2pt;
+      margin-top: 0.3mm;
+    }
+
+    /* ── HIGHLIGHT BOX ── */
+    .hl-box {
+      background: linear-gradient(135deg, #e8f5ee, #d4eddf);
+      border-left: 2pt solid #1a5c35;
+      padding: 1.5mm 2mm;
+      margin: 1.5mm 0;
+      border-radius: 0 2pt 2pt 0;
+    }
+
+    /* ── TABLE ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 5.8pt;
+      margin: 1.5mm 0;
+    }
+
+    th {
+      background: #0a2e1a;
+      color: #f5c842;
+      padding: 1mm 1.5mm;
+      text-align: left;
+      font-size: 5.3pt;
+      text-transform: uppercase;
+      letter-spacing: 0.3pt;
+      font-weight: 700;
+    }
+
+    td {
+      padding: 0.75mm 1.5mm;
+      border-bottom: 0.3pt solid #ddeee4;
+      vertical-align: middle;
+    }
+
+    tr:nth-child(even) td {
+      background: #f0f7f3;
+    }
+
+    /* ── INTENSITY BADGES ── */
+    .badge {
+      display: inline-block;
+      padding: 0.2mm 1.5mm;
+      border-radius: 10pt;
+      font-size: 4.8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .bl { background: #c8e6c9; color: #1b5e20; }
+    .bm { background: #fff3cd; color: #856404; }
+    .bh { background: #f8d7da; color: #721c24; }
+
+    /* ── EVIDENCE ITEMS ── */
+    .ev-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.5mm;
+      margin: 1.1mm 0;
+    }
+
+    .ev-arrow {
+      color: #1a5c35;
+      font-weight: 900;
+      font-size: 8pt;
+      flex-shrink: 0;
+      line-height: 1.15;
+    }
+
+    /* ── QR PLACEHOLDER ── */
+    .qr-wrap {
+      display: flex;
+      gap: 2.5mm;
+      align-items: center;
+      margin-top: 1mm;
+    }
+
+    .qr-box {
+      width: 17mm;
+      height: 17mm;
+      border: 1pt solid #1a5c35;
+      border-radius: 2pt;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #f0f7f3;
+      flex-shrink: 0;
+      padding: 1mm;
+    }
+
+    /* ── FOOTER / REFERENCES ── */
+    .footer {
+      background: #f4faf6;
+      border-top: 1.5pt solid #1a5c35;
+      padding: 1.8mm 5mm 2mm;
+      flex-shrink: 0;
+    }
+
+    .ref-title {
+      font-size: 5.8pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.7pt;
+      color: #0a2e1a;
+      margin-bottom: 0.9mm;
+    }
+
+    .ref-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.2mm 4mm;
+    }
+
+    .ref {
+      font-size: 4.8pt;
+      line-height: 1.38;
+      color: #333;
+      margin-bottom: 0.4mm;
+      text-align: justify;
+      hyphens: auto;
+    }
+
+    .ref em { font-style: italic; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════════════ HEADER ═══════════════ -->
+  <div class="header">
+    <div class="header-inner">
+      <div class="title-block">
+        <h1>Plyometrisches Training <span>im Fußball</span></h1>
+        <div class="subtitle">Wissenschaftliche Grundlagen · Trainingsempfehlungen · Evidenzbasierte Praxis</div>
+      </div>
+      <div class="header-right">
+        <strong>KRAFTTRAINING SS26</strong><br>
+        Gruppe: [Nachname 1 · Nachname 2]<br>
+        Betreuer/in: [Name]<br>
+        Mai 2026
+      </div>
+    </div>
+  </div>
+  <div class="accent-strip"></div>
+
+  <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+  <div class="main-content">
+
+    <!-- ─── SPALTE 1: GRUNDLAGEN ─── -->
+    <div class="column">
+      <div class="section-title">
+        <span class="section-icon">1</span>Definition &amp; Grundlagen
+      </div>
+
+      <p>Plyometrisches Training umfasst Übungsformen, die den <strong>Dehnungs-Verkürzungs-Zyklus (DVZ)</strong> gezielt nutzen, um explosive Kraftentfaltung zu maximieren. Charakteristisch ist die schnelle Abfolge von exzentrischer Vorspannung und konzentrischer Entladung (Turner &amp; Jeffreys, 2010).</p>
+
+      <div class="sub-title">Dehnungs-Verkürzungs-Zyklus (DVZ / SSC)</div>
+
+      <div class="ssc-diagram">
+        <div class="ssc-phase">
+          <div class="phase-num">1</div>
+          <div class="phase-name">Exzentrisch</div>
+          <div class="phase-desc">Muskel-Sehnen-<br>Vorspannung &amp;<br>Energie­speicherung</div>
+        </div>
+        <div class="ssc-arrow">→</div>
+        <div class="ssc-phase">
+          <div class="phase-num">2</div>
+          <div class="phase-name">Amortisation</div>
+          <div class="phase-desc">Übergangsphase<br>&lt; 170 ms<br>(kurzer DVZ)</div>
+        </div>
+        <div class="ssc-arrow">→</div>
+        <div class="ssc-phase">
+          <div class="phase-num">3</div>
+          <div class="phase-name">Konzentrisch</div>
+          <div class="phase-desc">Kraft­freisetzung<br>Leistungsmaximum<br>&amp; Propulsion</div>
+        </div>
+      </div>
+
+      <div class="sub-title">Physiologische Mechanismen</div>
+      <p><strong>Elastische Energie:</strong> Sehnen und Muskeln speichern in der exzentrischen Phase potenzielle Energie, die konzentrisch freigegeben wird und die rein muskuläre Leistung übersteigt (Markovic &amp; Mikulic, 2010).</p>
+      <p><strong>Dehnungsreflex:</strong> Dehnung aktiviert Ia-Afferenzen → monosynaptischer Reflex → erhöhte Motoreinheitenrekrutierung und Feuerfrequenz (Chimera et al., 2004).</p>
+      <p><strong>Intermuskuläre Koordination:</strong> Regelmäßiges Training optimiert Synergist-Antagonist-Timing und steigert die Rate der Kraftentwicklung (RFD) signifikant (Markovic &amp; Mikulic, 2010).</p>
+
+      <div class="sub-title">Relevanz im Fußball</div>
+      <p>Fußball erfordert kontinuierlich explosive Aktionen: Antrittssprints (&lt; 10 m), Sprünge im Zweikampf, laterale Richtungswechsel. Profis absolvieren pro Spiel <strong>30–40 hochintensive Aktionen</strong> mit maximalem DVZ-Einsatz (Impellizzeri et al., 2008).</p>
+
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="num">30–40</div>
+          <div class="lbl">Explos. Aktionen/Spiel</div>
+        </div>
+        <div class="stat-item">
+          <div class="num">&lt;170</div>
+          <div class="lbl">ms Amortisations­phase</div>
+        </div>
+        <div class="stat-item">
+          <div class="num">~2×</div>
+          <div class="lbl">KG Elastizitätsgewinn</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SPALTE 2: ÜBUNGEN & TRAINING ─── -->
+    <div class="column">
+      <div class="section-title">
+        <span class="section-icon">2</span>Übungen &amp; Trainingssteuerung
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Übung</th>
+            <th>Intensität</th>
+            <th>Fußball-Bezug</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Squat Jump</strong></td>
+            <td><span class="badge bl">Niedrig</span></td>
+            <td>Kopfball, Start</td>
+          </tr>
+          <tr>
+            <td><strong>Countermovement Jump</strong></td>
+            <td><span class="badge bl">Niedrig</span></td>
+            <td>Zweikampf, Flanke</td>
+          </tr>
+          <tr>
+            <td><strong>Box Jump</strong></td>
+            <td><span class="badge bm">Mittel</span></td>
+            <td>Explosiver Antritt</td>
+          </tr>
+          <tr>
+            <td><strong>Bounding</strong></td>
+            <td><span class="badge bm">Mittel</span></td>
+            <td>Sprintbeschleunigung</td>
+          </tr>
+          <tr>
+            <td><strong>Lateral Hops</strong></td>
+            <td><span class="badge bm">Mittel</span></td>
+            <td>Richtungswechsel</td>
+          </tr>
+          <tr>
+            <td><strong>Depth Jump</strong></td>
+            <td><span class="badge bh">Hoch</span></td>
+            <td>Max. Explosivität</td>
+          </tr>
+          <tr>
+            <td><strong>Single-Leg Bounds</strong></td>
+            <td><span class="badge bh">Hoch</span></td>
+            <td>Sprint, Stabilität</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="sub-title">Trainingsparameter (Übersicht)</div>
+
+      <div class="hl-box" style="padding: 1.8mm 2mm;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="text-align:center;">
+            <div style="font-size:10.5pt; font-weight:900; color:#0a2e1a; line-height:1;">2–3×</div>
+            <div style="font-size:4.8pt; color:#1a5c35; font-weight:700; text-transform:uppercase;">pro Woche</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:10.5pt; font-weight:900; color:#0a2e1a; line-height:1;">80–200</div>
+            <div style="font-size:4.8pt; color:#1a5c35; font-weight:700; text-transform:uppercase;">Bodenkontakte/EH</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:10.5pt; font-weight:900; color:#0a2e1a; line-height:1;">48–72h</div>
+            <div style="font-size:4.8pt; color:#1a5c35; font-weight:700; text-transform:uppercase;">Erholung</div>
+          </div>
+        </div>
+      </div>
+
+      <p><strong>Einsteiger (6–8 Wo.):</strong> 80–100 Bodenkontakte/Einheit, niedrige Intensität, stabiler Untergrund, 2–3 min Satzpause (Markovic &amp; Mikulic, 2010).</p>
+      <p><strong>Fortgeschrittene (8–12 Wo.):</strong> 120–200 Bodenkontakte/Einheit, gemischte Intensitäten, fußball­spezifische Bewegungsrichtungen (Ramírez-Campillo et al., 2015).</p>
+      <p><strong>In-Season:</strong> Reduktion auf 1–2×/Woche, Volumen ↓ 30–40%, Fokus auf Qualität zur Ermüdungsvermeidung (Ramírez-Campillo et al., 2015).</p>
+      <p><strong>Positionierung im Training:</strong> Unmittelbar nach dem Aufwärmen, vor technisch-taktischen Einheiten, um maximale neuromuskuläre Frische zu nutzen (Impellizzeri et al., 2008).</p>
+
+      <div class="sub-title">QR-Code: Übungsdemonstration</div>
+      <div class="qr-wrap">
+        <div class="qr-box">
+          <!-- Decorative QR-code SVG -->
+          <svg width="13.5mm" height="13.5mm" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="20" height="20" fill="none" stroke="#1a5c35" stroke-width="2.2"/>
+            <rect x="7" y="7" width="10" height="10" fill="#1a5c35"/>
+            <rect x="30" y="2" width="20" height="20" fill="none" stroke="#1a5c35" stroke-width="2.2"/>
+            <rect x="35" y="7" width="10" height="10" fill="#1a5c35"/>
+            <rect x="2" y="30" width="20" height="20" fill="none" stroke="#1a5c35" stroke-width="2.2"/>
+            <rect x="7" y="35" width="10" height="10" fill="#1a5c35"/>
+            <rect x="24" y="2" width="4" height="4" fill="#1a5c35"/>
+            <rect x="24" y="8" width="4" height="4" fill="#1a5c35"/>
+            <rect x="24" y="14" width="4" height="4" fill="#1a5c35"/>
+            <rect x="30" y="24" width="4" height="4" fill="#1a5c35"/>
+            <rect x="36" y="24" width="4" height="4" fill="#1a5c35"/>
+            <rect x="42" y="24" width="4" height="4" fill="#1a5c35"/>
+            <rect x="48" y="24" width="4" height="4" fill="#1a5c35"/>
+            <rect x="24" y="30" width="4" height="4" fill="#1a5c35"/>
+            <rect x="24" y="36" width="4" height="4" fill="#1a5c35"/>
+            <rect x="30" y="36" width="4" height="4" fill="#1a5c35"/>
+            <rect x="36" y="30" width="4" height="4" fill="#1a5c35"/>
+            <rect x="42" y="36" width="4" height="4" fill="#1a5c35"/>
+            <rect x="42" y="42" width="4" height="4" fill="#1a5c35"/>
+            <rect x="30" y="42" width="4" height="4" fill="#1a5c35"/>
+            <rect x="36" y="48" width="4" height="4" fill="#1a5c35"/>
+            <rect x="48" y="48" width="4" height="4" fill="#1a5c35"/>
+            <rect x="48" y="42" width="4" height="4" fill="#1a5c35"/>
+            <rect x="2" y="24" width="4" height="4" fill="#1a5c35"/>
+            <rect x="8" y="24" width="4" height="4" fill="#1a5c35"/>
+            <rect x="14" y="24" width="4" height="4" fill="#1a5c35"/>
+          </svg>
+          <div style="font-size:4.2pt; color:#1a5c35; margin-top:0.4mm; text-align:center; font-weight:600;">PLYOMETRIE<br>VIDEO</div>
+        </div>
+        <div style="font-size:5.3pt; color:#444; flex:1; line-height:1.35;">
+          QR-Code scannen für Video­demonstrationen aus­gewählter plyometrischer Übungen für Fußball­spieler/innen. Eigene Produktionen empfohlen (Kurs­vorgabe: nur eigene Bilder/Videos).
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SPALTE 3: EVIDENZ & PRÄVENTION ─── -->
+    <div class="column">
+      <div class="section-title">
+        <span class="section-icon">3</span>Evidenz &amp; Verletzungsprävention
+      </div>
+
+      <div class="sub-title">Wissenschaftlich belegte Leistungseffekte</div>
+
+      <div class="ev-item">
+        <div class="ev-arrow">↑</div>
+        <div><strong>Sprintleistung (+1,8–3,2 %):</strong> Meta-Analyse (k = 26 Studien) belegt signifikante Reduktion der Sprint­zeiten über 10–30 m nach plyometrischem Training (Sáez de Villarreal et al., 2012).</div>
+      </div>
+      <div class="ev-item">
+        <div class="ev-arrow">↑</div>
+        <div><strong>Sprunghöhe (+4,7–8,7 %):</strong> Meta-Analyse (k = 26 RCTs) zeigt konsistente Verbesserung des Vertical Jump durch erhöhte DVZ-Effizienz (Markovic, 2007).</div>
+      </div>
+      <div class="ev-item">
+        <div class="ev-arrow">↑</div>
+        <div><strong>Richtungswechsel (COD):</strong> Signifikant schnellere 5-10-5-Agility-Tests nach 7-wöchigem In-Season-Protokoll bei Junioren (Ramírez-Campillo et al., 2015).</div>
+      </div>
+      <div class="ev-item">
+        <div class="ev-arrow">↑</div>
+        <div><strong>Aerobe Kapazität (+3–5 % VO₂max):</strong> Plyometrische Ganzkörperbewegungen erhöhen metabolische Beanspruchung und verbessern die Ausdauerleistung (Ramírez-Campillo et al., 2014).</div>
+      </div>
+
+      <div class="sub-title">Verletzungsprävention &amp; neuromuskuläre Kontrolle</div>
+
+      <p>Regelmäßiges plyometrisches Training verbessert neuromuskuläre Kontroll­mechanismen und reduziert das Risiko von <strong>VKB-Verletzungen</strong> durch optimierte Landungsmechanik. Verbesserte Glutaeus-Maximus-Aktivierung beim Landen vermindert Valgus-Stress am Knie (Chimera et al., 2004).</p>
+
+      <div class="hl-box">
+        <p><strong>Voraussetzung:</strong> Ausreichende exzentrische Kraftbasis (mind. 1,5× KG im Kniebeuge-1RM) vor Einführung hochintensiver Plyometrik empfohlen (Markovic &amp; Mikulic, 2010).</p>
+      </div>
+
+      <div class="sub-title">Trainingsprotokoll-Übersicht</div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Anfänger</th>
+            <th>Fortgeschritten</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Frequenz</td>
+            <td>2×/Woche</td>
+            <td>2–3×/Woche</td>
+          </tr>
+          <tr>
+            <td>Bodenkontakte</td>
+            <td>80–100</td>
+            <td>120–200</td>
+          </tr>
+          <tr>
+            <td>Intensität</td>
+            <td>Niedrig</td>
+            <td>Mittel–Hoch</td>
+          </tr>
+          <tr>
+            <td>Satz-Pause</td>
+            <td>2–3 min</td>
+            <td>1,5–2 min</td>
+          </tr>
+          <tr>
+            <td>Programmphase</td>
+            <td>6–8 Wochen</td>
+            <td>8–12 Wochen</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="sub-title">Kontraindikationen &amp; Sicherheit</div>
+      <p>Kein Plyometrie-Training bei akuten Gelenkverletzungen, Wachstumsschmerzen (Kinder &lt; 12 J. ohne Aufsicht) oder unzureichendem Kraftniveau. Untergrundwahl (Gras &gt; Sand &gt; Beton) beeinflusst DOMS-Intensität signifikant (Impellizzeri et al., 2008).</p>
+    </div>
+
+  </div><!-- end main-content -->
+
+  <!-- ═══════════════ FOOTER / LITERATUR ═══════════════ -->
+  <div class="footer">
+    <div class="ref-title">Literatur (APA 7th Edition)</div>
+    <div class="ref-grid">
+      <div class="ref">Chimera, N. J., Swanik, K. A., Swanik, C. B., &amp; Straub, S. J. (2004). Effects of plyometric training on muscle-activation strategies and performance in female athletes. <em>Journal of Athletic Training, 39</em>(1), 24–31.</div>
+      <div class="ref">Markovic, G. (2007). Does plyometric training improve vertical jump height? A meta-analytical review. <em>British Journal of Sports Medicine, 41</em>(6), 349–355. https://doi.org/10.1136/bjsm.2007.035113</div>
+      <div class="ref">Markovic, G., &amp; Mikulic, P. (2010). Neuro-musculoskeletal and performance adaptations to lower-extremity plyometric training. <em>Sports Medicine, 40</em>(10), 859–895. https://doi.org/10.2165/11318370-000000000-00000</div>
+      <div class="ref">Impellizzeri, F. M., Rampinini, E., Castagna, C., Martino, F., Fiorini, S., &amp; Wisløff, U. (2008). Effect of plyometric training on sand versus grass on muscle soreness and jumping and sprinting ability in soccer players. <em>British Journal of Sports Medicine, 42</em>(1), 42–46. https://doi.org/10.1136/bjsm.2007.038497</div>
+      <div class="ref">Ramírez-Campillo, R., Álvarez, C., Henríquez-Olguín, C., Baez, E. B., Martínez, C., Andrade, D. C., &amp; Izquierdo, M. (2014). Effects of plyometric training on endurance and explosive strength performance in competitive middle- and long-distance runners. <em>Journal of Strength and Conditioning Research, 28</em>(1), 97–104. https://doi.org/10.1519/JSC.0b013e3182a1f44c</div>
+      <div class="ref">Ramírez-Campillo, R., Meylan, C., Álvarez, C., Henríquez-Olguín, C., Field, R., Buchheit, M., &amp; Izquierdo, M. (2015). Effects of in-season low-volume high-intensity plyometric training on explosive actions and endurance of young soccer players. <em>Journal of Strength and Conditioning Research, 29</em>(6), 1329–1339. https://doi.org/10.1519/JSC.0000000000000762</div>
+      <div class="ref">Sáez de Villarreal, E., Requena, B., &amp; Cronin, J. B. (2012). The effects of plyometric training on sprint performance: A meta-analysis. <em>Journal of Strength and Conditioning Research, 26</em>(2), 575–584. https://doi.org/10.1519/JSC.0b013e318220fd03</div>
+      <div class="ref">Turner, A. N., &amp; Jeffreys, I. (2010). The stretch-shortening cycle: Proposed mechanisms and methods for enhancement. <em>Strength and Conditioning Journal, 32</em>(4), 87–99. https://doi.org/10.1519/SSC.0b013e3181e928f9</div>
+    </div>
+  </div>
+
+</div><!-- end page -->
+</body>
+</html>
